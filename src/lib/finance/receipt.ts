@@ -15,6 +15,7 @@ export interface InterestOnlyReceiptBreakdown {
 export interface FixedInstallmentReceiptBreakdown {
   lateFeePaid: number;
   installmentPaid: number;
+  advancePaid: number;
   remainingArrears: number;
   loanBalance: number;
 }
@@ -58,6 +59,7 @@ export function buildFixedInstallmentReceipt(
   return {
     lateFeePaid,
     installmentPaid,
+    advancePaid: allocation.summary.advanceAmount ?? 0,
     remainingArrears,
     loanBalance,
   };

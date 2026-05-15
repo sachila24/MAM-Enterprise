@@ -6,4 +6,5 @@ export * from './fixedInstallment';
 export * from './paymentAllocation';
 export * from './earlySettlement';
 export * from './receipt';
+export * from './allocationDisplay';
 export * from './examples';

@@ -7,6 +7,7 @@ export interface InterestCycleForAllocation {
   openingPrincipal: number;
   interestDue: number;
   interestPaid: number;
+  principalPaid?: number;
   isCurrentCycle?: boolean;
 }
 

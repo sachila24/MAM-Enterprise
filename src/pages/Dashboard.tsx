@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PlusIcon,
@@ -15,13 +15,18 @@ import {
 import { PageHeader } from '../components/ui/PageHeader';
 import { KpiCard } from '../components/ui/KpiCard';
 import { formatLKR, formatDateTime, formatDate } from '../lib/format';
-import { EMPTY_DASHBOARD_KPIS } from '../types/entities';
-import type { ActivityLog, Loan, Customer } from '../types/entities';
+import { useDemoDb } from '../lib/local-db/useDemoDb';
+import {
+  getDashboardKpis,
+  getOverdueLoans,
+  getRecentActivity,
+} from '../lib/local-db/repositories';
 
 export function Dashboard() {
-  const kpis = EMPTY_DASHBOARD_KPIS;
-  const overdueLoans: (Loan & { customer?: Customer })[] = [];
-  const recentActivity: ActivityLog[] = [];
+  const db = useDemoDb();
+  const kpis = useMemo(() => getDashboardKpis(db), [db]);
+  const overdueLoans = useMemo(() => getOverdueLoans(db), [db]);
+  const recentActivity = useMemo(() => getRecentActivity(db), [db]);
   const today = new Date();
   const greeting = `Good morning, Sachila`;
   const dateStr = formatDate(today, 'long');

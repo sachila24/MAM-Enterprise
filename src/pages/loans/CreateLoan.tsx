@@ -5,7 +5,6 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
-import type { Bike, Customer } from '../../types/entities';
 import type { LoanPurpose, RepaymentMethod } from '../../types/loan';
 import { defaultRepaymentMethod } from '../../types/loan';
 import {
@@ -17,6 +16,12 @@ import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../../lib/finance/constants';
 import { computeFirstDueDate } from '../../lib/finance/dueDates';
 import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
 import { formatLKR, formatEnum } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  createLoan,
+  listCustomers,
+  listInStockBikes,
+} from '../../lib/local-db/repositories';
 
 const steps = [
   { id: 'customer', label: 'Customer' },
@@ -30,6 +35,7 @@ const steps = [
 export function CreateLoan() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const db = useDemoDb();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,8 +64,8 @@ export function CreateLoan() {
   const [sellingPrice, setSellingPrice] = useState(0);
   const [downPayment, setDownPayment] = useState(0);
 
-  const customers: Customer[] = [];
-  const bikes: Bike[] = [];
+  const customers = listCustomers(db);
+  const bikes = listInStockBikes(db);
 
   const isInterestOnly =
     repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
@@ -114,12 +120,32 @@ export function CreateLoan() {
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
-    } else {
-      setIsSubmitting(true);
-      setTimeout(() => {
-        showToast('Loan created successfully', 'success');
-        navigate('/loans');
-      }, 1000);
+      return;
+    }
+    if (!customerId) return;
+    setIsSubmitting(true);
+    try {
+      const loan = createLoan(
+        {
+          customerId,
+          loanPurpose,
+          repaymentMethod,
+          principalAmount: effectiveFinanceAmount,
+          interestRate: isInterestOnly ? monthlyInterestRate : monthlyFlatRate,
+          termMonths: isInterestOnly ? undefined : termMonths,
+          lateFeeRate: isInterestOnly ? 0 : lateFeeRate,
+          discountAmount,
+          startDate,
+          firstDueDate: firstDueDate || computeFirstDueDate(startDate),
+          dueDay: isInterestOnly ? dueDay : undefined,
+          bikeId: isBike ? bikeId : undefined,
+        },
+        db
+      );
+      showToast(`Loan ${loan.loanCode} created`, 'success');
+      navigate(`/loans/${loan.id}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

@@ -1,247 +1,571 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { PageHeader } from '../../components/ui/PageHeader';
+import React, { useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  AlertCircleIcon,
+  BanknoteIcon,
+  FileTextIcon,
+  ShieldIcon,
+} from 'lucide-react';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
-import type { Bike, Customer, Loan, Payment } from '../../types/entities';
-import { buildInstallmentSchedule } from '../../lib/installment-schedule';
+import {
+  isInterestOnlyLoan,
+  type Loan,
+  type LoanInstallment,
+} from '../../types/loan';
+import type { Guarantee } from '../../types/entities';
+import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
+import {
+  calculateLateFee,
+  monthsLate,
+} from '../../lib/finance/fixedInstallment';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
-import { FileTextIcon, AlertCircleIcon } from 'lucide-react';
+import {
+  resolveLoanDetailPreview,
+  LOAN_DETAIL_PREVIEW_LINKS,
+  type LoanDetailData,
+} from './loanDetailPreviewData';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  getLoanDetailFromDb,
+  listLoanDetailLinks,
+} from '../../lib/local-db/loanDetail';
+
+const AS_OF_DATE = new Date().toISOString().split('T')[0];
+
 export function LoanDetail() {
-  const { id } = useParams<{
-    id: string;
-  }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    'schedule' | 'payments' | 'guarantees'>(
-    'schedule');
-  const loans: Loan[] = [];
-  const customers: Customer[] = [];
-  const payments: Payment[] = [];
-  const bikes: Bike[] = [];
-  const loan = id ? loans.find((l) => l.id === id) : undefined;
-  const customer = loan
-    ? customers.find((c) => c.id === loan.customerId)
-    : undefined;
-  const loanPayments = loan
-    ? payments.filter((p) => p.loanId === loan.id)
-    : [];
-  const schedule = buildInstallmentSchedule(loan);
-  const bike = loan?.bikeId
-    ? bikes.find((b) => b.id === loan.bikeId)
-    : undefined;
-  if (!loan || !customer) {
+  const db = useDemoDb();
+  const detail =
+    (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
+  const demoLinks = listLoanDetailLinks(db);
+
+  if (!detail) {
     return (
-      <EmptyState
-        icon={AlertCircleIcon}
-        title="Loan not found"
-        description="The loan you are looking for does not exist or has been removed." />);
-
-
+      <div className="max-w-3xl mx-auto pt-8">
+        <EmptyState
+          icon={AlertCircleIcon}
+          title="Loan not found"
+          description="Choose a demo loan below."
+          action={
+            <ul className="mt-4 space-y-2 text-sm">
+              {demoLinks.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    to={`/loans/${link.id}`}
+                    className="font-semibold text-brand-600 hover:text-brand-500"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+              {LOAN_DETAIL_PREVIEW_LINKS.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    to={`/loans/${link.id}`}
+                    className="font-semibold text-brand-600 hover:text-brand-500"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          }
+        />
+      </div>
+    );
   }
-  const totalPaid = loanPayments
-    .filter((p) => p.status === 'confirmed')
-    .reduce((sum, p) => sum + p.amount, 0);
+
+  if (isInterestOnlyLoan(detail.loan)) {
+    return <InterestOnlyLoanDetail detail={detail} navigate={navigate} />;
+  }
+
+  return <FixedInstallmentLoanDetail detail={detail} navigate={navigate} />;
+}
+
+function InterestOnlyLoanDetail({
+  detail,
+  navigate,
+}: {
+  detail: LoanDetailData;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { loan, customer, interestCycles, guarantees, principalPayments } =
+    detail;
+
+  const pendingInterest = useMemo(
+    () =>
+      loan.pendingInterestAmount ??
+      interestCycles.reduce(
+        (s, c) => s + Math.max(0, c.interestDue - c.interestPaid),
+        0
+      ),
+    [loan.pendingInterestAmount, interestCycles]
+  );
+
+  const currentCycle = interestCycles.find((c) => c.status !== 'PAID') ?? interestCycles.at(-1);
+  const currentMonthInterestDue = currentCycle
+    ? Math.max(0, currentCycle.interestDue - currentCycle.interestPaid)
+    : 0;
+
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold leading-6 text-neutral-900">
-              {loan.loanCode}
-            </h1>
-            <StatusChip status={loan.status} />
-          </div>
-          <p className="mt-2 text-sm text-neutral-500">
-            {customer.name} • {formatEnum(loan.loanPurpose)}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate(`/payments/new?loanId=${loan.id}`)}
-            className="inline-flex items-center justify-center rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
-            
-            Record Payment
-          </button>
-        </div>
+    <div className="max-w-7xl mx-auto pb-12">
+      <LoanHeader
+        loan={loan}
+        customerName={customer.name}
+        subtitle={formatEnum(loan.repaymentMethod)}
+        actions={
+          <LoanActionBar
+            loanId={loan.id}
+            navigate={navigate}
+            showEarlySettlement={false}
+            monthsCompleted={detail.monthsCompleted}
+            minimumMonths={loan.minimumMonthsBeforeSettlement}
+          />
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
+        <KpiCard label="Current principal" value={formatLKR(loan.currentPrincipalBalance)} />
+        <KpiCard label="Pending interest" value={formatLKR(pendingInterest)} />
+        <KpiCard label="Current month interest" value={formatLKR(currentMonthInterestDue)} />
+        <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
+        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
+      </div>
+
+      <section className="mb-8">
+        <SectionTitle icon={BanknoteIcon} title="Interest cycles" />
+        <DataTable
+          columns={[
+            'Cycle',
+            'Period',
+            'Opening principal',
+            'Interest due',
+            'Interest paid',
+            'Principal paid',
+            'Closing principal',
+            'Status',
+          ]}
+          rows={interestCycles.map((c) => [
+            String(c.cycleNumber),
+            `${formatDate(c.periodStart)} – ${formatDate(c.periodEnd)}`,
+            formatLKR(c.openingPrincipal),
+            formatLKR(c.interestDue),
+            formatLKR(c.interestPaid),
+            formatLKR(c.principalPaid),
+            formatLKR(c.closingPrincipal),
+            <StatusChip key={c.id} status={c.status} />,
+          ])}
+          emptyMessage="No interest cycles yet."
+        />
+      </section>
+
+      <section className="mb-8">
+        <SectionTitle icon={FileTextIcon} title="Principal payment history" />
+        <DataTable
+          columns={['Payment', 'Date', 'Amount', 'Principal reduction', 'Balance after']}
+          rows={principalPayments.map((p) => [
+            p.paymentCode,
+            formatDate(p.paymentDate),
+            formatLKR(p.amount),
+            formatLKR(p.principalReduction),
+            formatLKR(p.principalAfter),
+          ])}
+          emptyMessage="No principal payments recorded yet."
+        />
+      </section>
+
+      <GuaranteesSection
+        guarantees={guarantees}
+        loanId={loan.id}
+        navigate={navigate}
+      />
+    </div>
+  );
+}
+
+function FixedInstallmentLoanDetail({
+  detail,
+  navigate,
+}: {
+  detail: LoanDetailData;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { loan, customer, installments, guarantees } = detail;
+  const enriched = useMemo(
+    () => enrichInstallments(installments, loan),
+    [installments, loan]
+  );
+
+  const arrearsCount = enriched.filter((i) => i.status === 'OVERDUE').length;
+  const totalLateFeesDue = enriched.reduce((s, i) => s + i.lateFeeDue, 0);
+  const totalArrearsInstallments = enriched
+    .filter((i) => i.status === 'OVERDUE' || (i.status === 'PARTIAL' && i.isArrear))
+    .reduce((s, i) => s + i.amountDue, 0);
+
+  const settlementEligible = canRequestEarlySettlement(
+    detail.monthsCompleted,
+    loan.minimumMonthsBeforeSettlement
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto pb-12">
+      <LoanHeader
+        loan={loan}
+        customerName={customer.name}
+        subtitle={`${formatEnum(loan.loanPurpose)} · ${formatEnum(loan.repaymentMethod)}`}
+        actions={
+          <LoanActionBar
+            loanId={loan.id}
+            navigate={navigate}
+            showEarlySettlement
+            settlementEligible={settlementEligible}
+            monthsCompleted={detail.monthsCompleted}
+            minimumMonths={loan.minimumMonthsBeforeSettlement}
+          />
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <KpiCard label="Total payable" value={formatLKR(loan.totalPayable ?? 0)} />
+        <KpiCard label="Paid" value={formatLKR(loan.paidAmount)} />
+        <KpiCard label="Balance" value={formatLKR(loan.balanceAmount)} />
+        <KpiCard
+          label="Monthly installment"
+          value={formatLKR(loan.installmentAmount ?? 0)}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
+        <KpiCard label="Late fee rate" value={`${loan.lateFeeRate}%`} />
+        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
         <KpiCard
-          label="Principal Amount"
-          value={formatLKR(loan.principalAmount)} />
-        
-        <KpiCard label="Current Balance" value={formatLKR(loan.balanceAmount)} />
-        <KpiCard label="Total Paid" value={formatLKR(totalPaid)} />
-        <KpiCard
-          label="Next Installment"
-          value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
-        
+          label="Arrears"
+          value={arrearsCount > 0 ? `${arrearsCount} installment(s)` : 'None'}
+          delta={
+            arrearsCount > 0
+              ? { value: formatLKR(totalLateFeesDue + totalArrearsInstallments), trend: 'down' }
+              : undefined
+          }
+        />
       </div>
 
-      <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg overflow-hidden">
-        <div className="border-b border-neutral-200">
-          <nav className="-mb-px flex" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`w-1/3 border-b-2 py-4 px-1 text-center text-sm font-medium ${activeTab === 'schedule' ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}>
-              
-              Schedule
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`w-1/3 border-b-2 py-4 px-1 text-center text-sm font-medium ${activeTab === 'payments' ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}>
-              
-              Payments
-            </button>
-            <button
-              onClick={() => setActiveTab('guarantees')}
-              className={`w-1/3 border-b-2 py-4 px-1 text-center text-sm font-medium ${activeTab === 'guarantees' ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}>
-              
-              Guarantees
-            </button>
-          </nav>
+      {arrearsCount > 0 && (
+        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 p-4 text-sm text-danger-800">
+          <strong>Arrears summary:</strong> {arrearsCount} overdue installment(s). Late
+          fees due {formatLKR(totalLateFeesDue)}. Unpaid installments{' '}
+          {formatLKR(totalArrearsInstallments)}.
         </div>
+      )}
 
-        <div className="p-0">
-          {activeTab === 'schedule' &&
-          <table className="min-w-full divide-y divide-neutral-200">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                    No.
-                  </th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Due Date
-                  </th>
-                  <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                    Amount
-                  </th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 bg-white">
-                {schedule.map((inst) =>
-              <tr key={inst.installmentNo}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6 tabular-nums">
-                      {inst.installmentNo}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
-                      {formatDate(inst.dueDate)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums">
-                      {formatLKR(inst.amount)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <StatusChip status={inst.status} />
-                    </td>
-                  </tr>
-              )}
-              </tbody>
-            </table>
-          }
+      <section className="mb-8">
+        <SectionTitle icon={BanknoteIcon} title="Installment schedule" />
+        <DataTable
+          columns={[
+            'No.',
+            'Due date',
+            'Installment',
+            'Paid',
+            'Late fee',
+            'Status',
+          ]}
+          rows={enriched.map((i) => [
+            String(i.installmentNumber),
+            formatDate(i.dueDate),
+            formatLKR(i.installmentAmount),
+            formatLKR(i.paidAmount),
+            formatLKR(i.lateFeeDue),
+            <StatusChip key={i.id} status={i.status} />,
+          ])}
+          emptyMessage="No installments on this loan."
+        />
+      </section>
 
-          {activeTab === 'payments' &&
-          <table className="min-w-full divide-y divide-neutral-200">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                    Date
-                  </th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Receipt No
-                  </th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Method
-                  </th>
-                  <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                    Amount
-                  </th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 bg-white">
-                {loanPayments.map((p) =>
-              <tr key={p.id}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-neutral-500 sm:pl-6 tabular-nums">
-                      {formatDate(p.paidAt)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-brand-600 tabular-nums">
-                      {p.receiptNo}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {formatEnum(p.method)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums">
-                      {formatLKR(p.amount)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <StatusChip status={p.status} />
-                    </td>
-                  </tr>
-              )}
-                {loanPayments.length === 0 &&
-              <tr>
-                    <td
-                  colSpan={5}
-                  className="px-3 py-8 text-center text-sm text-neutral-500">
-                  
-                      No payments recorded yet.
-                    </td>
-                  </tr>
-              }
-              </tbody>
-            </table>
-          }
-
-          {activeTab === 'guarantees' &&
-          <div className="p-6">
-              {loan.loanPurpose === 'BIKE_INSTALLMENT' && bike ?
-            <div className="rounded-md bg-neutral-50 p-4 ring-1 ring-neutral-200 max-w-md">
-                  <h4 className="text-sm font-medium text-neutral-900 mb-4">
-                    Linked Bike
-                  </h4>
-                  <dl className="divide-y divide-neutral-200">
-                    <div className="py-2 flex justify-between">
-                      <dt className="text-sm font-medium text-neutral-500">
-                        Model
-                      </dt>
-                      <dd className="text-sm text-neutral-900">{bike.model}</dd>
-                    </div>
-                    <div className="py-2 flex justify-between">
-                      <dt className="text-sm font-medium text-neutral-500">
-                        Engine No
-                      </dt>
-                      <dd className="text-sm text-neutral-900 tabular-nums">
-                        {bike.engineNo}
-                      </dd>
-                    </div>
-                    <div className="py-2 flex justify-between">
-                      <dt className="text-sm font-medium text-neutral-500">
-                        Chassis No
-                      </dt>
-                      <dd className="text-sm text-neutral-900 tabular-nums">
-                        {bike.chassisNo}
-                      </dd>
-                    </div>
-                  </dl>
-                </div> :
-
-            <EmptyState
-              icon={FileTextIcon}
-              title="No guarantees"
-              description="Add guarantee items for this loan from the guarantees screen." />
-
-            }
-            </div>
-          }
-        </div>
-      </div>
-    </div>);
-
+      <GuaranteesSection
+        guarantees={guarantees}
+        loanId={loan.id}
+        navigate={navigate}
+      />
+    </div>
+  );
 }
+
+type EnrichedInstallment = LoanInstallment & {
+  lateFeeDue: number;
+  amountDue: number;
+  isArrear: boolean;
+};
+
+function enrichInstallments(
+  installments: LoanInstallment[],
+  loan: Loan
+): EnrichedInstallment[] {
+  const currentNum =
+    installments.find((i) => i.status === 'PENDING' || i.status === 'OVERDUE')
+      ?.installmentNumber ?? installments.length;
+
+  return installments.map((inst) => {
+    const amountDue = Math.max(0, inst.installmentAmount - inst.paidAmount);
+    const months = monthsLate(inst.dueDate, AS_OF_DATE);
+    const lateFeeDue =
+      amountDue > 0 && months > 0
+        ? Math.max(
+            inst.lateFeeAmount - inst.lateFeePaid,
+            calculateLateFee({
+              installmentAmount: inst.installmentAmount,
+              lateFeeRatePercent: loan.lateFeeRate,
+              monthsLate: months,
+            })
+          )
+        : Math.max(0, inst.lateFeeAmount - inst.lateFeePaid);
+
+    return {
+      ...inst,
+      lateFeeDue,
+      amountDue,
+      isArrear: inst.installmentNumber < currentNum,
+    };
+  });
+}
+
+function LoanHeader({
+  loan,
+  customerName,
+  subtitle,
+  actions,
+}: {
+  loan: Loan;
+  customerName: string;
+  subtitle: string;
+  actions: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold text-neutral-900 tabular-nums">
+            {loan.loanCode}
+          </h1>
+          <StatusChip status={loan.status} />
+        </div>
+        <p className="mt-2 text-sm text-neutral-500">
+          <Link
+            to={`/customers/${loan.customerId}`}
+            className="font-medium text-brand-600 hover:text-brand-500"
+          >
+            {customerName}
+          </Link>
+          {' · '}
+          {subtitle}
+        </p>
+      </div>
+      {actions}
+    </div>
+  );
+}
+
+function LoanActionBar({
+  loanId,
+  navigate,
+  showEarlySettlement,
+  settlementEligible = false,
+  monthsCompleted,
+  minimumMonths,
+}: {
+  loanId: string;
+  navigate: ReturnType<typeof useNavigate>;
+  showEarlySettlement: boolean;
+  settlementEligible?: boolean;
+  monthsCompleted: number;
+  minimumMonths: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:items-end">
+      <div className="flex flex-wrap gap-2">
+        <ActionButton
+          primary
+          onClick={() => navigate(`/payments/new?loanId=${loanId}`)}
+        >
+          Record Payment
+        </ActionButton>
+        <ActionButton onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}>
+          Add Guarantee
+        </ActionButton>
+        {showEarlySettlement && (
+          <ActionButton
+            disabled={!settlementEligible}
+            onClick={() =>
+              settlementEligible &&
+              navigate(`/loans/${loanId}/early-settlement`)
+            }
+          >
+            Early Settlement
+          </ActionButton>
+        )}
+        <ActionButton
+          variant="danger"
+          onClick={() => window.alert('Cancel loan will be available when Supabase is connected.')}
+        >
+          Cancel Loan
+        </ActionButton>
+      </div>
+      {showEarlySettlement && !settlementEligible && (
+        <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
+          Early settlement is allowed after {minimumMonths} completed months.
+          {monthsCompleted > 0 && ` (${monthsCompleted} completed so far.)`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  onClick,
+  primary,
+  variant = 'default',
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  primary?: boolean;
+  variant?: 'default' | 'danger';
+  disabled?: boolean;
+}) {
+  const base =
+    'inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed';
+  const styles = primary
+    ? `${base} bg-brand-600 text-white hover:bg-brand-500`
+    : variant === 'danger'
+      ? `${base} bg-white text-danger-700 ring-1 ring-danger-300 hover:bg-danger-50`
+      : `${base} bg-white text-neutral-900 ring-1 ring-neutral-300 hover:bg-neutral-50`;
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={styles}>
+      {children}
+    </button>
+  );
+}
+
+function SectionTitle({
+  title,
+  icon: Icon,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900 mb-4">
+      <Icon className="h-5 w-5 text-brand-600" />
+      {title}
+    </h2>
+  );
+}
+
+function DataTable({
+  columns,
+  rows,
+  emptyMessage,
+}: {
+  columns: string[];
+  rows: React.ReactNode[][];
+  emptyMessage: string;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-neutral-500 py-8 text-center bg-white rounded-xl ring-1 ring-neutral-200">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-neutral-200">
+      <table className="min-w-full divide-y divide-neutral-200 text-sm">
+        <thead className="bg-neutral-50">
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col}
+                className="py-3.5 px-3 text-left font-semibold text-neutral-900 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap"
+              >
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-neutral-100">
+          {rows.map((row, ri) => (
+            <tr key={ri} className="hover:bg-neutral-50">
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className={`py-3 px-3 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap ${
+                    ci > 1 && ci < row.length - 1 ? 'text-right tabular-nums' : ''
+                  } ${ci === 0 ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function GuaranteesSection({
+  guarantees,
+  loanId,
+  navigate,
+}: {
+  guarantees: Guarantee[];
+  loanId: string;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  return (
+    <section>
+      <SectionTitle icon={ShieldIcon} title="Guarantees" />
+      {guarantees.length === 0 ? (
+        <EmptyState
+          icon={FileTextIcon}
+          title="No guarantees"
+          description="Add a guarantee item linked to this loan."
+          action={
+            <button
+              type="button"
+              onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}
+              className="mt-4 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
+            >
+              Add Guarantee
+            </button>
+          }
+        />
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {guarantees.map((g) => (
+            <li
+              key={g.id}
+              className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <p className="font-medium text-neutral-900">
+                  {formatEnum(g.type)}
+                </p>
+                <StatusChip status={g.status} />
+              </div>
+              <p className="mt-2 text-sm text-neutral-600">{g.description}</p>
+              <p className="mt-1 text-xs text-neutral-500">
+                {g.storageLocation} · Received {formatDate(g.receivedAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+

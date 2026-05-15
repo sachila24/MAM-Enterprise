@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
-import type { Customer, Payment } from '../../types/entities';
-
-type ReceiptRow = Payment & { customer?: Customer };
 import { formatLKR, formatDate } from '../../lib/format';
 import { PrinterIcon, XCircleIcon } from 'lucide-react';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { listReceipts } from '../../lib/local-db/repositories';
+
 export function ReceiptsList() {
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
-  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const receipts = listReceipts(db);
   const filteredReceipts = receipts.filter((r) => {
     const matchesSearch =
     r.receiptNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -18,20 +19,11 @@ export function ReceiptsList() {
   });
   const handleVoid = (id: string) => {
     if (
-    window.confirm(
-      'Are you sure you want to void this receipt? This action cannot be undone.'
-    ))
-    {
-      setReceipts(
-        receipts.map((r) =>
-        r.id === id ?
-        {
-          ...r,
-          status: 'voided'
-        } :
-        r
-        )
-      );
+      window.confirm(
+        'Voiding receipts is not implemented in local demo mode yet.'
+      )
+    ) {
+      void id;
     }
   };
   return (

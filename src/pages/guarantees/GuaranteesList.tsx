@@ -5,16 +5,23 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
-import type { Customer, Guarantee, Loan } from '../../types/entities';
 import { formatEnum, formatDate } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  listCustomers,
+  listGuarantees,
+  listLoans,
+} from '../../lib/local-db/repositories';
+
 export function GuaranteesList() {
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
-  const guarantees: Guarantee[] = [];
-  const loans: Loan[] = [];
-  const customers: Customer[] = [];
+  const guarantees = listGuarantees(db);
+  const loans = listLoans(db);
+  const customers = listCustomers(db);
   const totalHeld = guarantees.filter((g) => g.status === 'held').length;
   const vehicleBooks = guarantees.filter(
     (g) => g.type === 'VEHICLE_BOOK' && g.status === 'held'

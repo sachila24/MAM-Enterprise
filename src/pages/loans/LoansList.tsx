@@ -8,14 +8,18 @@ import { StatusChip } from '../../components/ui/StatusChip';
 import type { Customer, Loan } from '../../types/entities';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { listCustomers, listLoans } from '../../lib/local-db/repositories';
+
 export function LoansList() {
   const { t } = useT();
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const loans: Loan[] = [];
-  const customers: Customer[] = [];
+  const loans = listLoans(db);
+  const customers = listCustomers(db);
   const enrichedLoans = loans.map((loan) => ({
     ...loan,
     customer: customers.find((c) => c.id === loan.customerId),

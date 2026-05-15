@@ -1,10 +1,11 @@
 # Record Payment — UI Plan
 
 **Route:** `/payments/new`  
-**Flow:** Select Customer → Select Loan → Payment → Confirm  
-**Finance:** `src/lib/finance/paymentAllocation.ts`, `receipt.ts`
+**Status:** Implemented (UI + live allocation preview; Supabase not wired)  
+**Flow:** Select Customer → Select Loan → Payment → Review → Confirm  
+**Finance:** `src/lib/finance/paymentAllocation.ts`, `receipt.ts`, `allocationDisplay.ts`
 
-No Supabase wiring in this phase — use finance libs for live preview only.
+No Supabase wiring — load preview scenarios from `paymentPreviewData.ts` when no backend data exists.
 
 ---
 

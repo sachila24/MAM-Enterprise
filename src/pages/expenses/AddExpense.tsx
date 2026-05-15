@@ -5,10 +5,15 @@ import { useT } from '../../i18n/I18nProvider';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { createExpense } from '../../lib/local-db/repositories';
+import type { DbExpense } from '../../lib/local-db/types';
+
 export function AddExpense() {
   const navigate = useNavigate();
   const { t } = useT();
   const { showToast } = useToast();
+  const db = useDemoDb();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     amount: 0,
@@ -19,12 +24,18 @@ export function AddExpense() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      showToast('Expense added successfully', 'success');
-      navigate('/expenses');
-    }, 800);
+    createExpense(
+      {
+        category: formData.category as DbExpense['category'],
+        amount: formData.amount,
+        expense_date: formData.date,
+        notes: formData.notes,
+      },
+      db
+    );
+    setIsSubmitting(false);
+    showToast('Expense added successfully', 'success');
+    navigate('/expenses');
   };
   const isValid = formData.amount > 0 && formData.notes.trim() !== '';
   return (

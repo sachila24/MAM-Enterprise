@@ -5,14 +5,23 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
-import type { Customer, Loan, Payment } from '../../types/entities';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  listCustomers,
+  listLoans,
+  listPayments,
+} from '../../lib/local-db/repositories';
+
 export function PaymentsList() {
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
-  const payments: Payment[] = [];
-  const loans: Loan[] = [];
-  const customers: Customer[] = [];
+  const payments = listPayments(db);
+  const loans = listLoans(db);
+  const customers = listCustomers(db);
+  const today = new Date().toISOString().split('T')[0];
+  const monthPrefix = today.slice(0, 7);
   const enrichedPayments = payments.map((p) => {
     const loan = loans.find((l) => l.id === p.loanId);
     const customer = loan
@@ -31,12 +40,12 @@ export function PaymentsList() {
     return matchesSearch;
   });
   // Mock KPIs
-  const collectedToday = payments.
-  filter((p) => p.paidAt.startsWith('2026-05-15')) // Mocking today
-  .reduce((sum, p) => sum + p.amount, 0);
-  const collectedThisWeek = payments.
-  filter((p) => p.paidAt.startsWith('2026-05')) // Mocking week
-  .reduce((sum, p) => sum + p.amount, 0);
+  const collectedToday = payments
+    .filter((p) => p.paidAt.startsWith(today))
+    .reduce((sum, p) => sum + p.amount, 0);
+  const collectedThisWeek = payments
+    .filter((p) => p.paidAt.startsWith(monthPrefix))
+    .reduce((sum, p) => sum + p.amount, 0);
   const pendingConfirmations = payments.filter(
     (p) => p.status === 'pending'
   ).length;

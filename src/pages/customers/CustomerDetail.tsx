@@ -11,15 +11,23 @@ import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import type { Customer, Loan, Payment, Guarantee } from '../../types/entities';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  getCustomer,
+  listGuarantees,
+  listLoans,
+  listPayments,
+} from '../../lib/local-db/repositories';
+
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
 export function CustomerDetail() {
   const { id } = useParams<{
     id: string;
   }>();
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const customers: Customer[] = [];
-  const customer = customers.find((c) => c.id === id);
+  const customer = id ? getCustomer(id, db) : undefined;
   if (!customer) {
     return (
       <div className="space-y-6">
@@ -36,9 +44,15 @@ export function CustomerDetail() {
       </div>);
 
   }
-  const loans: Loan[] = [];
-  const payments: Payment[] = [];
-  const guarantees: Guarantee[] = [];
+  const loans = id
+    ? listLoans(db).filter((l) => l.customerId === id)
+    : [];
+  const payments = id
+    ? listPayments(db).filter((p) => p.loanId && loans.some((l) => l.id === p.loanId))
+    : [];
+  const guarantees = id
+    ? listGuarantees(db).filter((g) => g.loanId && loans.some((l) => l.id === g.loanId))
+    : [];
   const tabs = [
   {
     id: 'overview',
