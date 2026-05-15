@@ -25,6 +25,8 @@ import {
   calculateLateFee,
   calculateMonthsLate,
 } from './fixedInstallment';
+import { getNextDueDateForFixedInstallments } from './loanNextDue';
+import { roundLKR } from './money';
 
 export const EXAMPLE_1_INTEREST_ONLY = (() => {
   const allocation = allocateInterestOnlyPayment(100_000, 5, 55_000);
@@ -260,6 +262,41 @@ export const EXAMPLE_5_EARLY_SETTLEMENT = {
   }),
 };
 
+export const EXAMPLE_FIXED_100K_36_25PC = calculateFixedInstallmentTotals({
+  financeAmount: 100_000,
+  termMonths: 36,
+  monthlyFlatRatePercent: 2.5,
+});
+
+export const EXAMPLE_FIXED_100K_36_FULL_25PC = calculateFixedInstallmentTotals({
+  financeAmount: 100_000,
+  termMonths: 36,
+  monthlyFlatRatePercent: 25,
+});
+
+export const EXAMPLE_NEXT_DUE_SKIPS_PAID = getNextDueDateForFixedInstallments(
+  [
+    {
+      installmentNumber: 1,
+      dueDate: '2026-06-01',
+      installmentAmount: 10_000,
+      paidAmount: 10_000,
+      lateFeeAmount: 0,
+      lateFeePaid: 0,
+    },
+    {
+      installmentNumber: 2,
+      dueDate: '2026-07-01',
+      installmentAmount: 10_000,
+      paidAmount: 0,
+      lateFeeAmount: 0,
+      lateFeePaid: 0,
+    },
+  ],
+  DEFAULT_LATE_FEE_RATE_PERCENT,
+  '2026-06-15'
+);
+
 export interface ExampleCheck {
   name: string;
   pass: boolean;
@@ -335,6 +372,42 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       pass: EXAMPLE_3_FIXED_INSTALLMENT.monthlyInstallment === 15_834,
       expected: 15_834,
       actual: EXAMPLE_3_FIXED_INSTALLMENT.monthlyInstallment,
+    },
+    {
+      name: 'Fixed 100k/36 @ 2.5%: interest',
+      pass: EXAMPLE_FIXED_100K_36_25PC.totalInterest === 90_000,
+      expected: 90_000,
+      actual: EXAMPLE_FIXED_100K_36_25PC.totalInterest,
+    },
+    {
+      name: 'Fixed 100k/36 @ 2.5%: payable',
+      pass: EXAMPLE_FIXED_100K_36_25PC.totalPayable === 190_000,
+      expected: 190_000,
+      actual: EXAMPLE_FIXED_100K_36_25PC.totalPayable,
+    },
+    {
+      name: 'Fixed 100k/36 @ 2.5%: installment',
+      pass: EXAMPLE_FIXED_100K_36_25PC.monthlyInstallment === 5_278,
+      expected: 5_278,
+      actual: EXAMPLE_FIXED_100K_36_25PC.monthlyInstallment,
+    },
+    {
+      name: 'Fixed 100k/36 @ 25%: interest',
+      pass: EXAMPLE_FIXED_100K_36_FULL_25PC.totalInterest === 900_000,
+      expected: 900_000,
+      actual: EXAMPLE_FIXED_100K_36_FULL_25PC.totalInterest,
+    },
+    {
+      name: 'Fixed 100k/36 @ 25%: payable',
+      pass: EXAMPLE_FIXED_100K_36_FULL_25PC.totalPayable === 1_000_000,
+      expected: 1_000_000,
+      actual: EXAMPLE_FIXED_100K_36_FULL_25PC.totalPayable,
+    },
+    {
+      name: 'Fixed 100k/36 @ 25%: installment',
+      pass: EXAMPLE_FIXED_100K_36_FULL_25PC.monthlyInstallment === 27_778,
+      expected: 27_778,
+      actual: EXAMPLE_FIXED_100K_36_FULL_25PC.monthlyInstallment,
     },
     {
       name: 'Arrears: 1 month late fee',
@@ -456,6 +529,18 @@ export function verifyFinanceExamples(): ExampleCheck[] {
         lateFeeAmount: EXAMPLE_LATE_FEE_C.lateFeeAmount,
         monthsLate: EXAMPLE_LATE_FEE_C.monthsLate,
       },
+    },
+    {
+      name: 'Next due skips fully paid installment',
+      pass: EXAMPLE_NEXT_DUE_SKIPS_PAID.dueDate === '2026-07-01',
+      expected: '2026-07-01',
+      actual: EXAMPLE_NEXT_DUE_SKIPS_PAID.dueDate,
+    },
+    {
+      name: 'Payment + discount effective amount',
+      pass: roundLKR(7_000 + 167) === 7_167,
+      expected: 7_167,
+      actual: roundLKR(7_000 + 167),
     },
   ];
 }

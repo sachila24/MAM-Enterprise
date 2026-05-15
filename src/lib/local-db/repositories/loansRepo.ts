@@ -6,12 +6,22 @@ import { calculateMonthlyInterestDue } from '../../finance/interestOnly';
 import { computeFirstDueDate } from '../../finance/dueDates';
 import type { Loan, LoanPurpose, RepaymentMethod } from '../../../types/loan';
 import { persistInterestOnlyCycles } from '../interestOnlySync';
-import { generateId, getDb, saveDb } from '../localDb';
+import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLoan } from '../mappers';
 import { getLoanDetailFromDb } from '../loanDetail';
-import type { DbLoan, MamDemoDb } from '../types';
+import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
 
 export { getLoanDetailFromDb };
+
+export interface CreateGuaranteeDraft {
+  itemType: DbGuarantee['item_type'];
+  itemReference?: string;
+  ownerNameOnDocument?: string;
+  description: string;
+  storageLocation: string;
+  receivedDate: string;
+  notes?: string;
+}
 
 export interface CreateLoanInput {
   customerId: string;
@@ -27,6 +37,8 @@ export interface CreateLoanInput {
   dueDay?: number;
   bikeId?: string;
   notes?: string;
+  /** Optional collateral items to store when the loan is created */
+  guarantees?: CreateGuaranteeDraft[];
 }
 
 function nextLoanCode(
@@ -54,15 +66,62 @@ export function getLoan(id: string, db: MamDemoDb = getDb()): Loan | undefined {
   return row ? mapLoan(row) : undefined;
 }
 
+function pushGuaranteesForNewLoan(
+  db: MamDemoDb,
+  loanId: string,
+  customerId: string,
+  drafts: CreateGuaranteeDraft[] | undefined,
+  ts: string
+) {
+  for (const g of drafts ?? []) {
+    db.guarantees.push({
+      id: generateId(),
+      guarantee_code: generateCode('GUA', db.counters),
+      loan_id: loanId,
+      customer_id: customerId,
+      item_type: g.itemType,
+      item_reference: g.itemReference,
+      owner_name_on_document: g.ownerNameOnDocument,
+      description: g.description,
+      storage_location: g.storageLocation,
+      notes: g.notes,
+      status: 'HELD',
+      received_at: g.receivedDate.includes('T')
+        ? g.receivedDate
+        : `${g.receivedDate}T12:00:00.000Z`,
+      created_at: ts,
+    });
+  }
+}
+
 export function createLoan(
   input: CreateLoanInput,
   db: MamDemoDb = getDb()
 ): Loan {
   const ts = new Date().toISOString();
   const id = generateId();
+  const isBike = input.loanPurpose === 'BIKE_INSTALLMENT';
+  if (isBike && input.repaymentMethod !== 'FIXED_TERM_INSTALLMENT') {
+    throw new Error('Bike installment loans must use fixed-term installments.');
+  }
+  if (isBike && !input.bikeId) {
+    throw new Error('Select an in-stock bike for this installment loan.');
+  }
+  if (isBike && input.bikeId) {
+    const bike = db.bikes.find((b) => b.id === input.bikeId);
+    if (!bike) throw new Error('Selected bike not found.');
+    if (bike.status !== 'IN_STOCK') {
+      throw new Error('Selected bike is no longer in stock.');
+    }
+  }
+  if (!input.customerId) {
+    throw new Error('Customer is required.');
+  }
+  if (input.principalAmount <= 0) {
+    throw new Error('Finance amount must be greater than zero.');
+  }
   const isInterestOnly =
     input.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
-  const isBike = input.loanPurpose === 'BIKE_INSTALLMENT';
   const loanCode = nextLoanCode(
     input.loanPurpose,
     input.repaymentMethod,
@@ -188,6 +247,8 @@ export function createLoan(
     persistInterestOnlyCycles(db, id, new Date().toISOString().split('T')[0]);
   }
 
+  pushGuaranteesForNewLoan(db, id, input.customerId, input.guarantees, ts);
+
   db.audit_logs.push({
     id: generateId(),
     user_id: db.profiles[0]?.id ?? 'system',
@@ -199,4 +260,18 @@ export function createLoan(
   });
   saveDb(db);
   return mapLoan(dbLoan);
+}
+
+/** Link an existing bike installment loan row to inventory (manual sale flow). */
+export function attachBikeToLoan(
+  loanId: string,
+  bikeId: string,
+  db: MamDemoDb = getDb()
+): Loan | undefined {
+  const row = db.loans.find((l) => l.id === loanId);
+  if (!row) return undefined;
+  row.bike_id = bikeId;
+  row.updated_at = new Date().toISOString();
+  saveDb(db);
+  return mapLoan(row);
 }

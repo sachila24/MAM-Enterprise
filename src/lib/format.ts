@@ -14,7 +14,8 @@ export function formatEnum(value: string | null | undefined): string {
     VOIDED: 'Voided',
     HELD: 'Held',
     RESERVED: 'Reserved',
-    RELEASED: 'Released',
+    RELEASED: 'Returned',
+    returned: 'Returned',
     PAID: 'Paid',
     PENDING: 'Pending',
     CANCELLED: 'Cancelled',
@@ -22,6 +23,7 @@ export function formatEnum(value: string | null | undefined): string {
     BIKE_INSTALLMENT: 'Bike installment',
     INTEREST_ONLY_REDUCING_PRINCIPAL: 'Monthly interest / reducing principal',
     FIXED_TERM_INSTALLMENT: 'Fixed term installment',
+    BIKE: 'Bike (collateral)',
     SETTLED: 'Settled'
   };
 
@@ -44,25 +46,23 @@ opts?: {withSymbol?: boolean;})
 }
 
 export function formatDate(
-date: Date | string,
-format: 'short' | 'long' = 'short')
-: string {
+  date: Date | string,
+  format: 'short' | 'long' = 'short'
+): string {
   if (!date) return '—';
   const d = new Date(date);
 
+  const clear = d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
   if (format === 'long') {
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+    return clear;
   }
 
-  return d.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  return clear;
 }
 
 export function formatDateTime(date: Date | string): string {

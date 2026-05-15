@@ -9,6 +9,7 @@ import type {
   LoanPayment,
   Payment,
 } from '../../types/entities';
+import { roundLKR } from '../finance/money';
 import type {
   DbBike,
   DbCustomer,
@@ -40,14 +41,20 @@ export function mapCustomer(c: DbCustomer, db: MamDemoDb): Customer {
 }
 
 export function mapBike(b: DbBike): Bike {
+  const soldPrice = b.sold_price ?? b.selling_price;
   return {
     id: b.id,
+    bikeCode: b.bike_code,
     model: b.model,
+    registrationNo: b.registration_no,
     chassisNo: b.chassis_no,
     engineNo: b.engine_no,
     price: b.selling_price,
     costPrice: b.cost_price,
     sellingPrice: b.selling_price,
+    soldPrice: b.status === 'SOLD' ? soldPrice : undefined,
+    repairCost: b.repair_cost ?? 0,
+    otherCost: b.other_cost ?? 0,
     status:
       b.status === 'IN_STOCK'
         ? 'in_stock'
@@ -58,6 +65,7 @@ export function mapBike(b: DbBike): Bike {
     soldDate: b.sold_date,
     color: b.color,
     year: b.year,
+    soldLoanId: b.sold_loan_id,
   };
 }
 
@@ -137,12 +145,15 @@ export function mapInterestCycle(c: DbLoanInterestCycle): LoanInterestCycle {
 }
 
 export function mapLoanPayment(p: DbLoanPayment): LoanPayment {
+  const disc = p.discount_amount ?? 0;
   return {
     id: p.id,
     paymentCode: p.payment_code,
     loanId: p.loan_id,
     customerId: p.customer_id,
     amount: p.amount,
+    discountAmount: disc,
+    appliedAmount: roundLKR(p.applied_amount ?? p.amount + disc),
     paymentMethod: p.payment_method,
     chequeNumber: p.cheque_number,
     bankReference: p.bank_reference,
@@ -176,13 +187,18 @@ export function mapLegacyPayment(p: DbLoanPayment): Payment {
 export function mapGuarantee(g: DbGuarantee): Guarantee {
   return {
     id: g.id,
+    guaranteeCode: g.guarantee_code,
     loanId: g.loan_id,
     type: g.item_type,
+    itemReference: g.item_reference,
+    ownerNameOnDocument: g.owner_name_on_document,
     description: g.description,
     storageLocation: g.storage_location,
-    status: g.status === 'HELD' ? 'held' : 'released',
+    notes: g.notes,
+    status: g.status === 'HELD' ? 'held' : 'returned',
     receivedAt: g.received_at,
     releasedAt: g.released_at,
+    releasedTo: g.released_to,
   };
 }
 

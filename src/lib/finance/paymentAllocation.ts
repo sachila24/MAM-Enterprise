@@ -19,7 +19,11 @@ export type AllocationType =
   | 'INSTALLMENT'
   | 'LATE_FEE'
   | 'ADVANCE'
-  | 'SETTLEMENT';
+  | 'SETTLEMENT'
+  | 'INTEREST_DISCOUNT'
+  | 'PRINCIPAL_DISCOUNT'
+  | 'INSTALLMENT_DISCOUNT'
+  | 'LATE_FEE_DISCOUNT';
 
 export interface PaymentAllocationLine {
   allocationType: AllocationType;

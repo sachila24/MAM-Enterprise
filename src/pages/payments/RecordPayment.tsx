@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircleIcon, SearchIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { useToast } from '../../components/ui/Toast';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
@@ -25,7 +26,11 @@ const STEPS = [
 
 export function RecordPayment() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const db = useDemoDb();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientSubmitIdRef = useRef<string | null>(null);
   const previewBundle = useMemo(() => buildPaymentBundle(db), [db]);
   const [searchParams] = useSearchParams();
   const initialLoanId = searchParams.get('loanId');
@@ -42,6 +47,7 @@ export function RecordPayment() {
 
   const [form, setForm] = useState<PaymentFormState>({
     amount: 0,
+    discountAmount: 0,
     paymentMethod: 'CASH',
     paymentDate: new Date().toISOString().split('T')[0],
     notes: '',
@@ -103,7 +109,7 @@ export function RecordPayment() {
       case 1:
         return !!selectedLoanId;
       case 2:
-        return form.amount > 0;
+        return form.amount > 0 || (form.discountAmount ?? 0) > 0;
       case 3:
         return !!computation.allocation;
       default:
@@ -123,40 +129,92 @@ export function RecordPayment() {
     else navigate('/payments');
   };
 
+  useEffect(() => {
+    if (currentStep === STEPS.length - 1 && !clientSubmitIdRef.current) {
+      clientSubmitIdRef.current = crypto.randomUUID();
+    }
+  }, [currentStep]);
+
   const handleConfirm = () => {
-    if (!selectedLoan || !selectedCustomer || !computation.receipt) return;
-    const result = recordPayment(
-      {
-        loanId: selectedLoan.id,
-        customerId: selectedCustomer.id,
-        amount: form.amount,
-        paymentMethod: form.paymentMethod,
-        paymentDate: form.paymentDate,
-        notes: form.notes || undefined,
-        chequeNumber: form.chequeNumber || undefined,
-        bankReference: form.bankReference || undefined,
-      },
-      db
-    );
-    navigate('/payments/success', {
-      state: {
-        loanCode: selectedLoan.loanCode,
-        loanId: selectedLoan.id,
-        customerName: selectedCustomer.name,
-        amount: form.amount,
-        paymentMethod: form.paymentMethod,
-        paymentDate: form.paymentDate,
-        repaymentMethod: selectedLoan.repaymentMethod,
-        receipt: computation.receipt,
-        allocationRows: computation.allocationRows,
-        receiptNumber: result.receiptNumber,
-        supabasePending: false,
-      },
-    });
+    if (
+      isSubmittingRef.current ||
+      !selectedLoan ||
+      !selectedCustomer ||
+      !computation.allocation ||
+      !computation.receipt
+    ) {
+      return;
+    }
+
+    if (!clientSubmitIdRef.current) {
+      clientSubmitIdRef.current = crypto.randomUUID();
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    const successState = {
+      loanCode: selectedLoan.loanCode,
+      loanId: selectedLoan.id,
+      customerCode: selectedCustomer.customerCode,
+      customerName: selectedCustomer.name,
+      amount: form.amount,
+      discountAmount: form.discountAmount ?? 0,
+      paymentMethod: form.paymentMethod,
+      paymentDate: form.paymentDate,
+      repaymentMethod: selectedLoan.repaymentMethod,
+      receipt: computation.receipt,
+      allocationRows: computation.allocationRows,
+      supabasePending: false,
+    };
+
+    let saved = false;
+    let receiptNumber = '';
+
+    try {
+      const result = recordPayment(
+        {
+          loanId: selectedLoan.id,
+          customerId: selectedCustomer.id,
+          amount: form.amount,
+          discountAmount: form.discountAmount,
+          paymentMethod: form.paymentMethod,
+          paymentDate: form.paymentDate,
+          notes: form.notes || undefined,
+          chequeNumber: form.chequeNumber || undefined,
+          bankReference: form.bankReference || undefined,
+          clientSubmitId: clientSubmitIdRef.current,
+        },
+        db
+      );
+      saved = true;
+      receiptNumber = result.receiptNumber;
+      navigate('/payments/success', {
+        replace: true,
+        state: { ...successState, receiptNumber, paymentId: result.payment.id },
+      });
+      showToast('Payment recorded successfully', 'success');
+    } catch (err) {
+      if (saved) {
+        navigate('/payments/success', {
+          replace: true,
+          state: { ...successState, receiptNumber },
+        });
+        showToast('Payment recorded successfully', 'success');
+      } else {
+        const message =
+          err instanceof Error ? err.message : 'Could not save payment';
+        showToast(message, 'error');
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    }
   };
 
   const primaryLabel = (): string => {
-    if (currentStep === STEPS.length - 1) return 'Confirm Payment';
+    if (currentStep === STEPS.length - 1) {
+      return isSubmitting ? 'Saving payment…' : 'Confirm Payment';
+    }
     if (currentStep === 2) return 'Review Payment';
     return 'Continue';
   };
@@ -179,8 +237,8 @@ export function RecordPayment() {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="flex-1 lg:max-w-[62%] space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-10">
+        <div className="flex-1 min-w-0 lg:max-w-[58%] space-y-6">
           {/* Step 0: Customer */}
           {currentStep === 0 && (
             <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
@@ -295,7 +353,7 @@ export function RecordPayment() {
                 Enter payment
               </h3>
               <CurrencyInput
-                label="Payment amount *"
+                label="Cash received *"
                 value={form.amount}
                 onChange={(amount) => setForm((f) => ({ ...f, amount }))}
               />
@@ -306,7 +364,11 @@ export function RecordPayment() {
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        amount: computation.fixedDueSummary!.totalDue,
+                        amount: Math.max(
+                          0,
+                          computation.fixedDueSummary!.totalDue -
+                            (f.discountAmount ?? 0)
+                        ),
                       }))
                     }
                   />
@@ -315,38 +377,77 @@ export function RecordPayment() {
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        amount: computation.fixedDueSummary!.currentMonthDue,
+                        amount: Math.max(
+                          0,
+                          computation.fixedDueSummary!.currentMonthDue -
+                            (f.discountAmount ?? 0)
+                        ),
                       }))
                     }
                   />
-                  <QuickAmount
-                    label="45,000 (arrears example)"
-                    onClick={() => setForm((f) => ({ ...f, amount: 45_000 }))}
-                  />
+                  {selectedLoan.balanceAmount > 0 && (
+                    <QuickAmount
+                      label={`Full loan balance ${formatLKR(selectedLoan.balanceAmount)}`}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          amount: Math.max(
+                            0,
+                            selectedLoan.balanceAmount - (f.discountAmount ?? 0)
+                          ),
+                        }))
+                      }
+                    />
+                  )}
                 </div>
               )}
               {isInterestOnlyLoan(selectedLoan) && (
                 <div className="flex flex-wrap gap-2">
                   <QuickAmount
-                    label="55,000 (full example)"
-                    onClick={() => setForm((f) => ({ ...f, amount: 55_000 }))}
-                  />
-                  <QuickAmount
-                    label="3,000 (partial interest)"
-                    onClick={() => setForm((f) => ({ ...f, amount: 3_000 }))}
-                  />
-                  <QuickAmount
-                    label={`Interest due ${formatLKR(computation.interestOnlySummary?.currentCycleInterestDue ?? 0)}`}
+                    label={`Total due ${formatLKR(computation.interestOnlySummary?.totalInterestDue ?? 0)}`}
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        amount:
-                          computation.interestOnlySummary?.currentCycleInterestDue ?? 0,
+                        amount: Math.max(
+                          0,
+                          (computation.interestOnlySummary?.totalInterestDue ?? 0) -
+                            (f.discountAmount ?? 0)
+                        ),
+                      }))
+                    }
+                  />
+                  <QuickAmount
+                    label={`Current cycle ${formatLKR(computation.interestOnlySummary?.currentCycleInterestDue ?? 0)}`}
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        amount: Math.max(
+                          0,
+                          (computation.interestOnlySummary?.currentCycleInterestDue ??
+                            0) - (f.discountAmount ?? 0)
+                        ),
                       }))
                     }
                   />
                 </div>
               )}
+              <CurrencyInput
+                label="Discount given (optional)"
+                value={form.discountAmount ?? 0}
+                onChange={(discountAmount) =>
+                  setForm((f) => ({ ...f, discountAmount }))
+                }
+              />
+              {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
+                <AppliedPreview
+                  cash={form.amount}
+                  discount={form.discountAmount ?? 0}
+                  total={computation.appliedTotal}
+                />
+              )}
+              <p className="text-xs text-neutral-500">
+                Loan balance reduces by total applied. Cash collection and dashboard totals use cash received only.
+              </p>
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-1">
                   Payment method *
@@ -445,13 +546,28 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 Confirm payment
               </h3>
-              <p className="text-sm text-neutral-600">
-                Payment will be saved to local demo storage and update loan balances.
+              <p className="text-sm font-medium text-neutral-800 rounded-lg bg-brand-50 border border-brand-100 px-4 py-3">
+                {form.paymentMethod === 'CASH'
+                  ? `Confirm cash payment ${formatLKR(form.amount)}`
+                  : `Confirm ${formatEnum(form.paymentMethod).toLowerCase()} payment ${formatLKR(form.amount)}`}
+                {(form.discountAmount ?? 0) > 0 &&
+                  ` with discount ${formatLKR(form.discountAmount ?? 0)}`}
+                . Total applied: {formatLKR(computation.appliedTotal)}.
               </p>
               <dl className="divide-y divide-neutral-200 text-sm">
                 <Row label="Customer" value={selectedCustomer?.name ?? '—'} />
                 <Row label="Loan" value={selectedLoan.loanCode} />
-                <Row label="Amount" value={formatLKR(form.amount)} bold />
+                <Row label="Cash received" value={formatLKR(form.amount)} bold />
+                {(form.discountAmount ?? 0) > 0 && (
+                  <Row
+                    label="Discount given"
+                    value={formatLKR(form.discountAmount ?? 0)}
+                  />
+                )}
+                <Row
+                  label="Total applied"
+                  value={formatLKR(computation.appliedTotal)}
+                />
                 <Row label="Method" value={formatEnum(form.paymentMethod)} />
                 <Row label="Date" value={formatDate(form.paymentDate)} />
               </dl>
@@ -467,22 +583,20 @@ export function RecordPayment() {
           <NavButtons
             currentStep={currentStep}
             canContinue={canContinue()}
+            isSubmitting={isSubmitting}
             primaryLabel={primaryLabel()}
             onBack={handleBack}
             onNext={currentStep === STEPS.length - 1 ? handleConfirm : handleNext}
           />
         </div>
 
-        <aside className="flex-1 lg:max-w-[38%]">
-          <div className="lg:sticky lg:top-24">
-            <SummaryPanel
-              step={currentStep}
-              customer={selectedCustomer}
-              loan={selectedLoan}
-              form={form}
-              computation={computation}
-            />
-          </div>
+        <aside className="flex-1 min-w-0 lg:max-w-[40%] shrink-0 lg:sticky lg:top-24 self-start">
+          <SummaryPanel
+            step={currentStep}
+            customer={selectedCustomer}
+            loan={selectedLoan}
+            computation={computation}
+          />
         </aside>
       </div>
     </div>
@@ -531,33 +645,72 @@ function Row({
 function NavButtons({
   currentStep,
   canContinue,
+  isSubmitting,
   primaryLabel,
   onBack,
   onNext,
 }: {
   currentStep: number;
   canContinue: boolean;
+  isSubmitting?: boolean;
   primaryLabel: string;
   onBack: () => void;
   onNext: () => void;
 }) {
+  const isConfirm = currentStep === STEPS.length - 1;
   return (
-    <div className="flex justify-between pt-2">
+    <div className="flex justify-between pt-2 gap-4">
       <button
         type="button"
         onClick={onBack}
-        className="text-sm font-semibold text-neutral-900"
+        disabled={isSubmitting}
+        className="text-sm font-semibold text-neutral-900 disabled:opacity-50"
       >
         {currentStep === 0 ? 'Cancel' : 'Back'}
       </button>
       <button
         type="button"
         onClick={onNext}
-        disabled={!canContinue}
-        className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
+        disabled={!canContinue || isSubmitting}
+        className={`rounded-md px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+          isConfirm
+            ? 'bg-success-600 hover:bg-success-500 shadow-md min-w-[10rem]'
+            : 'bg-brand-600 hover:bg-brand-500'
+        }`}
       >
         {primaryLabel}
       </button>
+    </div>
+  );
+}
+
+function AppliedPreview({
+  cash,
+  discount,
+  total,
+}: {
+  cash: number;
+  discount: number;
+  total: number;
+}) {
+  return (
+    <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2">
+      <div className="flex justify-between gap-4">
+        <span className="text-neutral-600">Cash received</span>
+        <span className="font-medium tabular-nums">{formatLKR(cash)}</span>
+      </div>
+      {discount > 0 && (
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-600">Discount given</span>
+          <span className="font-medium tabular-nums">{formatLKR(discount)}</span>
+        </div>
+      )}
+      <div className="flex justify-between gap-4 border-t border-neutral-200 pt-2">
+        <span className="font-medium text-neutral-900">Total applied</span>
+        <span className="font-bold text-brand-600 tabular-nums">
+          {formatLKR(total)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -566,13 +719,11 @@ function SummaryPanel({
   step,
   customer,
   loan,
-  form,
   computation,
 }: {
   step: number;
   customer: Customer | null | undefined;
   loan: Loan | null | undefined;
-  form: PaymentFormState;
   computation: ReturnType<typeof usePaymentComputation>;
 }) {
   if (!loan) {
@@ -587,7 +738,7 @@ function SummaryPanel({
   const isFixed = isFixedInstallmentLoan(loan);
 
   return (
-    <div className="rounded-xl bg-brand-800 text-white shadow-lg overflow-hidden">
+    <div className="rounded-xl bg-brand-800 text-white shadow-lg">
       <div className="p-6 border-b border-brand-700">
         <h3 className="text-lg font-medium text-brand-50">Payment summary</h3>
         {customer && (
@@ -598,34 +749,34 @@ function SummaryPanel({
         </p>
       </div>
       <div className="p-6 space-y-3 text-sm">
-        {isIO && computation.interestOnlySummary && (
+        {isIO && (
           <>
             <SummaryLine
-              label="Current principal"
-              value={formatLKR(loan.currentPrincipalBalance)}
+              label="Loan amount"
+              value={formatLKR(loan.principalAmount)}
             />
-            <SummaryLine
-              label="Pending interest"
-              value={formatLKR(computation.interestOnlySummary.pendingInterest)}
-            />
-            <SummaryLine
-              label="Current cycle interest"
-              value={formatLKR(
-                computation.interestOnlySummary.currentCycleInterestDue
-              )}
-            />
-            <SummaryLine
-              label="Monthly rate"
-              value={`${loan.interestRate}%`}
-            />
+            <SummaryLine label="Paid" value={formatLKR(loan.paidAmount)} />
+            <SummaryLine label="Balance" value={formatLKR(loan.balanceAmount)} />
             <SummaryLine
               label="Next due"
-              value={formatDate(loan.dueDate ?? loan.firstDueDate)}
+              value={
+                computation.paymentNextDue?.dueDate
+                  ? formatDate(computation.paymentNextDue.dueDate)
+                  : computation.paymentNextDue?.label ?? '—'
+              }
             />
           </>
         )}
         {isFixed && (
           <>
+            <SummaryLine
+              label={
+                loan.loanPurpose === 'BIKE_INSTALLMENT'
+                  ? 'Finance amount'
+                  : 'Loan amount'
+              }
+              value={formatLKR(loan.principalAmount)}
+            />
             <SummaryLine
               label="Total payable"
               value={formatLKR(loan.totalPayable ?? 0)}
@@ -633,34 +784,13 @@ function SummaryPanel({
             <SummaryLine label="Paid" value={formatLKR(loan.paidAmount)} />
             <SummaryLine label="Balance" value={formatLKR(loan.balanceAmount)} />
             <SummaryLine
-              label="Installment"
-              value={formatLKR(loan.installmentAmount ?? 0)}
-            />
-            <SummaryLine label="Late fee rate" value={`${loan.lateFeeRate}%`} />
-            <SummaryLine
               label="Next due"
-              value={formatDate(loan.dueDate ?? loan.firstDueDate)}
+              value={
+                computation.paymentNextDue?.dueDate
+                  ? formatDate(computation.paymentNextDue.dueDate)
+                  : computation.paymentNextDue?.label ?? '—'
+              }
             />
-            {computation.fixedArrears?.hasArrears && (
-              <>
-                <SummaryLine
-                  label="Arrears"
-                  value={`${computation.fixedArrears.arrearsInstallmentCount} installment(s)`}
-                />
-                <SummaryLine
-                  label="Installment arrears"
-                  value={formatLKR(computation.fixedArrears.arrearsInstallmentAmount)}
-                />
-                <SummaryLine
-                  label="Late fees (arrears)"
-                  value={formatLKR(computation.fixedArrears.lateFeesDue)}
-                />
-                <SummaryLine
-                  label="Total arrears due"
-                  value={formatLKR(computation.fixedArrears.totalArrearsDue)}
-                />
-              </>
-            )}
             {computation.fixedDueSummary && step >= 2 && (
               <>
                 <div className="pt-3 border-t border-brand-700" />
@@ -687,12 +817,31 @@ function SummaryPanel({
             )}
           </>
         )}
-        {step >= 2 && form.amount > 0 && computation.allocation && (
+        {step >= 2 && computation.appliedTotal > 0 && computation.allocation && (
           <>
             <div className="pt-3 border-t border-brand-700" />
             <p className="text-xs uppercase tracking-wide text-brand-300">
               Live preview
             </p>
+            {computation.receipt && 'cashReceived' in computation.receipt && (
+              <>
+                <SummaryLine
+                  label="Cash entered"
+                  value={formatLKR(computation.receipt.cashReceived)}
+                />
+                {computation.receipt.discountApplied > 0 && (
+                  <SummaryLine
+                    label="Discount applied"
+                    value={formatLKR(computation.receipt.discountApplied)}
+                  />
+                )}
+                <SummaryLine
+                  label="Total applied"
+                  value={formatLKR(computation.receipt.totalApplied)}
+                  highlight
+                />
+              </>
+            )}
             {isIO && computation.receipt && 'interestPaid' in computation.receipt && (
               <>
                 <SummaryLine

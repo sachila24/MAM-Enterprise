@@ -44,7 +44,11 @@ export type AllocationType =
   | 'INSTALLMENT'
   | 'LATE_FEE'
   | 'ADVANCE'
-  | 'SETTLEMENT';
+  | 'SETTLEMENT'
+  | 'INTEREST_DISCOUNT'
+  | 'PRINCIPAL_DISCOUNT'
+  | 'INSTALLMENT_DISCOUNT'
+  | 'LATE_FEE_DISCOUNT';
 
 export type EarlySettlementStatus = 'QUOTED' | 'PAID' | 'CANCELLED';
 
@@ -169,6 +173,10 @@ export interface LoanPayment {
   loanId: string;
   customerId: string;
   amount: number;
+  /** Owner waiver / discount at payment time (not cash received) */
+  discountAmount?: number;
+  /** Cash + discount applied to the loan */
+  appliedAmount?: number;
   paymentMethod: PaymentMethod;
   chequeNumber?: string;
   bankReference?: string;

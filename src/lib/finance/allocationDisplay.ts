@@ -1,8 +1,14 @@
 import type { PaymentAllocationResult } from './paymentAllocation';
 import type { InstallmentForAllocation } from './paymentAllocation';
-import { calculateLateFee, monthsLate } from './fixedInstallment';
+import {
+  calculateInstallmentLateFee,
+  type InstallmentArrearsInput,
+} from './fixedInstallmentStatus';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
-import { interestOutstandingOnCycle, type InterestCycleForAllocation } from './interestOnly';
+import {
+  interestOutstandingOnCycle,
+  type InterestCycleForAllocation,
+} from './interestOnly';
 import { roundLKR } from './money';
 
 export interface AllocationDisplayRow {
@@ -23,7 +29,11 @@ export function buildInterestOnlyAllocationRows(
 ): AllocationDisplayRow[] {
   const paidByCycle = new Map<string, number>();
   for (const line of allocation.allocations) {
-    if (line.allocationType === 'INTEREST' && line.interestCycleId) {
+    if (
+      (line.allocationType === 'INTEREST' ||
+        line.allocationType === 'INTEREST_DISCOUNT') &&
+      line.interestCycleId
+    ) {
       paidByCycle.set(
         line.interestCycleId,
         roundLKR((paidByCycle.get(line.interestCycleId) ?? 0) + line.amount)
@@ -76,10 +86,16 @@ export function buildFixedInstallmentAllocationRows(
   for (const line of allocation.allocations) {
     if (!line.installmentId) continue;
     const cur = paidByInst.get(line.installmentId) ?? { late: 0, inst: 0 };
-    if (line.allocationType === 'LATE_FEE') {
+    if (
+      line.allocationType === 'LATE_FEE' ||
+      line.allocationType === 'LATE_FEE_DISCOUNT'
+    ) {
       cur.late = roundLKR(cur.late + line.amount);
     }
-    if (line.allocationType === 'INSTALLMENT') {
+    if (
+      line.allocationType === 'INSTALLMENT' ||
+      line.allocationType === 'INSTALLMENT_DISCOUNT'
+    ) {
       cur.inst = roundLKR(cur.inst + line.amount);
     }
     paidByInst.set(line.installmentId, cur);
@@ -90,23 +106,28 @@ export function buildFixedInstallmentAllocationRows(
   );
 
   for (const inst of sorted) {
+    const instInput: InstallmentArrearsInput = {
+      installmentNumber: inst.installmentNumber,
+      dueDate: inst.dueDate,
+      installmentAmount: inst.installmentAmount,
+      paidAmount: inst.paidAmount,
+      lateFeeAmount: inst.lateFeeAmount,
+      lateFeePaid: inst.lateFeePaid,
+    };
+    const { lateFeeOutstanding } = calculateInstallmentLateFee(
+      instInput,
+      lateFeeRatePercent,
+      paymentDate
+    );
     const instOwed = installmentOutstanding(inst);
-    const months = monthsLate(inst.dueDate, paymentDate);
-    const lateDue =
-      instOwed > 0 && months > 0
-        ? calculateLateFee({
-            installmentAmount: inst.installmentAmount,
-            lateFeeRatePercent,
-            monthsLate: months,
-          })
-        : roundLKR(Math.max(0, inst.lateFeeAmount - inst.lateFeePaid));
     const paid = paidByInst.get(inst.id) ?? { late: 0, inst: 0 };
 
+    const lateDue = lateFeeOutstanding;
     if (lateDue > 0 || paid.late > 0) {
       rows.push({
         type: 'Late fee',
         period: `#${inst.installmentNumber} · ${inst.dueDate}`,
-        due: lateDue + paid.late,
+        due: roundLKR(lateDue + paid.late),
         paidByPayment: paid.late,
         remaining: roundLKR(Math.max(0, lateDue - paid.late)),
       });

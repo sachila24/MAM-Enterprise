@@ -22,9 +22,10 @@ export function BikesList() {
   const held = bikes.filter((b) => b.status === 'held').length;
   const filteredBikes = bikes.filter((bike) => {
     const matchesSearch =
-    bike.model.toLowerCase().includes(search.toLowerCase()) ||
-    bike.chassisNo.toLowerCase().includes(search.toLowerCase()) ||
-    bike.engineNo.toLowerCase().includes(search.toLowerCase());
+      bike.model.toLowerCase().includes(search.toLowerCase()) ||
+      bike.chassisNo.toLowerCase().includes(search.toLowerCase()) ||
+      bike.engineNo.toLowerCase().includes(search.toLowerCase()) ||
+      (bike.bikeCode?.toLowerCase().includes(search.toLowerCase()) ?? false);
     const matchesStatus =
     statusFilter === 'All' || bike.status === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
@@ -94,7 +95,7 @@ export function BikesList() {
               <thead className="bg-neutral-50">
                 <tr>
                   <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                    Model
+                    Code / model
                   </th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                     Chassis / Engine
@@ -117,8 +118,11 @@ export function BikesList() {
                 onClick={() => navigate(`/bikes/${bike.id}`)}
                 className="cursor-pointer hover:bg-neutral-50 transition-colors group">
                 
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
-                      {bike.model}
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                      <div className="text-xs font-semibold text-brand-700 tabular-nums">
+                        {bike.bikeCode}
+                      </div>
+                      <div className="font-medium text-neutral-900">{bike.model}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                       <div className="font-mono text-xs">{bike.chassisNo}</div>
@@ -163,10 +167,15 @@ export function BikesList() {
                 <BikeIcon className="h-12 w-12 text-neutral-300" />
               </div>
               <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-semibold text-neutral-900 line-clamp-1">
-                    {bike.model}
-                  </h3>
+                <div className="flex justify-between items-start gap-2 mb-2">
+                  <div>
+                    <div className="text-xs font-semibold text-brand-700 tabular-nums">
+                      {bike.bikeCode}
+                    </div>
+                    <h3 className="text-sm font-semibold text-neutral-900 line-clamp-1 mt-0.5">
+                      {bike.model}
+                    </h3>
+                  </div>
                   <StatusChip status={bike.status} showDot={false} />
                 </div>
                 <div className="text-xs text-neutral-500 font-mono mb-3">

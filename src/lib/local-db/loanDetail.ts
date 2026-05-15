@@ -2,6 +2,7 @@ import { summarizeInterestOnlyLoan } from '../finance/interestOnlyCycles';
 import { totalPendingInterest } from '../finance/interestOnly';
 import type { LoanDetailData } from '../../pages/loans/loanDetailPreviewData';
 import {
+  mapBike,
   mapCustomer,
   mapGuarantee,
   mapInstallment,
@@ -22,6 +23,10 @@ export function getLoanDetailFromDb(
 
   const loan = mapLoan(dbLoan);
   const customer = mapCustomer(customerRow, db);
+  const bikeRow = dbLoan.bike_id
+    ? db.bikes.find((b) => b.id === dbLoan.bike_id)
+    : undefined;
+  const bike = bikeRow ? mapBike(bikeRow) : undefined;
   const installments = db.loan_installments
     .filter((i) => i.loan_id === loanId)
     .sort((a, b) => a.installment_number - b.installment_number)
@@ -56,7 +61,10 @@ export function getLoanDetailFromDb(
     .filter((p) => p.loan_id === loanId && p.status === 'CONFIRMED')
     .flatMap((p) => {
       const principalAllocs = db.payment_allocations.filter(
-        (a) => a.payment_id === p.id && a.allocation_type === 'PRINCIPAL'
+        (a) =>
+          a.payment_id === p.id &&
+          (a.allocation_type === 'PRINCIPAL' ||
+            a.allocation_type === 'PRINCIPAL_DISCOUNT')
       );
       return principalAllocs.map((a) => ({
         paymentCode: p.payment_code,
@@ -104,6 +112,7 @@ export function getLoanDetailFromDb(
       dueDate: ioSummary?.nextDueDate ?? loan.dueDate,
     },
     customer,
+    bike,
     interestCycles,
     installments,
     guarantees,

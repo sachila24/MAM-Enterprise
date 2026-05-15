@@ -13,7 +13,9 @@ export interface Customer {
 
 export interface Bike {
   id: string;
+  bikeCode: string;
   model: string;
+  registrationNo?: string;
   chassisNo: string;
   engineNo: string;
   price: number;
@@ -21,9 +23,13 @@ export interface Bike {
   purchaseDate: string;
   sellingPrice: number;
   costPrice: number;
+  soldPrice?: number;
+  repairCost: number;
+  otherCost: number;
   color: string;
   year: number;
   soldDate?: string;
+  soldLoanId?: string;
 }
 
 export type {
@@ -78,13 +84,18 @@ export function toLegacyPayment(p: import('./loan').LoanPayment): Payment {
 
 export interface Guarantee {
   id: string;
+  guaranteeCode: string;
   loanId: string;
-  type: 'VEHICLE_BOOK' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  itemReference?: string;
+  ownerNameOnDocument?: string;
   description: string;
   storageLocation: string;
-  status: 'held' | 'released';
+  notes?: string;
+  status: 'held' | 'returned';
   receivedAt: string;
   releasedAt?: string;
+  releasedTo?: string;
 }
 
 export interface Expense {

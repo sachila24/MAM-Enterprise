@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/ui/Toast';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -12,6 +12,7 @@ import {
   calculateBikeFinanceAmount,
   calculateLateFeePerMonth,
 } from '../../lib/finance/fixedInstallment';
+import { parsePercentInput, sanitizePercentInput } from '../../lib/finance/parsePercent';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../../lib/finance/constants';
 import { computeFirstDueDate } from '../../lib/finance/dueDates';
 import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
@@ -22,6 +23,7 @@ import {
   listCustomers,
   listInStockBikes,
 } from '../../lib/local-db/repositories';
+import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
 
 const steps = [
   { id: 'customer', label: 'Customer' },
@@ -32,12 +34,72 @@ const steps = [
   { label: 'Confirm' },
 ];
 
+type LocalGuaranteeDraft = {
+  key: string;
+  itemType: 'VEHICLE_BOOK' | 'BIKE' | 'OTHER';
+  itemReference: string;
+  ownerNameOnDocument: string;
+  description: string;
+  storageLocation: string;
+  receivedDate: string;
+  notes: string;
+};
+
+function isGuaranteeDraftStarted(g: LocalGuaranteeDraft): boolean {
+  return (
+    g.description.trim() !== '' ||
+    g.storageLocation.trim() !== '' ||
+    g.itemReference.trim() !== '' ||
+    g.ownerNameOnDocument.trim() !== '' ||
+    g.notes.trim() !== ''
+  );
+}
+
+function validateGuaranteeDrafts(drafts: LocalGuaranteeDraft[]): string | null {
+  for (let i = 0; i < drafts.length; i++) {
+    const g = drafts[i];
+    if (!isGuaranteeDraftStarted(g)) continue;
+    if (!g.description.trim()) {
+      return `Guarantee item ${i + 1}: description is required.`;
+    }
+    if (!g.storageLocation.trim()) {
+      return `Guarantee item ${i + 1}: storage location is required.`;
+    }
+    if (!g.receivedDate) {
+      return `Guarantee item ${i + 1}: received date is required.`;
+    }
+  }
+  return null;
+}
+
+function mapCompleteGuarantees(
+  drafts: LocalGuaranteeDraft[]
+): CreateGuaranteeDraft[] {
+  return drafts
+    .filter(
+      (g) =>
+        g.description.trim() &&
+        g.storageLocation.trim() &&
+        g.receivedDate
+    )
+    .map((g) => ({
+      itemType: g.itemType,
+      itemReference: g.itemReference.trim() || undefined,
+      ownerNameOnDocument: g.ownerNameOnDocument.trim() || undefined,
+      description: g.description.trim(),
+      storageLocation: g.storageLocation.trim(),
+      receivedDate: g.receivedDate,
+      notes: g.notes.trim() || undefined,
+    }));
+}
+
 export function CreateLoan() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const db = useDemoDb();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const [customerId, setCustomerId] = useState('');
   const [loanPurpose, setLoanPurpose] = useState<LoanPurpose>('CASH_LOAN');
@@ -46,14 +108,24 @@ export function CreateLoan() {
   );
 
   const [loanAmount, setLoanAmount] = useState(0);
-  const [monthlyInterestRate, setMonthlyInterestRate] = useState(5);
+  const [monthlyInterestInput, setMonthlyInterestInput] = useState('5');
   const [dueDay, setDueDay] = useState(1);
 
   const [financeAmount, setFinanceAmount] = useState(0);
   const [termMonths, setTermMonths] = useState(36);
-  const [monthlyFlatRate, setMonthlyFlatRate] = useState(2.5);
-  const [lateFeeRate, setLateFeeRate] = useState(DEFAULT_LATE_FEE_RATE_PERCENT);
+  const [monthlyFlatInput, setMonthlyFlatInput] = useState('2.5');
+  const [lateFeeInput, setLateFeeInput] = useState(
+    String(DEFAULT_LATE_FEE_RATE_PERCENT)
+  );
   const [discountAmount, setDiscountAmount] = useState(0);
+
+  const [guaranteeDrafts, setGuaranteeDrafts] = useState<LocalGuaranteeDraft[]>(
+    []
+  );
+
+  const monthlyInterestRate = parsePercentInput(monthlyInterestInput);
+  const monthlyFlatRate = parsePercentInput(monthlyFlatInput);
+  const lateFeeRate = parsePercentInput(lateFeeInput);
 
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -70,6 +142,12 @@ export function CreateLoan() {
   const isInterestOnly =
     repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const isBike = loanPurpose === 'BIKE_INSTALLMENT';
+
+  useEffect(() => {
+    if (isBike && repaymentMethod !== 'FIXED_TERM_INSTALLMENT') {
+      setRepaymentMethod('FIXED_TERM_INSTALLMENT');
+    }
+  }, [isBike, repaymentMethod]);
 
   const effectiveFinanceAmount = useMemo(() => {
     if (isBike) {
@@ -108,8 +186,18 @@ export function CreateLoan() {
 
   const handlePurposeChange = (purpose: LoanPurpose) => {
     setLoanPurpose(purpose);
+    if (purpose === 'BIKE_INSTALLMENT') {
+      setRepaymentMethod('FIXED_TERM_INSTALLMENT');
+      return;
+    }
     const defaultMethod = defaultRepaymentMethod(purpose);
     if (defaultMethod) setRepaymentMethod(defaultMethod);
+  };
+
+  const handleBikeSelect = (id: string) => {
+    setBikeId(id);
+    const bike = bikes.find((b) => b.id === id);
+    if (bike) setSellingPrice(bike.sellingPrice || bike.price);
   };
 
   const handleStartDateChange = (date: string) => {
@@ -118,11 +206,55 @@ export function CreateLoan() {
   };
 
   const handleNext = () => {
+    const err = ((): string | null => {
+      if (currentStep === 0 && !customerId) return 'Select a customer.';
+      if (currentStep === 3 && isInterestOnly) {
+        if (!isBike && (!loanAmount || loanAmount <= 0))
+          return 'Enter a loan amount.';
+        if (!firstDueDate) return 'Set a first due date.';
+      }
+      if (currentStep === 3 && !isInterestOnly) {
+        if (!isBike && (!financeAmount || financeAmount <= 0))
+          return 'Enter a finance amount.';
+        if (!termMonths || termMonths < 1) return 'Enter a valid term.';
+        if (!firstDueDate) return 'Set a first due date.';
+      }
+      if (currentStep === 3 && isBike && !bikeId) {
+        return 'Select an in-stock bike for this installment.';
+      }
+      if (currentStep === 3 && isBike && sellingPrice <= 0) {
+        return 'Enter the bike selling price.';
+      }
+      if (currentStep >= 4) {
+        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
+        if (gErr) return gErr;
+      }
+      if (currentStep === 4 && isBike && !bikeId)
+        return 'Select an in-stock bike for this installment.';
+      if (currentStep === steps.length - 1) {
+        if (!customerId) return 'Select a customer.';
+        if (isBike && !bikeId) return 'Select a bike before confirming.';
+        if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
+          return 'Finance amount must be greater than zero.';
+        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
+        if (gErr) return gErr;
+      }
+      return null;
+    })();
+
+    if (err) {
+      showToast(err, 'error');
+      return;
+    }
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
       return;
     }
-    if (!customerId) return;
+
+    if (!customerId || isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       const loan = createLoan(
@@ -139,17 +271,23 @@ export function CreateLoan() {
           firstDueDate: firstDueDate || computeFirstDueDate(startDate),
           dueDay: isInterestOnly ? dueDay : undefined,
           bikeId: isBike ? bikeId : undefined,
+          guarantees: mapCompleteGuarantees(guaranteeDrafts),
         },
         db
       );
       showToast(`Loan ${loan.loanCode} created`, 'success');
-      navigate(`/loans/${loan.id}`);
-    } finally {
+      navigate(`/loans/${loan.id}`, { replace: true });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not create loan';
+      showToast(message, 'error');
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   const handleBack = () => {
+    if (isSubmitting) return;
     if (currentStep > 0) setCurrentStep(currentStep - 1);
     else navigate('/loans');
   };
@@ -158,13 +296,14 @@ export function CreateLoan() {
     <div className="max-w-7xl mx-auto">
       <PageHeader title="Create Loan" subtitle="Set up a new loan agreement" />
 
-      <div className="mb-8 max-w-3xl">
+      <div className="mb-8 w-full">
         <Stepper steps={steps} current={currentStep} />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="flex-1 lg:max-w-[60%]">
-          <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg p-6 mb-6 min-h-[400px]">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-8">
+        <div className="flex-1 min-w-0 lg:max-w-[60%] flex flex-col">
+          <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg p-6 mb-6 flex-1 flex flex-col min-h-[min(480px,55vh)]">
+            <div className="flex-1">
             {currentStep === 0 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-neutral-900">
@@ -217,28 +356,41 @@ export function CreateLoan() {
                 <h3 className="text-lg font-medium text-neutral-900">
                   Repayment Method
                 </h3>
-                {(
-                  [
+                {isBike ? (
+                  <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-brand-900">
+                      Fixed monthly installments
+                    </p>
+                    <p className="text-sm text-brand-800">
+                      Bike installment uses fixed-term leasing: equal monthly
+                      payments over the selected term. Interest-only repayment is
+                      not available for bike sales.
+                    </p>
+                  </div>
+                ) : (
+                  (
                     [
-                      'INTEREST_ONLY_REDUCING_PRINCIPAL',
-                      'Monthly Interest / Reducing Principal',
-                    ],
-                    ['FIXED_TERM_INSTALLMENT', 'Fixed Term Installment'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label
-                    key={value}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      checked={repaymentMethod === value}
-                      onChange={() => setRepaymentMethod(value)}
-                      className="h-4 w-4 text-brand-600"
-                    />
-                    <span className="text-sm text-neutral-900">{label}</span>
-                  </label>
-                ))}
+                      [
+                        'INTEREST_ONLY_REDUCING_PRINCIPAL',
+                        'Monthly Interest / Reducing Principal',
+                      ],
+                      ['FIXED_TERM_INSTALLMENT', 'Fixed Term Installment'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <label
+                      key={value}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        checked={repaymentMethod === value}
+                        onChange={() => setRepaymentMethod(value)}
+                        className="h-4 w-4 text-brand-600"
+                      />
+                      <span className="text-sm text-neutral-900">{label}</span>
+                    </label>
+                  ))
+                )}
               </div>
             )}
 
@@ -261,10 +413,11 @@ export function CreateLoan() {
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={monthlyInterestRate}
+                    value={monthlyInterestInput}
                     onChange={(e) =>
-                      setMonthlyInterestRate(parseFloat(e.target.value) || 0)
+                      setMonthlyInterestInput(sanitizePercentInput(e.target.value))
                     }
+                    autoComplete="off"
                     className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm tabular-nums"
                   />
                 </div>
@@ -302,8 +455,38 @@ export function CreateLoan() {
             {currentStep === 3 && !isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Fixed Installment Terms
+                  {isBike ? 'Bike & installment terms' : 'Fixed Installment Terms'}
                 </h3>
+                {isBike && (
+                  <div className="space-y-4 pb-6 border-b border-neutral-200">
+                    <select
+                      value={bikeId}
+                      onChange={(e) => handleBikeSelect(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
+                    >
+                      <option value="">-- Select in-stock bike --</option>
+                      {bikes.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.bikeCode} · {b.model} — {b.engineNo}
+                        </option>
+                      ))}
+                    </select>
+                    <CurrencyInput
+                      label="Bike selling price *"
+                      value={sellingPrice}
+                      onChange={setSellingPrice}
+                    />
+                    <CurrencyInput
+                      label="Down payment *"
+                      value={downPayment}
+                      onChange={setDownPayment}
+                    />
+                    <p className="text-sm text-neutral-600">
+                      Finance amount:{' '}
+                      <strong>{formatLKR(effectiveFinanceAmount)}</strong>
+                    </p>
+                  </div>
+                )}
                 <CurrencyInput
                   label="Finance amount *"
                   value={effectiveFinanceAmount}
@@ -332,10 +515,11 @@ export function CreateLoan() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={monthlyFlatRate}
+                      value={monthlyFlatInput}
                       onChange={(e) =>
-                        setMonthlyFlatRate(parseFloat(e.target.value) || 0)
+                        setMonthlyFlatInput(sanitizePercentInput(e.target.value))
                       }
+                      autoComplete="off"
                       className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
                     />
                   </div>
@@ -347,10 +531,11 @@ export function CreateLoan() {
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={lateFeeRate}
+                    value={lateFeeInput}
                     onChange={(e) =>
-                      setLateFeeRate(parseFloat(e.target.value) || 0)
+                      setLateFeeInput(sanitizePercentInput(e.target.value))
                     }
+                    autoComplete="off"
                     className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
                   />
                 </div>
@@ -375,48 +560,242 @@ export function CreateLoan() {
               </div>
             )}
 
-            {currentStep === 4 && isBike && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-neutral-900">Bike</h3>
-                <select
-                  value={bikeId}
-                  onChange={(e) => {
-                    setBikeId(e.target.value);
-                    const bike = bikes.find((b) => b.id === e.target.value);
-                    if (bike) setSellingPrice(bike.sellingPrice || bike.price);
-                  }}
-                  className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
-                >
-                  <option value="">-- Select bike --</option>
-                  {bikes
-                    .filter((b) => b.status === 'in_stock')
-                    .map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.model} — {b.engineNo}
-                      </option>
-                    ))}
-                </select>
-                <CurrencyInput
-                  label="Selling price *"
-                  value={sellingPrice}
-                  onChange={setSellingPrice}
-                />
-                <CurrencyInput
-                  label="Down payment *"
-                  value={downPayment}
-                  onChange={setDownPayment}
-                />
-                <p className="text-sm text-neutral-600">
-                  Finance amount:{' '}
-                  <strong>{formatLKR(effectiveFinanceAmount)}</strong>
-                </p>
-              </div>
-            )}
+            {currentStep === 4 && (
+              <div className="space-y-8">
+                {isBike && bikeId && (
+                  <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-1">
+                    <p className="font-semibold text-neutral-900">Selected bike</p>
+                    <p>
+                      {bikes.find((b) => b.id === bikeId)?.bikeCode ?? '—'} ·{' '}
+                      {bikes.find((b) => b.id === bikeId)?.model ?? '—'}
+                    </p>
+                    <p>
+                      Selling {formatLKR(sellingPrice)} · Down{' '}
+                      {formatLKR(downPayment)} · Finance{' '}
+                      {formatLKR(effectiveFinanceAmount)}
+                    </p>
+                  </div>
+                )}
+                {isBike && !bikeId && (
+                  <p className="text-sm text-danger-700 bg-danger-50 rounded-md p-3">
+                    Go back to Terms and select an in-stock bike before continuing.
+                  </p>
+                )}
 
-            {currentStep === 4 && !isBike && (
-              <p className="text-sm text-neutral-600">
-                Guarantees can be added after loan creation from Loan Detail.
-              </p>
+                <div className="rounded-xl bg-neutral-50 ring-1 ring-neutral-200 p-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-lg font-medium text-neutral-900">
+                      Guarantee items
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setGuaranteeDrafts((prev) => [
+                          ...prev,
+                          {
+                            key: crypto.randomUUID(),
+                            itemType: 'VEHICLE_BOOK',
+                            itemReference: '',
+                            ownerNameOnDocument: '',
+                            description: '',
+                            storageLocation: '',
+                            receivedDate:
+                              new Date().toISOString().split('T')[0],
+                            notes: '',
+                          },
+                        ])
+                      }
+                      className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
+                    >
+                      Add another guarantee
+                    </button>
+                  </div>
+                  <p className="text-sm text-neutral-600">
+                    {isBike
+                      ? 'Optional extra collateral in addition to the bike.'
+                      : 'Add one or more guarantee items held by the shop.'}
+                  </p>
+
+                  {guaranteeDrafts.length === 0 && (
+                    <p className="text-sm text-neutral-500 italic">
+                      No items yet — use &quot;Add another guarantee&quot; to start.
+                    </p>
+                  )}
+
+                  <ul className="space-y-4">
+                    {guaranteeDrafts.map((g, idx) => (
+                      <li
+                        key={g.key}
+                        className="rounded-lg bg-white p-4 ring-1 ring-neutral-200 shadow-sm space-y-3"
+                      >
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-sm font-semibold text-neutral-800">
+                            Item {idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGuaranteeDrafts((prev) =>
+                                prev.filter((x) => x.key !== g.key)
+                              )
+                            }
+                            className="text-xs font-semibold text-danger-700 hover:text-danger-900"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-700 mb-1">
+                            Guarantee type
+                          </label>
+                          <select
+                            value={g.itemType}
+                            onChange={(e) =>
+                              setGuaranteeDrafts((prev) =>
+                                prev.map((x) =>
+                                  x.key === g.key
+                                    ? {
+                                        ...x,
+                                        itemType: e.target.value as LocalGuaranteeDraft['itemType'],
+                                      }
+                                    : x
+                                )
+                              )
+                            }
+                            className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 text-sm bg-white"
+                          >
+                            <option value="VEHICLE_BOOK">Vehicle book</option>
+                            <option value="BIKE">Bike</option>
+                            <option value="OTHER">Other valuable item</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-neutral-700 mb-1">
+                              Vehicle number / item reference
+                            </label>
+                            <input
+                              type="text"
+                              value={g.itemReference}
+                              onChange={(e) =>
+                                setGuaranteeDrafts((prev) =>
+                                  prev.map((x) =>
+                                    x.key === g.key
+                                      ? { ...x, itemReference: e.target.value }
+                                      : x
+                                  )
+                                )
+                              }
+                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-neutral-700 mb-1">
+                              Owner name on document
+                            </label>
+                            <input
+                              type="text"
+                              value={g.ownerNameOnDocument}
+                              onChange={(e) =>
+                                setGuaranteeDrafts((prev) =>
+                                  prev.map((x) =>
+                                    x.key === g.key
+                                      ? {
+                                          ...x,
+                                          ownerNameOnDocument: e.target.value,
+                                        }
+                                      : x
+                                  )
+                                )
+                              }
+                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-700 mb-1">
+                            Description *
+                          </label>
+                          <textarea
+                            value={g.description}
+                            onChange={(e) =>
+                              setGuaranteeDrafts((prev) =>
+                                prev.map((x) =>
+                                  x.key === g.key
+                                    ? { ...x, description: e.target.value }
+                                    : x
+                                )
+                              )
+                            }
+                            rows={2}
+                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-neutral-700 mb-1">
+                              Storage location *
+                            </label>
+                            <input
+                              type="text"
+                              value={g.storageLocation}
+                              onChange={(e) =>
+                                setGuaranteeDrafts((prev) =>
+                                  prev.map((x) =>
+                                    x.key === g.key
+                                      ? {
+                                          ...x,
+                                          storageLocation: e.target.value,
+                                        }
+                                      : x
+                                  )
+                                )
+                              }
+                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
+                            />
+                          </div>
+                          <DatePicker
+                            label="Received date *"
+                            value={g.receivedDate}
+                            onChange={(e) =>
+                              setGuaranteeDrafts((prev) =>
+                                prev.map((x) =>
+                                  x.key === g.key
+                                    ? { ...x, receivedDate: e.target.value }
+                                    : x
+                                )
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-700 mb-1">
+                            Notes
+                          </label>
+                          <input
+                            type="text"
+                            value={g.notes}
+                            onChange={(e) =>
+                              setGuaranteeDrafts((prev) =>
+                                prev.map((x) =>
+                                  x.key === g.key
+                                    ? { ...x, notes: e.target.value }
+                                    : x
+                                )
+                              )
+                            }
+                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-neutral-500">
+                    Stored as Held when the loan is confirmed. Started rows must
+                    include description, storage location, and received date.
+                  </p>
+                </div>
+              </div>
             )}
 
             {currentStep === 5 && (
@@ -440,13 +819,15 @@ export function CreateLoan() {
                 </dl>
               </div>
             )}
+            </div>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex justify-between shrink-0">
             <button
               type="button"
               onClick={handleBack}
-              className="text-sm font-semibold text-neutral-900"
+              disabled={isSubmitting}
+              className="text-sm font-semibold text-neutral-900 disabled:opacity-50"
             >
               {currentStep === 0 ? 'Cancel' : 'Back'}
             </button>
@@ -454,10 +835,10 @@ export function CreateLoan() {
               type="button"
               onClick={handleNext}
               disabled={isSubmitting}
-              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 min-w-[8rem]"
             >
               {isSubmitting
-                ? 'Saving...'
+                ? 'Creating loan…'
                 : currentStep === steps.length - 1
                   ? 'Confirm Loan'
                   : 'Next'}
@@ -465,8 +846,9 @@ export function CreateLoan() {
           </div>
         </div>
 
-        <div className="flex-1 lg:max-w-[40%]">
-          <div className="sticky top-24 bg-brand-800 rounded-xl shadow-lg text-white p-6">
+        <div className="flex-1 lg:max-w-[40%] w-full lg:self-start">
+          <div className="lg:sticky lg:top-24 max-h-[calc(100vh-6rem)] overflow-y-auto lg:pr-1">
+            <div className="bg-brand-800 rounded-xl shadow-lg text-white p-6">
             <h3 className="text-lg font-medium mb-4 text-brand-50">
               Calculation
             </h3>
@@ -493,6 +875,18 @@ export function CreateLoan() {
               </dl>
             ) : (
               <dl className="space-y-3 text-sm">
+                {isBike && (
+                  <>
+                    <div className="flex justify-between">
+                      <dt className="text-brand-200">Selling price</dt>
+                      <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-brand-200">Down payment</dt>
+                      <dd className="tabular-nums">{formatLKR(downPayment)}</dd>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-brand-200">Finance amount</dt>
                   <dd className="tabular-nums">{formatLKR(fixedCalc.financeAmount)}</dd>
@@ -519,6 +913,7 @@ export function CreateLoan() {
                 </div>
               </dl>
             )}
+            </div>
           </div>
         </div>
       </div>

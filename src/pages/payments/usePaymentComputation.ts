@@ -27,10 +27,22 @@ import {
   type InterestCycleForAllocation,
 } from '../../lib/finance/interestOnly';
 import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
+import {
+  splitAllocationsCashAndDiscount,
+  summarizeLinesForFixedPayment,
+  summarizeLinesForInterestOnlyPayment,
+} from '../../lib/finance/paymentDiscountSplit';
+import {
+  getNextDueDateForFixedInstallments,
+  getNextDueDateForInterestOnly,
+} from '../../lib/finance/loanNextDue';
 import type { PaymentPreviewBundle } from './paymentPreviewData';
+import type { PaymentAllocationResult } from '../../lib/finance/paymentAllocation';
+import { roundLKR } from '../../lib/finance/money';
 
 export interface PaymentFormState {
   amount: number;
+  discountAmount?: number;
   paymentMethod: PaymentMethod;
   paymentDate: string;
   notes: string;
@@ -38,11 +50,19 @@ export interface PaymentFormState {
   bankReference: string;
 }
 
+function sumAlloc(lines: PaymentAllocationResult['allocations']): number {
+  return roundLKR(lines.reduce((s, l) => s + l.amount, 0));
+}
+
 export function usePaymentComputation(
   loan: Loan | null | undefined,
   bundle: PaymentPreviewBundle | null,
   form: PaymentFormState
 ) {
+  const cash = roundLKR(form.amount);
+  const disc = roundLKR(form.discountAmount ?? 0);
+  const totalApply = roundLKR(cash + disc);
+
   const cycles: InterestCycleForAllocation[] = useMemo(() => {
     if (!loan || !bundle) return [];
     return bundle.interestCyclesByLoanId[loan.id] ?? [];
@@ -64,7 +84,8 @@ export function usePaymentComputation(
   const interestOnlySummary = useMemo(() => {
     if (!loan || !isInterestOnlyLoan(loan)) return null;
     const pending = totalPendingInterest(cycles);
-    const currentCycle = cycles.find((c) => c.isCurrentCycle) ?? cycles[cycles.length - 1];
+    const currentCycle =
+      cycles.find((c) => c.isCurrentCycle) ?? cycles[cycles.length - 1];
     const currentCycleDue = currentCycle
       ? interestOutstandingOnCycle(currentCycle)
       : calculateMonthlyInterestDue(
@@ -91,24 +112,29 @@ export function usePaymentComputation(
       },
       form.paymentDate
     );
-  }, [loan, installments, form.paymentDate, currentInstallmentNumber]);
+  }, [
+    loan,
+    installments,
+    form.paymentDate,
+    currentInstallmentNumber,
+  ]);
 
   const allocation = useMemo(() => {
-    if (!loan || form.amount <= 0) return null;
+    if (!loan || totalApply <= 0) return null;
+
+    let base: PaymentAllocationResult;
 
     if (isInterestOnlyLoan(loan)) {
-      return allocateInterestOnlyPaymentLines(
+      base = allocateInterestOnlyPaymentLines(
         {
           currentPrincipal: loan.currentPrincipalBalance,
           monthlyInterestRatePercent: loan.interestRate,
           cycles,
         },
-        form.amount
+        totalApply
       );
-    }
-
-    if (isFixedInstallmentLoan(loan) && installments.length > 0) {
-      return allocateFixedInstallmentPayment(
+    } else if (isFixedInstallmentLoan(loan) && installments.length > 0) {
+      base = allocateFixedInstallmentPayment(
         {
           installments,
           paymentDate: form.paymentDate,
@@ -116,12 +142,44 @@ export function usePaymentComputation(
           currentInstallmentNumber,
           loanBalanceAmount: loan.balanceAmount,
         },
-        form.amount
+        totalApply
       );
+    } else {
+      return null;
     }
 
-    return null;
-  }, [loan, form.amount, form.paymentDate, cycles, installments, currentInstallmentNumber]);
+    const finalLines =
+      disc > 0
+        ? splitAllocationsCashAndDiscount(base.allocations, cash, disc)
+        : base.allocations.filter((l) => l.amount > 0);
+
+    const totalAllocated = sumAlloc(finalLines);
+    const summary = isInterestOnlyLoan(loan)
+      ? summarizeLinesForInterestOnlyPayment(finalLines, base.summary)
+      : summarizeLinesForFixedPayment(
+          finalLines,
+          currentInstallmentNumber,
+          base.summary
+        );
+
+    const merged: PaymentAllocationResult = {
+      ...base,
+      allocations: finalLines,
+      summary,
+      totalAllocated,
+      unallocated: roundLKR(totalApply - totalAllocated),
+    };
+    return merged;
+  }, [
+    loan,
+    totalApply,
+    cash,
+    disc,
+    form.paymentDate,
+    cycles,
+    installments,
+    currentInstallmentNumber,
+  ]);
 
   const allocationRows = useMemo(() => {
     if (!loan || !allocation) return [];
@@ -142,17 +200,24 @@ export function usePaymentComputation(
   const receipt = useMemo(() => {
     if (!loan || !allocation) return null;
     if (isInterestOnlyLoan(loan)) {
-      return buildInterestOnlyReceipt(allocation, loan.interestRate);
+      return buildInterestOnlyReceipt(
+        allocation,
+        loan.interestRate,
+        cash,
+        disc
+      );
     }
     if (isFixedInstallmentLoan(loan) && fixedDueSummary) {
       return buildFixedInstallmentReceipt(
         allocation,
         loan.balanceAmount,
-        fixedDueSummary.totalDue
+        fixedDueSummary.totalDue,
+        cash,
+        disc
       );
     }
     return null;
-  }, [loan, allocation, fixedDueSummary]);
+  }, [loan, allocation, fixedDueSummary, cash, disc]);
 
   const fixedArrears = useMemo(() => {
     if (!loan || !isFixedInstallmentLoan(loan) || installments.length === 0) {
@@ -165,7 +230,29 @@ export function usePaymentComputation(
     );
   }, [loan, installments, form.paymentDate]);
 
+  const paymentNextDue = useMemo(() => {
+    if (!loan) return null;
+    if (isInterestOnlyLoan(loan)) {
+      return getNextDueDateForInterestOnly(
+        loan.startDate,
+        cycles,
+        form.paymentDate
+      );
+    }
+    if (isFixedInstallmentLoan(loan) && installments.length) {
+      return getNextDueDateForFixedInstallments(
+        installments as InstallmentArrearsInput[],
+        loan.lateFeeRate,
+        form.paymentDate
+      );
+    }
+    return null;
+  }, [loan, cycles, installments, form.paymentDate, loan?.lateFeeRate]);
+
   return {
+    appliedTotal: totalApply,
+    cashAmount: cash,
+    discountAmount: disc,
     cycles,
     installments,
     currentInstallmentNumber,
@@ -176,5 +263,6 @@ export function usePaymentComputation(
     receipt,
     fixedArrears,
     arrearsCount: fixedArrears?.arrearsInstallmentCount ?? 0,
+    paymentNextDue,
   };
 }

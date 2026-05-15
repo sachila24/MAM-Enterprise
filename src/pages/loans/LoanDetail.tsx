@@ -9,19 +9,20 @@ import {
 import { KpiCard } from '../../components/ui/KpiCard';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
-import {
-  isInterestOnlyLoan,
-  type Loan,
-  type LoanInstallment,
-} from '../../types/loan';
+import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
   enrichFixedInstallment,
   getFixedLoanArrearsSummary,
   getFixedLoanDisplayStatus,
+  type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import {
+  getNextDueDateForFixedInstallments,
+  getNextDueDateForInterestOnly,
+} from '../../lib/finance/loanNextDue';
 import {
   resolveLoanDetailPreview,
   LOAN_DETAIL_PREVIEW_LINKS,
@@ -36,6 +37,7 @@ import { getDb } from '../../lib/local-db/localDb';
 import { syncFixedInstallmentLateFees } from '../../lib/local-db/fixedInstallmentSync';
 import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
 import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
+import { roundLKR } from '../../lib/finance/money';
 
 const AS_OF_DATE = new Date().toISOString().split('T')[0];
 
@@ -139,8 +141,25 @@ function InterestOnlyLoanDetail({
     [loan.startDate, loan.interestRate, loan.currentPrincipalBalance, cycleAlloc, asOf]
   );
 
+  const nextDueIo = useMemo(
+    () =>
+      getNextDueDateForInterestOnly(
+        loan.startDate,
+        cycleAlloc,
+        AS_OF_DATE
+      ),
+    [loan.startDate, cycleAlloc]
+  );
+
   const pendingInterest =
     loan.pendingInterestAmount ?? summary.pendingInterest;
+
+  const nextDueLabel =
+    loan.status === 'COMPLETED'
+      ? 'Completed'
+      : nextDueIo.dueDate
+        ? formatDate(nextDueIo.dueDate)
+        : nextDueIo.label;
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
@@ -161,6 +180,10 @@ function InterestOnlyLoanDetail({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
         <KpiCard
+          label="Original principal"
+          value={formatLKR(loan.originalPrincipalAmount)}
+        />
+        <KpiCard
           label="Current principal balance"
           value={formatLKR(loan.currentPrincipalBalance)}
         />
@@ -174,10 +197,7 @@ function InterestOnlyLoanDetail({
           value={formatLKR(summary.nextEstimatedInterest)}
         />
         <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
-        <KpiCard
-          label="Next due date"
-          value={formatDate(loan.dueDate ?? summary.nextDueDate)}
-        />
+        <KpiCard label="Next due date" value={nextDueLabel} />
       </div>
 
       <section className="mb-8">
@@ -238,7 +258,7 @@ function FixedInstallmentLoanDetail({
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { loan, customer, installments, guarantees } = detail;
+  const { loan, customer, installments, guarantees, bike } = detail;
   const enriched = useMemo(
     () =>
       installments.map((inst) =>
@@ -256,6 +276,31 @@ function FixedInstallmentLoanDetail({
     () => getFixedLoanDisplayStatus(loan.status, enriched, AS_OF_DATE),
     [loan.status, enriched]
   );
+
+  const nextFixed = useMemo(
+    () =>
+      getNextDueDateForFixedInstallments(
+        enriched as InstallmentArrearsInput[],
+        loan.lateFeeRate,
+        AS_OF_DATE
+      ),
+    [enriched, loan.lateFeeRate]
+  );
+
+  const nextDueLabel =
+    loan.status === 'COMPLETED'
+      ? 'Completed'
+      : nextFixed.dueDate
+        ? formatDate(nextFixed.dueDate)
+        : nextFixed.label;
+
+  const financeLabel =
+    loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
+
+  const downPaymentHint =
+    bike && loan.principalAmount <= bike.sellingPrice
+      ? roundLKR(bike.sellingPrice - loan.principalAmount)
+      : undefined;
 
   const settlementEligible = canRequestEarlySettlement(
     detail.monthsCompleted,
@@ -281,7 +326,12 @@ function FixedInstallmentLoanDetail({
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+        <KpiCard
+          label={financeLabel}
+          value={formatLKR(loan.principalAmount)}
+        />
+        <KpiCard label="Total interest" value={formatLKR(loan.totalInterestAmount ?? 0)} />
         <KpiCard label="Total payable" value={formatLKR(loan.totalPayable ?? 0)} />
         <KpiCard label="Paid" value={formatLKR(loan.paidAmount)} />
         <KpiCard label="Balance" value={formatLKR(loan.balanceAmount)} />
@@ -291,10 +341,53 @@ function FixedInstallmentLoanDetail({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      {bike && (
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Linked bike
+            </p>
+            <p className="mt-1 font-semibold text-neutral-900">{bike.model}</p>
+            <p className="text-sm text-neutral-600">
+              Stock ref {bike.bikeCode} · Engine {bike.engineNo}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Bike selling price
+            </p>
+            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+              {formatLKR(bike.sellingPrice)}
+            </p>
+          </div>
+          {downPaymentHint !== undefined ? (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                Estimated down payment
+              </p>
+              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+                {formatLKR(downPaymentHint)}
+              </p>
+              <p className="mt-2 text-xs text-neutral-500">
+                Selling price minus finance amount
+              </p>
+            </div>
+          ) : null}
+          <div className="sm:col-span-3">
+            <Link
+              to={`/bikes/${bike.id}`}
+              className="text-sm font-semibold text-brand-600 hover:text-brand-500"
+            >
+              Open bike detail
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
         <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
         <KpiCard label="Late fee rate" value={`${loan.lateFeeRate}%`} />
-        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
+        <KpiCard label="Next due" value={nextDueLabel} />
         <KpiCard
           label="Arrears"
           value={
@@ -583,9 +676,12 @@ function GuaranteesSection({
               className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
             >
               <div className="flex justify-between items-start gap-2">
-                <p className="font-medium text-neutral-900">
-                  {formatEnum(g.type)}
-                </p>
+                <div>
+                  <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
+                  <p className="font-medium text-neutral-900">
+                    {formatEnum(g.type)}
+                  </p>
+                </div>
                 <StatusChip status={g.status} />
               </div>
               <p className="mt-2 text-sm text-neutral-600">{g.description}</p>

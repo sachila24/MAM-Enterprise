@@ -21,6 +21,7 @@ import { BikeForm } from './pages/bikes/BikeForm';
 import { BikeDetail } from './pages/bikes/BikeDetail';
 import { GuaranteesList } from './pages/guarantees/GuaranteesList';
 import { AddGuarantee } from './pages/guarantees/AddGuarantee';
+import { GuaranteeDetail } from './pages/guarantees/GuaranteeDetail';
 import { ExpensesList } from './pages/expenses/ExpensesList';
 import { AddExpense } from './pages/expenses/AddExpense';
 import { Reports } from './pages/reports/Reports';
@@ -76,6 +77,7 @@ export function App() {
               <Route path="guarantees">
                 <Route index element={<GuaranteesList />} />
                 <Route path="new" element={<AddGuarantee />} />
+                <Route path=":id" element={<GuaranteeDetail />} />
               </Route>
 
               <Route path="expenses">

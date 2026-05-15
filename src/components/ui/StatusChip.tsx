@@ -22,7 +22,7 @@ export function StatusChip({ status, showDot = true }: StatusChipProps) {
   const s = status.toLowerCase();
   let colorClass = 'bg-neutral-100 text-neutral-700 ring-neutral-200';
   let dotClass = 'bg-neutral-500';
-  if (['active', 'confirmed', 'paid', 'in_stock', 'released'].includes(s)) {
+  if (['active', 'confirmed', 'paid', 'in_stock', 'released', 'returned'].includes(s)) {
     colorClass = 'bg-success-50 text-success-700 ring-success-200';
     dotClass = 'bg-success-500';
   } else if (['overdue', 'danger', 'cancelled'].includes(s)) {

@@ -32,6 +32,9 @@ export function GuaranteesList() {
   const electronics = guarantees.filter(
     (g) => g.type === 'ELECTRONICS' && g.status === 'held'
   ).length;
+  const bikeHeld = guarantees.filter(
+    (g) => g.type === 'BIKE' && g.status === 'held'
+  ).length;
   const enrichedGuarantees = guarantees.map((g) => {
     const loan = loans.find((l) => l.id === g.loanId);
     const customer = loan
@@ -45,9 +48,10 @@ export function GuaranteesList() {
   });
   const filteredGuarantees = enrichedGuarantees.filter((g) => {
     const matchesSearch =
-    g.description.toLowerCase().includes(search.toLowerCase()) ||
-    g.loanId.toLowerCase().includes(search.toLowerCase()) ||
-    (g.customer?.name.toLowerCase() || '').includes(search.toLowerCase());
+      g.description.toLowerCase().includes(search.toLowerCase()) ||
+      g.guaranteeCode.toLowerCase().includes(search.toLowerCase()) ||
+      (g.loan?.loanCode.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+      (g.customer?.name.toLowerCase().includes(search.toLowerCase()) ?? false);
     const matchesStatus =
     statusFilter === 'All' || g.status === statusFilter.toLowerCase();
     const matchesType = typeFilter === 'All' || g.type === typeFilter;
@@ -69,11 +73,12 @@ export function GuaranteesList() {
         } />
       
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">
         <KpiCard label="Total Held" value={totalHeld} />
         <KpiCard label="Vehicle Books" value={vehicleBooks} />
         <KpiCard label="Gold" value={gold} />
         <KpiCard label="Electronics" value={electronics} />
+        <KpiCard label="Bikes held" value={bikeHeld} />
       </div>
 
       <FilterToolbar
@@ -88,7 +93,7 @@ export function GuaranteesList() {
             
               <option value="All">All Status</option>
               <option value="held">Held</option>
-              <option value="released">Released</option>
+              <option value="returned">Returned</option>
             </select>
             <select
             value={typeFilter}
@@ -99,6 +104,7 @@ export function GuaranteesList() {
               <option value="VEHICLE_BOOK">Vehicle Book</option>
               <option value="GOLD">Gold</option>
               <option value="ELECTRONICS">Electronics</option>
+              <option value="BIKE">Bike</option>
               <option value="OTHER">Other</option>
             </select>
           </>
@@ -111,7 +117,7 @@ export function GuaranteesList() {
             <thead className="bg-neutral-50">
               <tr>
                 <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                  Type & Description
+                  Code / type / description
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   Linked To
@@ -131,12 +137,16 @@ export function GuaranteesList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
-              {filteredGuarantees.map((g) =>
+              {filteredGuarantees.map((g) => (
               <tr
                 key={g.id}
-                className="hover:bg-neutral-50 transition-colors">
+                onClick={() => navigate(`/guarantees/${g.id}`)}
+                className="cursor-pointer hover:bg-neutral-50 transition-colors">
                 
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                    <div className="text-xs font-semibold text-brand-700 tabular-nums mb-1">
+                      {g.guaranteeCode}
+                    </div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="inline-flex items-center rounded-md bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-600 ring-1 ring-inset ring-neutral-500/10">
                         {formatEnum(g.type)}
@@ -152,8 +162,8 @@ export function GuaranteesList() {
                         {g.customer?.name || 'Unknown'}
                       </span>
                       <ChevronRightIcon className="h-3 w-3 mx-1 text-neutral-400" />
-                      <span className="font-mono text-brand-600">
-                        {g.loanId}
+                      <span className="font-semibold text-brand-600 tabular-nums">
+                        {g.loan?.loanCode ?? '—'}
                       </span>
                     </div>
                   </td>
@@ -167,14 +177,19 @@ export function GuaranteesList() {
                     <StatusChip status={g.status} />
                   </td>
                   <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    {g.status === 'held' &&
-                  <button className="text-brand-600 hover:text-brand-900">
-                        Release
-                      </button>
-                  }
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/guarantees/${g.id}`);
+                      }}
+                      className="text-brand-600 hover:text-brand-900 font-semibold"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
-              )}
+              ))}
               {filteredGuarantees.length === 0 &&
               <tr>
                   <td
