@@ -7,12 +7,15 @@ import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { formatLKR } from '../../lib/format';
 import type { Customer } from '../../types/entities';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { listCustomers } from '../../lib/local-db/repositories';
 
 export function CustomerList() {
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const customers: Customer[] = [];
+  const customers = listCustomers(db);
   const filteredCustomers = customers.filter((c) => {
     const matchesSearch =
     c.name.toLowerCase().includes(search.toLowerCase()) ||

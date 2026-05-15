@@ -39,7 +39,7 @@ export function AddGuarantee() {
   });
   const loans: Loan[] = [];
   const customers: Customer[] = [];
-  const activeLoans = loans.filter((l) => l.status === 'active');
+  const activeLoans = loans.filter((l) => l.status === 'ACTIVE');
   const selectedLoan = activeLoans.find((l) => l.id === formData.loanId);
   const selectedCustomer = selectedLoan
     ? customers.find((c) => c.id === selectedLoan.customerId)
@@ -135,7 +135,7 @@ export function AddGuarantee() {
                     );
                     return (
                       <option key={loan.id} value={loan.id}>
-                          {loan.id} - {cust?.name} ({formatLKR(loan.balance)})
+                          {loan.loanCode} - {cust?.name} ({formatLKR(loan.balanceAmount)})
                         </option>);
 
                   })}

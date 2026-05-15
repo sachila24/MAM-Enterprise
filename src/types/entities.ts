@@ -1,5 +1,6 @@
 export interface Customer {
   id: string;
+  customerCode?: string;
   name: string;
   phone: string;
   address: string;
@@ -25,25 +26,28 @@ export interface Bike {
   soldDate?: string;
 }
 
-export interface Loan {
-  id: string;
-  customerId: string;
-  bikeId?: string;
-  type: 'cash' | 'bike';
-  amount: number;
-  balance: number;
-  status: 'active' | 'overdue' | 'completed';
-  startDate: string;
-  principalAmount: number;
-  interestRate: number;
-  termMonths: number;
-  installmentAmount: number;
-  nextDueDate: string;
-  installmentsPaid: number;
-  installmentsTotal: number;
-  daysOverdue?: number;
-}
+export type {
+  Loan,
+  LoanPurpose,
+  RepaymentMethod,
+  LoanStatus,
+  LoanInstallment,
+  LoanInterestCycle,
+  LoanPayment,
+  PaymentAllocation,
+  EarlySettlement,
+  PaymentMethod,
+  LoanPaymentStatus,
+  AllocationType,
+} from './loan';
 
+export {
+  defaultRepaymentMethod,
+  isInterestOnlyLoan,
+  isFixedInstallmentLoan,
+} from './loan';
+
+/** @deprecated Use LoanPayment — kept for receipts list during UI migration */
 export interface Payment {
   id: string;
   loanId: string;
@@ -52,6 +56,24 @@ export interface Payment {
   method: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE';
   status: 'confirmed' | 'voided';
   paidAt: string;
+}
+
+export function toLegacyPayment(p: import('./loan').LoanPayment): Payment {
+  const methodMap = {
+    CASH: 'CASH',
+    BANK_TRANSFER: 'BANK_TRANSFER',
+    CHEQUE: 'CHEQUE',
+    OTHER: 'CASH',
+  } as const;
+  return {
+    id: p.id,
+    loanId: p.loanId,
+    receiptNo: p.receiptNumber,
+    amount: p.amount,
+    method: methodMap[p.paymentMethod],
+    status: p.status === 'CONFIRMED' ? 'confirmed' : 'voided',
+    paidAt: p.paymentDate,
+  };
 }
 
 export interface Guarantee {

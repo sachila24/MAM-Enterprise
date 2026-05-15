@@ -9,17 +9,25 @@ import {
 'lucide-react';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { formatLKR, formatDate } from '../../lib/format';
+import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import type { Customer, Loan, Payment, Guarantee } from '../../types/entities';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  getCustomer,
+  listGuarantees,
+  listLoans,
+  listPayments,
+} from '../../lib/local-db/repositories';
+
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
 export function CustomerDetail() {
   const { id } = useParams<{
     id: string;
   }>();
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const customers: Customer[] = [];
-  const customer = customers.find((c) => c.id === id);
+  const customer = id ? getCustomer(id, db) : undefined;
   if (!customer) {
     return (
       <div className="space-y-6">
@@ -36,9 +44,15 @@ export function CustomerDetail() {
       </div>);
 
   }
-  const loans: Loan[] = [];
-  const payments: Payment[] = [];
-  const guarantees: Guarantee[] = [];
+  const loans = id
+    ? listLoans(db).filter((l) => l.customerId === id)
+    : [];
+  const payments = id
+    ? listPayments(db).filter((p) => p.loanId && loans.some((l) => l.id === p.loanId))
+    : [];
+  const guarantees = id
+    ? listGuarantees(db).filter((g) => g.loanId && loans.some((l) => l.id === g.loanId))
+    : [];
   const tabs = [
   {
     id: 'overview',
@@ -179,10 +193,10 @@ export function CustomerDetail() {
                     Active Loans
                   </h3>
                 </div>
-                {loans.filter((l) => l.status !== 'completed').length > 0 ?
+                {loans.filter((l) => !['COMPLETED', 'SETTLED'].includes(l.status)).length > 0 ?
               <ul role="list" className="divide-y divide-neutral-200">
                     {loans.
-                filter((l) => l.status !== 'completed').
+                filter((l) => !['COMPLETED', 'SETTLED'].includes(l.status)).
                 map((loan) =>
                 <li
                   key={loan.id}
@@ -192,15 +206,15 @@ export function CustomerDetail() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium text-brand-600 tabular-nums">
-                                {loan.id}
+                                {loan.loanCode}
                               </p>
-                              <p className="text-sm text-neutral-500 mt-1 capitalize">
-                                {loan.type} Loan · {loan.termMonths} Months
+                              <p className="text-sm text-neutral-500 mt-1">
+                                {formatEnum(loan.loanPurpose)} · {loan.termMonths ?? '—'} months
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-neutral-900 tabular-nums">
-                                {formatLKR(loan.balance)}
+                                {formatLKR(loan.balanceAmount)}
                               </p>
                               <div className="mt-1">
                                 <StatusChip status={loan.status} />
@@ -271,10 +285,10 @@ export function CustomerDetail() {
                 className="hover:bg-neutral-50 cursor-pointer">
                 
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-brand-600 sm:pl-6 tabular-nums">
-                      {loan.id}
+                      {loan.loanCode}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 capitalize">
-                      {loan.type}
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
+                      {formatEnum(loan.loanPurpose)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
                       {formatDate(loan.startDate)}
@@ -283,10 +297,10 @@ export function CustomerDetail() {
                       <StatusChip status={loan.status} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums">
-                      {formatLKR(loan.amount)}
+                      {formatLKR(loan.principalAmount)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-neutral-900 text-right tabular-nums">
-                      {formatLKR(loan.balance)}
+                      {formatLKR(loan.balanceAmount)}
                     </td>
                   </tr>
               )}

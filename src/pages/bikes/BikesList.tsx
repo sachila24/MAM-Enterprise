@@ -5,14 +5,17 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
-import type { Bike } from '../../types/entities';
 import { formatLKR } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { listBikes } from '../../lib/local-db/repositories';
+
 export function BikesList() {
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [view, setView] = useState<'table' | 'grid'>('table');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const bikes: Bike[] = [];
+  const bikes = listBikes(db);
   const totalBikes = bikes.length;
   const inStock = bikes.filter((b) => b.status === 'in_stock').length;
   const sold = bikes.filter((b) => b.status === 'sold').length;

@@ -4,13 +4,16 @@ import { PlusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
-import type { Expense } from '../../types/entities';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { listExpenses } from '../../lib/local-db/repositories';
+
 export function ExpensesList() {
   const navigate = useNavigate();
+  const db = useDemoDb();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const expenses: Expense[] = [];
+  const expenses = listExpenses(db);
   const totalThisMonth = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const countThisMonth = expenses.length;
   // Find top category

@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
-import type { Customer } from '../../types/entities';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { createCustomer, getCustomer, updateCustomer } from '../../lib/local-db/repositories';
 
 export function CustomerForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showToast } = useToast();
+  const db = useDemoDb();
   const isEdit = Boolean(id);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,8 +22,7 @@ export function CustomerForm() {
 
   useEffect(() => {
     if (!isEdit || !id) return;
-    const customers: Customer[] = [];
-    const customer = customers.find((c) => c.id === id);
+    const customer = getCustomer(id, db);
     if (customer) {
       setFormData({
         name: customer.name,
@@ -30,7 +31,7 @@ export function CustomerForm() {
         address: customer.address,
       });
     }
-  }, [id, isEdit]);
+  }, [id, isEdit, db]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -42,14 +43,23 @@ export function CustomerForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      showToast(
-        isEdit ? 'Customer updated successfully' : 'Customer saved successfully',
-        'success'
-      );
-      navigate(isEdit && id ? `/customers/${id}` : '/customers');
-    }, 800);
+    const payload = {
+      full_name: formData.name,
+      nic: formData.nic,
+      phone: formData.phone,
+      address: formData.address,
+    };
+    if (isEdit && id) {
+      updateCustomer(id, payload, db);
+    } else {
+      createCustomer(payload, db);
+    }
+    setIsSubmitting(false);
+    showToast(
+      isEdit ? 'Customer updated successfully' : 'Customer saved successfully',
+      'success'
+    );
+    navigate(isEdit && id ? `/customers/${id}` : '/customers');
   };
 
   return (

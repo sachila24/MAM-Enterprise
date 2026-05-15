@@ -1,83 +1,159 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useT } from '../../i18n/I18nProvider';
 import { useToast } from '../../components/ui/Toast';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
-import type { Bike, Customer } from '../../types/entities';
-import { formatLKR } from '../../lib/format';
+import { DatePicker } from '../../components/ui/DatePicker';
+import type { LoanPurpose, RepaymentMethod } from '../../types/loan';
+import { defaultRepaymentMethod } from '../../types/loan';
+import {
+  calculateFixedInstallmentTotals,
+  calculateBikeFinanceAmount,
+  calculateLateFeePerMonth,
+} from '../../lib/finance/fixedInstallment';
+import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../../lib/finance/constants';
+import { computeFirstDueDate } from '../../lib/finance/dueDates';
+import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
+import { formatLKR, formatEnum } from '../../lib/format';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import {
+  createLoan,
+  listCustomers,
+  listInStockBikes,
+} from '../../lib/local-db/repositories';
+
 const steps = [
-{
-  id: 'setup',
-  label: 'Setup'
-},
-{
-  label: 'Terms'
-},
-{
-  label: 'Collateral'
-},
-{
-  label: 'Confirm'
-}];
+  { id: 'customer', label: 'Customer' },
+  { label: 'Purpose' },
+  { label: 'Method' },
+  { label: 'Terms' },
+  { label: 'Bike / Guarantee' },
+  { label: 'Confirm' },
+];
 
 export function CreateLoan() {
   const navigate = useNavigate();
-  const { t } = useT();
   const { showToast } = useToast();
+  const db = useDemoDb();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Form State
+
   const [customerId, setCustomerId] = useState('');
-  const [loanType, setLoanType] = useState<'cash' | 'bike'>('cash');
-  const [principal, setPrincipal] = useState<number>(0);
-  const [interestRate, setInterestRate] = useState<number>(18);
-  const [termMonths, setTermMonths] = useState<number>(12);
+  const [loanPurpose, setLoanPurpose] = useState<LoanPurpose>('CASH_LOAN');
+  const [repaymentMethod, setRepaymentMethod] = useState<RepaymentMethod>(
+    'FIXED_TERM_INSTALLMENT'
+  );
+
+  const [loanAmount, setLoanAmount] = useState(0);
+  const [monthlyInterestRate, setMonthlyInterestRate] = useState(5);
+  const [dueDay, setDueDay] = useState(1);
+
+  const [financeAmount, setFinanceAmount] = useState(0);
+  const [termMonths, setTermMonths] = useState(36);
+  const [monthlyFlatRate, setMonthlyFlatRate] = useState(2.5);
+  const [lateFeeRate, setLateFeeRate] = useState(DEFAULT_LATE_FEE_RATE_PERCENT);
+  const [discountAmount, setDiscountAmount] = useState(0);
+
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [firstDueDate, setFirstDueDate] = useState('');
+
   const [bikeId, setBikeId] = useState('');
-  const customers: Customer[] = [];
-  const bikes: Bike[] = [];
-  // Live Calculations
-  const calculations = useMemo(() => {
-    const p = principal || 0;
-    const r = interestRate || 0;
-    const t = termMonths || 1;
-    // Simple interest calculation
-    const totalInterest = p * (r / 100) * (t / 12);
-    const totalPayable = p + totalInterest;
-    const monthlyInstallment = totalPayable / t;
-    return {
-      principal: p,
-      totalInterest,
-      totalPayable,
-      monthlyInstallment
-    };
-  }, [principal, interestRate, termMonths]);
+  const [sellingPrice, setSellingPrice] = useState(0);
+  const [downPayment, setDownPayment] = useState(0);
+
+  const customers = listCustomers(db);
+  const bikes = listInStockBikes(db);
+
+  const isInterestOnly =
+    repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
+  const isBike = loanPurpose === 'BIKE_INSTALLMENT';
+
+  const effectiveFinanceAmount = useMemo(() => {
+    if (isBike) {
+      return calculateBikeFinanceAmount(sellingPrice, downPayment);
+    }
+    return isInterestOnly ? loanAmount : financeAmount;
+  }, [isBike, isInterestOnly, sellingPrice, downPayment, loanAmount, financeAmount]);
+
+  const interestOnlyCalc = useMemo(() => {
+    const principal = effectiveFinanceAmount || 0;
+    const monthlyInterestDue = calculateMonthlyInterestDue(
+      principal,
+      monthlyInterestRate || 0
+    );
+    return { principal, monthlyInterestDue };
+  }, [effectiveFinanceAmount, monthlyInterestRate]);
+
+  const fixedCalc = useMemo(
+    () =>
+      calculateFixedInstallmentTotals({
+        financeAmount: effectiveFinanceAmount || 0,
+        termMonths: termMonths || 1,
+        monthlyFlatRatePercent: monthlyFlatRate || 0,
+        discountAmount,
+      }),
+    [effectiveFinanceAmount, termMonths, monthlyFlatRate, discountAmount]
+  );
+
+  const lateFeePerMonth = useMemo(
+    () =>
+      fixedCalc.monthlyInstallment > 0
+        ? calculateLateFeePerMonth(fixedCalc.monthlyInstallment, lateFeeRate || 0)
+        : 0,
+    [fixedCalc.monthlyInstallment, lateFeeRate]
+  );
+
+  const handlePurposeChange = (purpose: LoanPurpose) => {
+    setLoanPurpose(purpose);
+    const defaultMethod = defaultRepaymentMethod(purpose);
+    if (defaultMethod) setRepaymentMethod(defaultMethod);
+  };
+
+  const handleStartDateChange = (date: string) => {
+    setStartDate(date);
+    if (date) setFirstDueDate(computeFirstDueDate(date));
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
-    } else {
-      setIsSubmitting(true);
-      setTimeout(() => {
-        navigate('/loans');
-      }, 1000);
+      return;
     }
-  };
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    } else {
-      navigate('/loans');
-    }
-  };
-  const handleConfirm = () => {
+    if (!customerId) return;
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const loan = createLoan(
+        {
+          customerId,
+          loanPurpose,
+          repaymentMethod,
+          principalAmount: effectiveFinanceAmount,
+          interestRate: isInterestOnly ? monthlyInterestRate : monthlyFlatRate,
+          termMonths: isInterestOnly ? undefined : termMonths,
+          lateFeeRate: isInterestOnly ? 0 : lateFeeRate,
+          discountAmount,
+          startDate,
+          firstDueDate: firstDueDate || computeFirstDueDate(startDate),
+          dueDay: isInterestOnly ? dueDay : undefined,
+          bikeId: isBike ? bikeId : undefined,
+        },
+        db
+      );
+      showToast(`Loan ${loan.loanCode} created`, 'success');
+      navigate(`/loans/${loan.id}`);
+    } finally {
       setIsSubmitting(false);
-      showToast('Loan created successfully', 'success');
-      navigate('/loans');
-    }, 1500);
+    }
   };
+
+  const handleBack = () => {
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
+    else navigate('/loans');
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader title="Create Loan" subtitle="Set up a new loan agreement" />
@@ -87,267 +163,365 @@ export function CreateLoan() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Left: Wizard Steps (60%) */}
         <div className="flex-1 lg:max-w-[60%]">
           <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg p-6 mb-6 min-h-[400px]">
-            {currentStep === 0 &&
-            <div className="space-y-6">
-                <h3 className="text-lg font-medium leading-6 text-neutral-900">
-                  Loan Setup
+            {currentStep === 0 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Select Customer
                 </h3>
-                <div>
-                  <label className="block text-sm font-medium leading-6 text-neutral-900 mb-1">
-                    Select Customer *
-                  </label>
-                  <select
+                <select
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white">
-                  
-                    <option value="">-- Select a customer --</option>
-                    {customers.map((c) =>
-                  <option key={c.id} value={c.id}>
-                        {c.name} ({c.nic})
-                      </option>
-                  )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                    Loan Type *
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                      type="radio"
-                      checked={loanType === 'cash'}
-                      onChange={() => setLoanType('cash')}
-                      className="h-4 w-4 text-brand-600 focus:ring-brand-600 border-neutral-300" />
-                    
-                      <span className="text-sm text-neutral-900">
-                        Cash Loan
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                      type="radio"
-                      checked={loanType === 'bike'}
-                      onChange={() => setLoanType('bike')}
-                      className="h-4 w-4 text-brand-600 focus:ring-brand-600 border-neutral-300" />
-                    
-                      <span className="text-sm text-neutral-900">
-                        Bike Installment
-                      </span>
-                    </label>
-                  </div>
-                </div>
+                  className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm bg-white"
+                >
+                  <option value="">-- Select a customer --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.nic})
+                    </option>
+                  ))}
+                </select>
               </div>
-            }
+            )}
 
-            {currentStep === 1 &&
-            <div className="space-y-6">
-                <h3 className="text-lg font-medium leading-6 text-neutral-900">
-                  Loan Terms
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Loan Purpose
+                </h3>
+                {(
+                  [
+                    ['CASH_LOAN', 'Cash Loan'],
+                    ['BIKE_INSTALLMENT', 'Bike Installment'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      checked={loanPurpose === value}
+                      onChange={() => handlePurposeChange(value)}
+                      className="h-4 w-4 text-brand-600"
+                    />
+                    <span className="text-sm text-neutral-900">{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Repayment Method
+                </h3>
+                {(
+                  [
+                    [
+                      'INTEREST_ONLY_REDUCING_PRINCIPAL',
+                      'Monthly Interest / Reducing Principal',
+                    ],
+                    ['FIXED_TERM_INSTALLMENT', 'Fixed Term Installment'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      checked={repaymentMethod === value}
+                      onChange={() => setRepaymentMethod(value)}
+                      className="h-4 w-4 text-brand-600"
+                    />
+                    <span className="text-sm text-neutral-900">{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {currentStep === 3 && isInterestOnly && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Interest-Only Terms
                 </h3>
                 <CurrencyInput
-                label="Principal Amount *"
-                value={principal}
-                onChange={(val) => setPrincipal(val)}
-                placeholder="e.g. 100,000" />
-              
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium leading-6 text-neutral-900 mb-1">
-                      Interest Rate (%) *
-                    </label>
-                    <input
-                    type="number"
-                    value={interestRate}
+                  label="Loan amount *"
+                  value={isBike ? effectiveFinanceAmount : loanAmount}
+                  onChange={(v) => !isBike && setLoanAmount(v)}
+                  placeholder="e.g. 100,000"
+                  disabled={isBike}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1">
+                    Monthly interest rate (%) *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={monthlyInterestRate}
                     onChange={(e) =>
-                    setInterestRate(parseFloat(e.target.value) || 0)
+                      setMonthlyInterestRate(parseFloat(e.target.value) || 0)
                     }
-                    className="block w-full rounded-md border-0 py-1.5 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 tabular-nums" />
-                  
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium leading-6 text-neutral-900 mb-1">
-                      Term (Months) *
-                    </label>
-                    <input
-                    type="number"
-                    value={termMonths}
-                    onChange={(e) =>
-                    setTermMonths(parseInt(e.target.value, 10) || 0)
-                    }
-                    className="block w-full rounded-md border-0 py-1.5 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 tabular-nums" />
-                  
-                  </div>
+                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm tabular-nums"
+                  />
                 </div>
-              </div>
-            }
-
-            {currentStep === 2 &&
-            <div className="space-y-6">
-                <h3 className="text-lg font-medium leading-6 text-neutral-900">
-                  Collateral
-                </h3>
-                {loanType === 'bike' ?
-              <div>
-                    <label className="block text-sm font-medium leading-6 text-neutral-900 mb-1">
-                      Select Bike from Stock *
-                    </label>
-                    <select
-                  value={bikeId}
-                  onChange={(e) => setBikeId(e.target.value)}
-                  className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white">
-                  
-                      <option value="">-- Select a bike --</option>
-                      {bikes.
-                  filter((b) => b.status === 'in_stock').
-                  map((b) =>
-                  <option key={b.id} value={b.id}>
-                            {b.model} - {b.engineNo} ({formatLKR(b.price)})
-                          </option>
-                  )}
-                    </select>
-                  </div> :
-
-              <div className="rounded-md bg-info-50 p-4">
-                    <div className="flex">
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-info-800">
-                          Optional Guarantee
-                        </h3>
-                        <div className="mt-2 text-sm text-info-700">
-                          <p>
-                            You can add a guarantee item (like a vehicle book or
-                            gold) after creating the loan from the loan details
-                            page.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-              }
-              </div>
-            }
-
-            {currentStep === 3 &&
-            <div className="space-y-6">
-                <h3 className="text-lg font-medium leading-6 text-neutral-900">
-                  Review & Confirm
-                </h3>
-                <div className="rounded-md bg-neutral-50 p-4 ring-1 ring-neutral-200">
-                  <dl className="divide-y divide-neutral-200">
-                    <div className="py-3 flex justify-between">
-                      <dt className="text-sm font-medium text-neutral-500">
-                        Customer
-                      </dt>
-                      <dd className="text-sm text-neutral-900">
-                        {customers.find((c) => c.id === customerId)?.name ||
-                      '—'}
-                      </dd>
-                    </div>
-                    <div className="py-3 flex justify-between">
-                      <dt className="text-sm font-medium text-neutral-500">
-                        Type
-                      </dt>
-                      <dd className="text-sm text-neutral-900 capitalize">
-                        {loanType}
-                      </dd>
-                    </div>
-                    {loanType === 'bike' &&
-                  <div className="py-3 flex justify-between">
-                        <dt className="text-sm font-medium text-neutral-500">
-                          Bike
-                        </dt>
-                        <dd className="text-sm text-neutral-900">
-                          {bikes.find((b) => b.id === bikeId)?.model || '—'}
-                        </dd>
-                      </div>
-                  }
-                  </dl>
+                <DatePicker
+                  label="Start date *"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1">
+                    Due day (1–28) *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={dueDay}
+                    onChange={(e) => setDueDay(parseInt(e.target.value, 10) || 1)}
+                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                  />
                 </div>
-                <p className="text-sm text-neutral-500">
-                  Please review the calculation panel on the right before
-                  confirming.
+                <DatePicker
+                  label="First due date *"
+                  value={firstDueDate}
+                  onChange={(e) => setFirstDueDate(e.target.value)}
+                />
+                <p className="text-xs text-neutral-500">
+                  Same day each month (e.g. start May 15 → first due June 15).
+                </p>
+                <p className="text-sm text-info-700 bg-info-50 rounded-md p-3">
+                  Guarantee required. No late fees. Unpaid interest stays pending.
                 </p>
               </div>
-            }
+            )}
+
+            {currentStep === 3 && !isInterestOnly && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Fixed Installment Terms
+                </h3>
+                <CurrencyInput
+                  label="Finance amount *"
+                  value={effectiveFinanceAmount}
+                  onChange={(v) => !isBike && setFinanceAmount(v)}
+                  disabled={isBike}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 mb-1">
+                      Term (months) *
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={termMonths}
+                      onChange={(e) =>
+                        setTermMonths(parseInt(e.target.value, 10) || 0)
+                      }
+                      className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 mb-1">
+                      Monthly flat rate (%) *
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={monthlyFlatRate}
+                      onChange={(e) =>
+                        setMonthlyFlatRate(parseFloat(e.target.value) || 0)
+                      }
+                      className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1">
+                    Late fee rate (%) *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={lateFeeRate}
+                    onChange={(e) =>
+                      setLateFeeRate(parseFloat(e.target.value) || 0)
+                    }
+                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                  />
+                </div>
+                <CurrencyInput
+                  label="Discount (optional)"
+                  value={discountAmount}
+                  onChange={setDiscountAmount}
+                />
+                <DatePicker
+                  label="Start date *"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                />
+                <DatePicker
+                  label="First due date *"
+                  value={firstDueDate}
+                  onChange={(e) => setFirstDueDate(e.target.value)}
+                />
+                <p className="text-xs text-neutral-500">
+                  Default late fee {DEFAULT_LATE_FEE_RATE_PERCENT}%. Owner may change later.
+                </p>
+              </div>
+            )}
+
+            {currentStep === 4 && isBike && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">Bike</h3>
+                <select
+                  value={bikeId}
+                  onChange={(e) => {
+                    setBikeId(e.target.value);
+                    const bike = bikes.find((b) => b.id === e.target.value);
+                    if (bike) setSellingPrice(bike.sellingPrice || bike.price);
+                  }}
+                  className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
+                >
+                  <option value="">-- Select bike --</option>
+                  {bikes
+                    .filter((b) => b.status === 'in_stock')
+                    .map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.model} — {b.engineNo}
+                      </option>
+                    ))}
+                </select>
+                <CurrencyInput
+                  label="Selling price *"
+                  value={sellingPrice}
+                  onChange={setSellingPrice}
+                />
+                <CurrencyInput
+                  label="Down payment *"
+                  value={downPayment}
+                  onChange={setDownPayment}
+                />
+                <p className="text-sm text-neutral-600">
+                  Finance amount:{' '}
+                  <strong>{formatLKR(effectiveFinanceAmount)}</strong>
+                </p>
+              </div>
+            )}
+
+            {currentStep === 4 && !isBike && (
+              <p className="text-sm text-neutral-600">
+                Guarantees can be added after loan creation from Loan Detail.
+              </p>
+            )}
+
+            {currentStep === 5 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-neutral-900">Review</h3>
+                <dl className="divide-y divide-neutral-200 text-sm">
+                  <div className="py-2 flex justify-between">
+                    <dt className="text-neutral-500">Customer</dt>
+                    <dd>
+                      {customers.find((c) => c.id === customerId)?.name ?? '—'}
+                    </dd>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <dt className="text-neutral-500">Purpose</dt>
+                    <dd>{formatEnum(loanPurpose)}</dd>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <dt className="text-neutral-500">Method</dt>
+                    <dd>{formatEnum(repaymentMethod)}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between">
             <button
               type="button"
               onClick={handleBack}
-              className="text-sm font-semibold leading-6 text-neutral-900 hover:text-neutral-700">
-              
+              className="text-sm font-semibold text-neutral-900"
+            >
               {currentStep === 0 ? 'Cancel' : 'Back'}
             </button>
             <button
               type="button"
               onClick={handleNext}
               disabled={isSubmitting}
-              className="inline-flex justify-center rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50">
-              
-              {isSubmitting ?
-              'Saving...' :
-              currentStep === steps.length - 1 ?
-              'Confirm Loan' :
-              'Next Step'}
+              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {isSubmitting
+                ? 'Saving...'
+                : currentStep === steps.length - 1
+                  ? 'Confirm Loan'
+                  : 'Next'}
             </button>
           </div>
         </div>
 
-        {/* Right: Sticky Live Calculation (40%) */}
         <div className="flex-1 lg:max-w-[40%]">
-          <div className="sticky top-24 bg-brand-800 rounded-xl shadow-lg overflow-hidden text-white">
-            <div className="p-6">
-              <h3 className="text-lg font-medium mb-6 text-brand-50">
-                Live Calculation
-              </h3>
-
-              <dl className="space-y-4">
-                <div className="flex justify-between items-baseline">
-                  <dt className="text-sm text-brand-200">Principal</dt>
-                  <dd className="text-lg font-medium tabular-nums">
-                    {formatLKR(calculations.principal)}
+          <div className="sticky top-24 bg-brand-800 rounded-xl shadow-lg text-white p-6">
+            <h3 className="text-lg font-medium mb-4 text-brand-50">
+              Calculation
+            </h3>
+            {isInterestOnly ? (
+              <dl className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Current principal</dt>
+                  <dd className="font-medium tabular-nums">
+                    {formatLKR(interestOnlyCalc.principal)}
                   </dd>
                 </div>
-                <div className="flex justify-between items-baseline">
-                  <dt className="text-sm text-brand-200">
-                    Interest ({interestRate}%)
-                  </dt>
-                  <dd className="text-lg font-medium tabular-nums">
-                    {formatLKR(calculations.totalInterest)}
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Monthly interest due</dt>
+                  <dd className="font-medium tabular-nums">
+                    {formatLKR(interestOnlyCalc.monthlyInterestDue)}
                   </dd>
                 </div>
-                <div className="pt-4 border-t border-brand-700 flex justify-between items-baseline">
-                  <dt className="text-sm font-medium text-brand-100">
-                    Total Payable
-                  </dt>
+                <div className="flex justify-between pt-3 border-t border-brand-700">
+                  <dt className="text-brand-100">Principal balance</dt>
                   <dd className="text-xl font-bold tabular-nums">
-                    {formatLKR(calculations.totalPayable)}
+                    {formatLKR(interestOnlyCalc.principal)}
                   </dd>
                 </div>
               </dl>
-            </div>
-            <div className="bg-brand-900 p-6">
-              <div className="flex justify-between items-baseline">
-                <dt className="text-sm font-medium text-brand-100">
-                  Monthly Installment
-                </dt>
-                <dd className="text-2xl font-bold text-white tabular-nums">
-                  {formatLKR(calculations.monthlyInstallment)}
-                </dd>
-              </div>
-              <p className="mt-2 text-xs text-brand-300 text-right">
-                For {termMonths} months
-              </p>
-            </div>
+            ) : (
+              <dl className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Finance amount</dt>
+                  <dd className="tabular-nums">{formatLKR(fixedCalc.financeAmount)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Total interest</dt>
+                  <dd className="tabular-nums">{formatLKR(fixedCalc.totalInterest)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Total payable</dt>
+                  <dd className="tabular-nums font-bold">
+                    {formatLKR(fixedCalc.totalPayable)}
+                  </dd>
+                </div>
+                <div className="flex justify-between pt-3 border-t border-brand-700">
+                  <dt className="text-brand-100">Monthly installment</dt>
+                  <dd className="text-xl font-bold tabular-nums">
+                    {formatLKR(fixedCalc.monthlyInstallment)}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-brand-200">Late fee / month if overdue</dt>
+                  <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
+                </div>
+              </dl>
+            )}
           </div>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
