@@ -3,7 +3,6 @@ import {
   buildFixedInstallmentSchedule,
   calculateLateFee,
 } from '../finance/fixedInstallment';
-import { calculateMonthlyInterestDue } from '../finance/interestOnly';
 import { computeFirstDueDate } from '../finance/dueDates';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../finance/constants';
 import type { MamDemoDb } from './types';
@@ -31,11 +30,10 @@ export function buildSeedDatabase(): MamDemoDb {
   const loanFix = 'loan-fix-0001';
   const loanBike = 'loan-bike-0001';
 
-  const ioStart = '2026-04-15';
+  const ioStart = '2026-02-01';
   const ioFirstDue = computeFirstDueDate(ioStart);
-  const ioPrincipal = 100_000;
+  const ioPrincipal = 200_000;
   const ioRate = 5;
-  const ioInterestDue = calculateMonthlyInterestDue(ioPrincipal, ioRate);
 
   const fixTotals = calculateFixedInstallmentTotals({
     financeAmount: 300_000,
@@ -113,26 +111,6 @@ export function buildSeedDatabase(): MamDemoDb {
       updated_at: ts,
     })
   );
-
-  const cycleIo: MamDemoDb['loan_interest_cycles'] = [
-    {
-      id: 'cycle-io-1',
-      loan_id: loanIo,
-      cycle_number: 1,
-      period_start: ioStart,
-      period_end: ioFirstDue,
-      due_date: ioFirstDue,
-      opening_principal: ioPrincipal,
-      interest_rate: ioRate,
-      interest_due: ioInterestDue,
-      interest_paid: 0,
-      principal_paid: 0,
-      closing_principal: ioPrincipal,
-      status: 'PENDING',
-      created_at: ts,
-      updated_at: ts,
-    },
-  ];
 
   const payFixId = 'pay-fix-001';
   const payFixAmount = 15_834;
@@ -257,7 +235,7 @@ export function buildSeedDatabase(): MamDemoDb {
         due_date: nextMonth15(),
         minimum_months_before_settlement: 6,
         status: 'ACTIVE',
-        pending_interest_amount: ioInterestDue,
+        pending_interest_amount: 0,
         created_at: ts,
         updated_at: ts,
       },
@@ -325,7 +303,7 @@ export function buildSeedDatabase(): MamDemoDb {
       },
     ],
     loan_installments: [...installmentsFix, ...installmentsBike],
-    loan_interest_cycles: cycleIo,
+    loan_interest_cycles: [],
     loan_payments: [
       {
         id: payFixId,

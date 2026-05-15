@@ -1,3 +1,4 @@
+import { summarizeInterestOnlyLoan } from '../finance/interestOnlyCycles';
 import { totalPendingInterest } from '../finance/interestOnly';
 import type { LoanDetailData } from '../../pages/loans/loanDetailPreviewData';
 import {
@@ -75,7 +76,18 @@ export function getLoanDetailFromDb(
     interestPaid: c.interestPaid,
     principalPaid: c.principalPaid,
   }));
-  const pending = totalPendingInterest(cycleAllocPreview);
+  const asOf = new Date().toISOString().split('T')[0];
+  const ioSummary =
+    dbLoan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL'
+      ? summarizeInterestOnlyLoan(
+          dbLoan.start_date,
+          dbLoan.interest_rate,
+          dbLoan.current_principal_balance,
+          cycleAllocPreview,
+          asOf
+        )
+      : null;
+  const pending = ioSummary?.pendingInterest ?? totalPendingInterest(cycleAllocPreview);
 
   const start = new Date(dbLoan.start_date);
   const now = new Date();
@@ -86,7 +98,11 @@ export function getLoanDetailFromDb(
   );
 
   return {
-    loan: { ...loan, pendingInterestAmount: pending },
+    loan: {
+      ...loan,
+      pendingInterestAmount: pending,
+      dueDate: ioSummary?.nextDueDate ?? loan.dueDate,
+    },
     customer,
     interestCycles,
     installments,

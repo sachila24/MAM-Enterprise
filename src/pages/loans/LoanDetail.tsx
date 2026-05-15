@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircleIcon,
@@ -31,6 +31,9 @@ import {
   getLoanDetailFromDb,
   listLoanDetailLinks,
 } from '../../lib/local-db/loanDetail';
+import { getDb } from '../../lib/local-db/localDb';
+import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
+import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
 
 const AS_OF_DATE = new Date().toISOString().split('T')[0];
 
@@ -38,6 +41,15 @@ export function LoanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
+
+  useEffect(() => {
+    if (!id) return;
+    const loan = db.loans.find((l) => l.id === id);
+    if (loan?.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+      persistInterestOnlyCycles(getDb(), id);
+    }
+  }, [id, db]);
+
   const detail =
     (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
   const demoLinks = listLoanDetailLinks(db);
@@ -95,20 +107,35 @@ function InterestOnlyLoanDetail({
   const { loan, customer, interestCycles, guarantees, principalPayments } =
     detail;
 
-  const pendingInterest = useMemo(
+  const asOf = AS_OF_DATE;
+  const cycleAlloc = useMemo(
     () =>
-      loan.pendingInterestAmount ??
-      interestCycles.reduce(
-        (s, c) => s + Math.max(0, c.interestDue - c.interestPaid),
-        0
-      ),
-    [loan.pendingInterestAmount, interestCycles]
+      interestCycles.map((c) => ({
+        id: c.id,
+        cycleNumber: c.cycleNumber,
+        dueDate: c.dueDate,
+        openingPrincipal: c.openingPrincipal,
+        interestDue: c.interestDue,
+        interestPaid: c.interestPaid,
+        principalPaid: c.principalPaid,
+      })),
+    [interestCycles]
   );
 
-  const currentCycle = interestCycles.find((c) => c.status !== 'PAID') ?? interestCycles.at(-1);
-  const currentMonthInterestDue = currentCycle
-    ? Math.max(0, currentCycle.interestDue - currentCycle.interestPaid)
-    : 0;
+  const summary = useMemo(
+    () =>
+      summarizeInterestOnlyLoan(
+        loan.startDate,
+        loan.interestRate,
+        loan.currentPrincipalBalance,
+        cycleAlloc,
+        asOf
+      ),
+    [loan.startDate, loan.interestRate, loan.currentPrincipalBalance, cycleAlloc, asOf]
+  );
+
+  const pendingInterest =
+    loan.pendingInterestAmount ?? summary.pendingInterest;
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
@@ -128,11 +155,24 @@ function InterestOnlyLoanDetail({
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
-        <KpiCard label="Current principal" value={formatLKR(loan.currentPrincipalBalance)} />
-        <KpiCard label="Pending interest" value={formatLKR(pendingInterest)} />
-        <KpiCard label="Current month interest" value={formatLKR(currentMonthInterestDue)} />
+        <KpiCard
+          label="Current principal balance"
+          value={formatLKR(loan.currentPrincipalBalance)}
+        />
+        <KpiCard label="Pending interest due" value={formatLKR(pendingInterest)} />
+        <KpiCard
+          label="Interest cycles due"
+          value={String(summary.cyclesDueCount)}
+        />
+        <KpiCard
+          label="Next estimated interest"
+          value={formatLKR(summary.nextEstimatedInterest)}
+        />
         <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
-        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
+        <KpiCard
+          label="Next due date"
+          value={formatDate(loan.dueDate ?? summary.nextDueDate)}
+        />
       </div>
 
       <section className="mb-8">

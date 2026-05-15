@@ -4,9 +4,9 @@ import {
   allocateInterestOnlyPaymentLines,
   type InstallmentForAllocation,
 } from '../../finance/paymentAllocation';
-import { calculateMonthlyInterestDue } from '../../finance/interestOnly';
 import { calculateLateFee, monthsLate } from '../../finance/fixedInstallment';
 import { roundLKR } from '../../finance/money';
+import { persistInterestOnlyCycles } from '../interestOnlySync';
 import { buildPaymentBundle, resolveCurrentInstallmentNumber } from '../paymentBundle';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLegacyPayment, mapLoanPayment } from '../mappers';
@@ -51,6 +51,10 @@ export function recordPayment(
 ): RecordPaymentResult {
   const loan = db.loans.find((l) => l.id === input.loanId);
   if (!loan) throw new Error('Loan not found');
+
+  if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+    persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
+  }
 
   const ts = new Date().toISOString();
   const bundle = buildPaymentBundle(db);
@@ -193,37 +197,13 @@ function applyInterestOnlyAllocation(
   loan.pending_interest_amount =
     allocation.summary.pendingInterestRemaining ?? 0;
 
-  const allCyclesPaid = cycles.every((c) => c.interest_paid >= c.interest_due);
-  if (allCyclesPaid && loan.current_principal_balance > 0) {
-    const nextNum = (cycles[cycles.length - 1]?.cycle_number ?? 0) + 1;
-    const principal = loan.current_principal_balance;
-    const interestDue = calculateMonthlyInterestDue(principal, loan.interest_rate);
-    const lastDue = cycles[cycles.length - 1]?.due_date ?? loan.start_date;
-    db.loan_interest_cycles.push({
-      id: generateId(),
-      loan_id: loanId,
-      cycle_number: nextNum,
-      period_start: lastDue,
-      period_end: paymentDate,
-      due_date: paymentDate,
-      opening_principal: principal,
-      interest_rate: loan.interest_rate,
-      interest_due: interestDue,
-      interest_paid: 0,
-      principal_paid: 0,
-      closing_principal: principal,
-      status: 'PENDING',
-      created_at: ts,
-      updated_at: ts,
-    });
-    loan.pending_interest_amount = interestDue;
-  }
-
   if (loan.current_principal_balance <= 0) {
     loan.status = 'COMPLETED';
     loan.balance_amount = 0;
   }
   loan.updated_at = ts;
+
+  persistInterestOnlyCycles(db, loanId, paymentDate);
 }
 
 function applyFixedAllocation(

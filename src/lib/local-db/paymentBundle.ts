@@ -1,3 +1,4 @@
+import { countInterestCyclesDueByDate } from '../finance/dueDates';
 import type { InterestCycleForAllocation } from '../finance/interestOnly';
 import type { InstallmentForAllocation } from '../finance/paymentAllocation';
 import type { PaymentPreviewBundle } from '../../pages/payments/paymentPreviewData';
@@ -72,12 +73,12 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
       .filter((c) => c.loan_id === loan.id)
       .sort((a, b) => a.cycle_number - b.cycle_number);
     if (cycles.length > 0) {
-      const pendingIdx = cycles.findIndex(
-        (c) => c.interest_paid < c.interest_due || c.status !== 'PAID'
+      const dueCount = countInterestCyclesDueByDate(
+        loan.start_date,
+        new Date().toISOString().split('T')[0]
       );
-      const currentIdx = pendingIdx >= 0 ? pendingIdx : cycles.length - 1;
-      interestCyclesByLoanId[loan.id] = cycles.map((c, i) =>
-        toInterestCycle(c, i === currentIdx)
+      interestCyclesByLoanId[loan.id] = cycles.map((c) =>
+        toInterestCycle(c, c.cycle_number === dueCount)
       );
     }
 

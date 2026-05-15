@@ -2,12 +2,10 @@ import {
   buildFixedInstallmentSchedule,
   calculateFixedInstallmentTotals,
 } from '../../finance/fixedInstallment';
-import {
-  calculateMonthlyInterestDue,
-  calculateInterestOnlyCycleAmounts,
-} from '../../finance/interestOnly';
+import { calculateMonthlyInterestDue } from '../../finance/interestOnly';
 import { computeFirstDueDate } from '../../finance/dueDates';
 import type { Loan, LoanPurpose, RepaymentMethod } from '../../../types/loan';
+import { persistInterestOnlyCycles } from '../interestOnlySync';
 import { generateId, getDb, saveDb } from '../localDb';
 import { mapLoan } from '../mappers';
 import { getLoanDetailFromDb } from '../loanDetail';
@@ -111,28 +109,6 @@ export function createLoan(
       updated_at: ts,
     };
 
-    const cycleAmounts = calculateInterestOnlyCycleAmounts({
-      openingPrincipal: principal,
-      monthlyInterestRatePercent: input.interestRate,
-    });
-
-    db.loan_interest_cycles.push({
-      id: generateId(),
-      loan_id: id,
-      cycle_number: 1,
-      period_start: input.startDate,
-      period_end: firstDue,
-      due_date: firstDue,
-      opening_principal: principal,
-      interest_rate: input.interestRate,
-      interest_due: cycleAmounts.interestDue,
-      interest_paid: 0,
-      principal_paid: 0,
-      closing_principal: principal,
-      status: 'PENDING',
-      created_at: ts,
-      updated_at: ts,
-    });
   } else {
     const totals = calculateFixedInstallmentTotals({
       financeAmount: input.principalAmount,
@@ -207,6 +183,11 @@ export function createLoan(
   }
 
   db.loans.push(dbLoan);
+
+  if (isInterestOnly) {
+    persistInterestOnlyCycles(db, id, new Date().toISOString().split('T')[0]);
+  }
+
   db.audit_logs.push({
     id: generateId(),
     user_id: db.profiles[0]?.id ?? 'system',

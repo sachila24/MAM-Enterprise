@@ -12,6 +12,10 @@ import {
   type InterestCycleForAllocation,
 } from './interestOnly';
 import {
+  buildDueInterestCyclesForAllocation,
+  summarizeInterestOnlyLoan,
+} from './interestOnlyCycles';
+import {
   calculateFixedInstallmentTotals,
   calculateLateFee,
 } from './fixedInstallment';
@@ -93,6 +97,71 @@ export const EXAMPLE_4_ARREARS = {
     monthsLate: 2,
   }),
 };
+
+/** Start 2026-02-01, as-of 2026-05-15, 200k @ 5% → 3 cycles, 30k pending, next due Jun 1 */
+export const EXAMPLE_IO_A_MULTI_CYCLE = (() => {
+  const start = '2026-02-01';
+  const asOf = '2026-05-15';
+  const principal = 200_000;
+  const rate = 5;
+  const cycles = buildDueInterestCyclesForAllocation(
+    start,
+    rate,
+    principal,
+    asOf
+  );
+  const summary = summarizeInterestOnlyLoan(
+    start,
+    rate,
+    principal,
+    cycles,
+    asOf
+  );
+  return {
+    cycles,
+    summary,
+    expected: {
+      cycleCount: 3,
+      pendingInterest: 30_000,
+      nextDue: '2026-06-01',
+    },
+  };
+})();
+
+/** Same loan, payment 35,000 */
+export const EXAMPLE_IO_B_PAY_35K = (() => {
+  const { cycles } = EXAMPLE_IO_A_MULTI_CYCLE;
+  const allocation = allocateInterestOnlyPayment(200_000, 5, 35_000, cycles);
+  const nextInterest = calculateNextCycleInterestDue(
+    allocation.newPrincipal,
+    5
+  );
+  return {
+    allocation,
+    nextInterest,
+    expected: {
+      interestPaid: 30_000,
+      principalPaid: 5_000,
+      newPrincipal: 195_000,
+      nextInterest: 9_750,
+    },
+  };
+})();
+
+/** Same loan, payment 12,000 */
+export const EXAMPLE_IO_C_PAY_12K = (() => {
+  const { cycles } = EXAMPLE_IO_A_MULTI_CYCLE;
+  const allocation = allocateInterestOnlyPayment(200_000, 5, 12_000, cycles);
+  return {
+    allocation,
+    expected: {
+      interestPaid: 12_000,
+      principalPaid: 0,
+      newPrincipal: 200_000,
+      pendingInterestRemaining: 18_000,
+    },
+  };
+})();
 
 export const EXAMPLE_5_EARLY_SETTLEMENT = {
   beforeMinimum: canRequestEarlySettlement(5, 6),
@@ -208,6 +277,55 @@ export function verifyFinanceExamples(): ExampleCheck[] {
         EXAMPLE_5_EARLY_SETTLEMENT.quote.finalSettlementAmount === 287_834,
       expected: 287_834,
       actual: EXAMPLE_5_EARLY_SETTLEMENT.quote.finalSettlementAmount,
+    },
+    {
+      name: 'IO multi-cycle: count',
+      pass: EXAMPLE_IO_A_MULTI_CYCLE.cycles.length === 3,
+      expected: 3,
+      actual: EXAMPLE_IO_A_MULTI_CYCLE.cycles.length,
+    },
+    {
+      name: 'IO multi-cycle: pending interest',
+      pass: EXAMPLE_IO_A_MULTI_CYCLE.summary.pendingInterest === 30_000,
+      expected: 30_000,
+      actual: EXAMPLE_IO_A_MULTI_CYCLE.summary.pendingInterest,
+    },
+    {
+      name: 'IO multi-cycle: next due',
+      pass: EXAMPLE_IO_A_MULTI_CYCLE.summary.nextDueDate === '2026-06-01',
+      expected: '2026-06-01',
+      actual: EXAMPLE_IO_A_MULTI_CYCLE.summary.nextDueDate,
+    },
+    {
+      name: 'IO pay 35k: interest',
+      pass: EXAMPLE_IO_B_PAY_35K.allocation.interestPaid === 30_000,
+      expected: 30_000,
+      actual: EXAMPLE_IO_B_PAY_35K.allocation.interestPaid,
+    },
+    {
+      name: 'IO pay 35k: principal',
+      pass: EXAMPLE_IO_B_PAY_35K.allocation.principalPaid === 5_000,
+      expected: 5_000,
+      actual: EXAMPLE_IO_B_PAY_35K.allocation.principalPaid,
+    },
+    {
+      name: 'IO pay 35k: next interest',
+      pass: EXAMPLE_IO_B_PAY_35K.nextInterest === 9_750,
+      expected: 9_750,
+      actual: EXAMPLE_IO_B_PAY_35K.nextInterest,
+    },
+    {
+      name: 'IO pay 12k: pending remaining',
+      pass:
+        EXAMPLE_IO_C_PAY_12K.allocation.pendingInterestRemaining === 18_000,
+      expected: 18_000,
+      actual: EXAMPLE_IO_C_PAY_12K.allocation.pendingInterestRemaining,
+    },
+    {
+      name: 'IO pay 12k: no principal',
+      pass: EXAMPLE_IO_C_PAY_12K.allocation.principalPaid === 0,
+      expected: 0,
+      actual: EXAMPLE_IO_C_PAY_12K.allocation.principalPaid,
     },
   ];
 }
