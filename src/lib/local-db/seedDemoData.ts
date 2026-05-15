@@ -3,8 +3,9 @@ import {
   buildFixedInstallmentSchedule,
   calculateLateFee,
 } from '../finance/fixedInstallment';
-import { computeFirstDueDate } from '../finance/dueDates';
+import { addMonthsSameDay, computeFirstDueDate } from '../finance/dueDates';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../finance/constants';
+import { roundLKR } from '../finance/money';
 import type { MamDemoDb } from './types';
 
 const now = () => new Date().toISOString();
@@ -28,6 +29,7 @@ export function buildSeedDatabase(): MamDemoDb {
   const b3 = 'bike-00003';
   const loanIo = 'loan-io-0001';
   const loanFix = 'loan-fix-0001';
+  const loanFix2 = 'loan-fix-0002';
   const loanBike = 'loan-bike-0001';
 
   const ioStart = '2026-02-01';
@@ -42,7 +44,7 @@ export function buildSeedDatabase(): MamDemoDb {
   });
   const fixSchedule = buildFixedInstallmentSchedule(fixTotals, '2025-12-01');
   const fixStart = '2025-11-01';
-  const asOf = '2026-04-15';
+  const asOf = new Date().toISOString().split('T')[0];
 
   const bikeFinance = 320_000;
   const bikeTotals = calculateFixedInstallmentTotals({
@@ -61,8 +63,8 @@ export function buildSeedDatabase(): MamDemoDb {
       let status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' = 'PENDING';
 
       if (num === 1) {
-        paid = line.installmentAmount;
-        status = 'PAID';
+        paid = Math.round(line.installmentAmount * 0.5);
+        status = 'PARTIAL';
       } else if (num === 2 || num === 3) {
         const monthsLate = num === 2 ? 2 : 1;
         lateFeeAmount = calculateLateFee({
@@ -110,6 +112,34 @@ export function buildSeedDatabase(): MamDemoDb {
       created_at: ts,
       updated_at: ts,
     })
+  );
+
+  const fix2Installment = 26_389;
+  const fix2Term = 12;
+  const fix2FirstDue = '2026-02-02';
+  const fix2TotalPayable = fix2Installment * fix2Term;
+  const installmentsFix2: MamDemoDb['loan_installments'] = Array.from(
+    { length: fix2Term },
+    (_, i) => {
+      const num = i + 1;
+      const dueDate = addMonthsSameDay(fix2FirstDue, i);
+      const pastDue = new Date(dueDate) < new Date(asOf);
+      return {
+        id: `inst-fix2-${num}`,
+        loan_id: loanFix2,
+        installment_number: num,
+        due_date: dueDate,
+        principal_component: roundLKR(fix2Installment * 0.7),
+        interest_component: roundLKR(fix2Installment * 0.3),
+        installment_amount: fix2Installment,
+        paid_amount: 0,
+        late_fee_amount: 0,
+        late_fee_paid: 0,
+        status: pastDue ? ('OVERDUE' as const) : ('PENDING' as const),
+        created_at: ts,
+        updated_at: ts,
+      };
+    }
   );
 
   const payFixId = 'pay-fix-001';
@@ -270,6 +300,37 @@ export function buildSeedDatabase(): MamDemoDb {
         updated_at: ts,
       },
       {
+        id: loanFix2,
+        loan_code: 'LN-FIX-0002',
+        loan_purpose: 'CASH_LOAN',
+        repayment_method: 'FIXED_TERM_INSTALLMENT',
+        customer_id: c2,
+        principal_amount: 250_000,
+        original_principal_amount: 250_000,
+        current_principal_balance: 250_000,
+        interest_rate: 5,
+        interest_rate_period: 'MONTHLY',
+        interest_calculation_type: 'FLAT_TERM',
+        term_months: fix2Term,
+        total_interest_amount: fix2TotalPayable - 250_000,
+        total_before_discount: fix2TotalPayable,
+        discount_amount: 0,
+        total_payable: fix2TotalPayable,
+        paid_amount: 0,
+        balance_amount: fix2TotalPayable,
+        installment_amount: fix2Installment,
+        late_fee_rate: DEFAULT_LATE_FEE_RATE_PERCENT,
+        start_date: '2026-01-02',
+        first_due_date: fix2FirstDue,
+        due_date: addMonthsSameDay(fix2FirstDue, 3),
+        minimum_months_before_settlement: 6,
+        status: 'OVERDUE',
+        pending_interest_amount: 0,
+        notes: 'Demo: 4 overdue installments with boundary-based late fees',
+        created_at: ts,
+        updated_at: ts,
+      },
+      {
         id: loanBike,
         loan_code: 'LN-BIKE-0001',
         loan_purpose: 'BIKE_INSTALLMENT',
@@ -302,7 +363,11 @@ export function buildSeedDatabase(): MamDemoDb {
         updated_at: ts,
       },
     ],
-    loan_installments: [...installmentsFix, ...installmentsBike],
+    loan_installments: [
+      ...installmentsFix,
+      ...installmentsFix2,
+      ...installmentsBike,
+    ],
     loan_interest_cycles: [],
     loan_payments: [
       {
@@ -418,7 +483,7 @@ export function buildSeedDatabase(): MamDemoDb {
     counters: {
       CUS: 3,
       BIK: 3,
-      LN: 3,
+      LN: 4,
       PAY: 1,
       RCP: 1,
       GUA: 2,

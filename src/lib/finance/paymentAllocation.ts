@@ -1,5 +1,11 @@
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
-import { calculateLateFee, monthsLate } from './fixedInstallment';
+import {
+  calculateInstallmentLateFee,
+  getFixedLoanArrearsSummary,
+  isInstallmentInArrears,
+  resolveCurrentInstallmentNumber,
+  type InstallmentArrearsInput,
+} from './fixedInstallmentStatus';
 import {
   allocateInterestOnlyPayment,
   type InterestCycleForAllocation,
@@ -167,43 +173,36 @@ export function summarizeFixedInstallmentDue(
     ctx.lateFeeRatePercent ?? DEFAULT_LATE_FEE_RATE_PERCENT;
   const sorted = [...ctx.installments].sort(
     (a, b) => a.installmentNumber - b.installmentNumber
-  );
+  ) as InstallmentArrearsInput[];
 
-  let totalLateFeesDue = 0;
-  let totalArrearsInstallmentsDue = 0;
+  const arrears = getFixedLoanArrearsSummary(sorted, asOfDate, lateFeeRate);
+  const currentNum =
+    ctx.currentInstallmentNumber ??
+    resolveCurrentInstallmentNumber(sorted, asOfDate);
+
   let currentMonthDue = 0;
-
-  for (const inst of sorted) {
-    const instOwed = installmentOutstanding(inst);
-    const months = monthsLate(inst.dueDate, asOfDate);
-    const lateOwed =
-      instOwed > 0 && months > 0
-        ? Math.max(
-            lateFeeOutstanding(inst),
-            calculateLateFee({
-              installmentAmount: inst.installmentAmount,
-              lateFeeRatePercent: lateFeeRate,
-              monthsLate: months,
-            }) - inst.lateFeePaid
-          )
-        : lateFeeOutstanding(inst);
-    totalLateFeesDue = roundLKR(totalLateFeesDue + lateOwed);
-
-    if (inst.installmentNumber < ctx.currentInstallmentNumber) {
-      totalArrearsInstallmentsDue = roundLKR(
-        totalArrearsInstallmentsDue + instOwed
-      );
-    } else if (inst.installmentNumber === ctx.currentInstallmentNumber) {
-      currentMonthDue = instOwed;
-    }
+  let currentMonthLateFeeDue = 0;
+  const current = sorted.find((i) => i.installmentNumber === currentNum);
+  if (current && !isInstallmentInArrears(current, asOfDate)) {
+    currentMonthDue = installmentOutstanding(current);
+    currentMonthLateFeeDue = calculateInstallmentLateFee(
+      current,
+      lateFeeRate,
+      asOfDate
+    ).lateFeeOutstanding;
   }
+
+  const totalLateFeesDue = roundLKR(
+    arrears.lateFeesDue + currentMonthLateFeeDue
+  );
+  const totalArrearsInstallmentsDue = arrears.arrearsInstallmentAmount;
 
   return {
     totalLateFeesDue,
     totalArrearsInstallmentsDue,
     currentMonthDue,
     totalDue: roundLKR(
-      totalLateFeesDue + totalArrearsInstallmentsDue + currentMonthDue
+      arrears.totalArrearsDue + currentMonthDue + currentMonthLateFeeDue
     ),
   };
 }
@@ -234,17 +233,11 @@ export function allocateFixedInstallmentPayment(
   );
 
   const withLateFees = sorted.map((inst) => {
-    const outstanding = installmentOutstanding(inst);
-    const months = monthsLate(inst.dueDate, ctx.paymentDate);
-    const computedLate =
-      outstanding > 0 && months > 0
-        ? calculateLateFee({
-            installmentAmount: inst.installmentAmount,
-            lateFeeRatePercent: lateFeeRate,
-            monthsLate: months,
-          })
-        : 0;
-    const lateFeeAmount = Math.max(inst.lateFeeAmount, computedLate);
+    const { lateFeeAmount } = calculateInstallmentLateFee(
+      inst,
+      lateFeeRate,
+      ctx.paymentDate
+    );
     return { ...inst, lateFeeAmount };
   });
 

@@ -13,6 +13,11 @@ import {
   type InstallmentForAllocation,
 } from '../../lib/finance/paymentAllocation';
 import {
+  getFixedLoanArrearsSummary,
+  resolveCurrentInstallmentNumber,
+  type InstallmentArrearsInput,
+} from '../../lib/finance/fixedInstallmentStatus';
+import {
   buildFixedInstallmentReceipt,
   buildInterestOnlyReceipt,
 } from '../../lib/finance/receipt';
@@ -49,9 +54,12 @@ export function usePaymentComputation(
   }, [loan, bundle]);
 
   const currentInstallmentNumber = useMemo(() => {
-    if (!loan || !bundle) return 1;
-    return bundle.currentInstallmentNumberByLoanId[loan.id] ?? 1;
-  }, [loan, bundle]);
+    if (!loan || installments.length === 0) return 1;
+    return resolveCurrentInstallmentNumber(
+      installments as InstallmentArrearsInput[],
+      form.paymentDate
+    );
+  }, [loan, installments, form.paymentDate]);
 
   const interestOnlySummary = useMemo(() => {
     if (!loan || !isInterestOnlyLoan(loan)) return null;
@@ -146,12 +154,16 @@ export function usePaymentComputation(
     return null;
   }, [loan, allocation, fixedDueSummary]);
 
-  const arrearsCount = useMemo(() => {
-    if (!fixedDueSummary) return 0;
-    return installments.filter(
-      (i) => i.installmentNumber < currentInstallmentNumber && i.paidAmount < i.installmentAmount
-    ).length;
-  }, [installments, currentInstallmentNumber, fixedDueSummary]);
+  const fixedArrears = useMemo(() => {
+    if (!loan || !isFixedInstallmentLoan(loan) || installments.length === 0) {
+      return null;
+    }
+    return getFixedLoanArrearsSummary(
+      installments as InstallmentArrearsInput[],
+      form.paymentDate,
+      loan.lateFeeRate
+    );
+  }, [loan, installments, form.paymentDate]);
 
   return {
     cycles,
@@ -162,6 +174,7 @@ export function usePaymentComputation(
     allocation,
     allocationRows,
     receipt,
-    arrearsCount,
+    fixedArrears,
+    arrearsCount: fixedArrears?.arrearsInstallmentCount ?? 0,
   };
 }

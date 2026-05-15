@@ -4,8 +4,9 @@ import {
   allocateInterestOnlyPaymentLines,
   type InstallmentForAllocation,
 } from '../../finance/paymentAllocation';
-import { calculateLateFee, monthsLate } from '../../finance/fixedInstallment';
+import { calculateInstallmentLateFee } from '../../finance/fixedInstallmentStatus';
 import { roundLKR } from '../../finance/money';
+import { syncFixedInstallmentLateFees } from '../fixedInstallmentSync';
 import { persistInterestOnlyCycles } from '../interestOnlySync';
 import { buildPaymentBundle, resolveCurrentInstallmentNumber } from '../paymentBundle';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
@@ -54,6 +55,9 @@ export function recordPayment(
 
   if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
     persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
+  }
+  if (loan.repayment_method === 'FIXED_TERM_INSTALLMENT') {
+    syncFixedInstallmentLateFees(db, input.loanId, input.paymentDate);
   }
 
   const ts = new Date().toISOString();
@@ -223,17 +227,19 @@ function applyFixedAllocation(
 
     if (line.allocationType === 'LATE_FEE') {
       inst.late_fee_paid = roundLKR(inst.late_fee_paid + line.amount);
-      const months = monthsLate(inst.due_date, paymentDate);
-      if (months > 0) {
-        inst.late_fee_amount = Math.max(
-          inst.late_fee_amount,
-          calculateLateFee({
-            installmentAmount: inst.installment_amount,
-            lateFeeRatePercent: loan.late_fee_rate,
-            monthsLate: months,
-          })
-        );
-      }
+      const { lateFeeAmount } = calculateInstallmentLateFee(
+        {
+          installmentNumber: inst.installment_number,
+          dueDate: inst.due_date,
+          installmentAmount: inst.installment_amount,
+          paidAmount: inst.paid_amount,
+          lateFeeAmount: inst.late_fee_amount,
+          lateFeePaid: inst.late_fee_paid,
+        },
+        loan.late_fee_rate,
+        paymentDate
+      );
+      inst.late_fee_amount = lateFeeAmount;
     }
     if (line.allocationType === 'INSTALLMENT') {
       inst.paid_amount = roundLKR(inst.paid_amount + line.amount);
@@ -263,4 +269,6 @@ function applyFixedAllocation(
   loan.status = hasOverdue ? 'OVERDUE' : 'ACTIVE';
   if (loan.balance_amount <= 0) loan.status = 'COMPLETED';
   loan.updated_at = ts;
+
+  syncFixedInstallmentLateFees(db, loanId, paymentDate);
 }

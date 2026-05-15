@@ -641,11 +641,25 @@ function SummaryPanel({
               label="Next due"
               value={formatDate(loan.dueDate ?? loan.firstDueDate)}
             />
-            {computation.arrearsCount > 0 && (
-              <SummaryLine
-                label="Arrears"
-                value={`${computation.arrearsCount} installment(s)`}
-              />
+            {computation.fixedArrears?.hasArrears && (
+              <>
+                <SummaryLine
+                  label="Arrears"
+                  value={`${computation.fixedArrears.arrearsInstallmentCount} installment(s)`}
+                />
+                <SummaryLine
+                  label="Installment arrears"
+                  value={formatLKR(computation.fixedArrears.arrearsInstallmentAmount)}
+                />
+                <SummaryLine
+                  label="Late fees (arrears)"
+                  value={formatLKR(computation.fixedArrears.lateFeesDue)}
+                />
+                <SummaryLine
+                  label="Total arrears due"
+                  value={formatLKR(computation.fixedArrears.totalArrearsDue)}
+                />
+              </>
             )}
             {computation.fixedDueSummary && step >= 2 && (
               <>

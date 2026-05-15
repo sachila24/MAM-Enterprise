@@ -1,3 +1,4 @@
+import { addMonthsSameDay } from './dueDates';
 import { roundLKR } from './money';
 
 export interface FixedInstallmentTermsInput {
@@ -78,15 +79,52 @@ export function calculateLateFeePerMonth(
   });
 }
 
-/** Months between due date and payment date (calendar months, minimum 0). */
+function toDateOnly(iso: string): string {
+  return iso.split('T')[0];
+}
+
+/**
+ * Count completed monthly anniversaries of the due date on or before today.
+ * Uses the same calendar day each month (see addMonthsSameDay).
+ *
+ * Examples (due → today):
+ * - 2026-02-02 → 2026-05-15 = 3 (Mar 2, Apr 2, May 2; Jun 2 not yet reached)
+ * - 2026-03-02 → 2026-05-15 = 2
+ * - 2026-05-02 → 2026-05-15 = 0 (next boundary Jun 2 is after today)
+ *
+ * Partial days in the current month do not add a late month.
+ */
+export function calculateMonthsLate(dueDate: string, today: string): number {
+  const due = toDateOnly(dueDate);
+  const asOf = toDateOnly(today);
+  if (asOf <= due) return 0;
+
+  let months = 0;
+  let next = 1;
+  let boundary = addMonthsSameDay(due, next);
+  while (boundary <= asOf) {
+    months = next;
+    next += 1;
+    boundary = addMonthsSameDay(due, next);
+  }
+  return months;
+}
+
+/** Late fee = installment × rate% × months late (whole LKR). */
+export function calculateInstallmentLateFeeAmount(
+  installmentAmount: number,
+  lateFeeRatePercent: number,
+  monthsLateCount: number
+): number {
+  if (monthsLateCount <= 0) return 0;
+  return roundLKR(
+    installmentAmount * (lateFeeRatePercent / 100) * monthsLateCount
+  );
+}
+
+/** Alias for payment allocation and legacy callers. */
 export function monthsLate(dueDate: string, paymentDate: string): number {
-  const due = new Date(dueDate);
-  const paid = new Date(paymentDate);
-  if (paid <= due) return 0;
-  const months =
-    (paid.getFullYear() - due.getFullYear()) * 12 +
-    (paid.getMonth() - due.getMonth());
-  return Math.max(0, months);
+  return calculateMonthsLate(dueDate, paymentDate);
 }
 
 export function buildFixedInstallmentSchedule(

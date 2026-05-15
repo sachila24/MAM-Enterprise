@@ -16,8 +16,14 @@ import {
   summarizeInterestOnlyLoan,
 } from './interestOnlyCycles';
 import {
+  calculateInstallmentLateFee,
+  getFixedLoanArrearsSummary,
+} from './fixedInstallmentStatus';
+import {
   calculateFixedInstallmentTotals,
+  calculateInstallmentLateFeeAmount,
   calculateLateFee,
+  calculateMonthsLate,
 } from './fixedInstallment';
 
 export const EXAMPLE_1_INTEREST_ONLY = (() => {
@@ -161,6 +167,83 @@ export const EXAMPLE_IO_C_PAY_12K = (() => {
       pendingInterestRemaining: 18_000,
     },
   };
+})();
+
+const LATE_FEE_INST = 26_389;
+const LATE_FEE_RATE = 5;
+const LATE_FEE_AS_OF = '2026-05-15';
+
+/** A: due 2026-02-02, as-of 2026-05-15 → 3 months, fee 3,958 */
+export const EXAMPLE_LATE_FEE_A = (() => {
+  const due = '2026-02-02';
+  const monthsLate = calculateMonthsLate(due, LATE_FEE_AS_OF);
+  const lateFee = calculateInstallmentLateFeeAmount(
+    LATE_FEE_INST,
+    LATE_FEE_RATE,
+    monthsLate
+  );
+  return { due, monthsLate, lateFee, expected: { monthsLate: 3, lateFee: 3_958 } };
+})();
+
+/** B: due 2026-03-02 → 2 months, fee 2,639 */
+export const EXAMPLE_LATE_FEE_B = (() => {
+  const due = '2026-03-02';
+  const monthsLate = calculateMonthsLate(due, LATE_FEE_AS_OF);
+  const lateFee = calculateInstallmentLateFeeAmount(
+    LATE_FEE_INST,
+    LATE_FEE_RATE,
+    monthsLate
+  );
+  return { due, monthsLate, lateFee, expected: { monthsLate: 2, lateFee: 2_639 } };
+})();
+
+/** C: future due → 0 */
+export const EXAMPLE_LATE_FEE_C = (() => {
+  const inst = {
+    installmentNumber: 6,
+    dueDate: '2026-07-02',
+    installmentAmount: LATE_FEE_INST,
+    paidAmount: 0,
+    lateFeeAmount: 0,
+    lateFeePaid: 0,
+  };
+  const { lateFeeAmount, monthsLate } = calculateInstallmentLateFee(
+    inst,
+    LATE_FEE_RATE,
+    LATE_FEE_AS_OF
+  );
+  return { monthsLate, lateFeeAmount, expected: { monthsLate: 0, lateFeeAmount: 0 } };
+})();
+
+export const EXAMPLE_FIX_ARREARS = (() => {
+  const asOf = '2026-05-15';
+  const installments = [
+    {
+      installmentNumber: 1,
+      dueDate: '2025-12-01',
+      installmentAmount: 15_834,
+      paidAmount: 15_834,
+      lateFeeAmount: 0,
+      lateFeePaid: 0,
+    },
+    {
+      installmentNumber: 2,
+      dueDate: '2026-01-01',
+      installmentAmount: 15_834,
+      paidAmount: 0,
+      lateFeeAmount: 1_584,
+      lateFeePaid: 0,
+    },
+    {
+      installmentNumber: 3,
+      dueDate: '2026-02-01',
+      installmentAmount: 15_834,
+      paidAmount: 0,
+      lateFeeAmount: 792,
+      lateFeePaid: 0,
+    },
+  ];
+  return getFixedLoanArrearsSummary(installments, asOf, 5);
 })();
 
 export const EXAMPLE_5_EARLY_SETTLEMENT = {
@@ -326,6 +409,53 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       pass: EXAMPLE_IO_C_PAY_12K.allocation.principalPaid === 0,
       expected: 0,
       actual: EXAMPLE_IO_C_PAY_12K.allocation.principalPaid,
+    },
+    {
+      name: 'Fixed arrears: count',
+      pass: EXAMPLE_FIX_ARREARS.arrearsInstallmentCount === 2,
+      expected: 2,
+      actual: EXAMPLE_FIX_ARREARS.arrearsInstallmentCount,
+    },
+    {
+      name: 'Fixed arrears: has arrears',
+      pass: EXAMPLE_FIX_ARREARS.hasArrears === true,
+      expected: true,
+      actual: EXAMPLE_FIX_ARREARS.hasArrears,
+    },
+    {
+      name: 'Late fee A: months late',
+      pass: EXAMPLE_LATE_FEE_A.monthsLate === 3,
+      expected: 3,
+      actual: EXAMPLE_LATE_FEE_A.monthsLate,
+    },
+    {
+      name: 'Late fee A: amount',
+      pass: EXAMPLE_LATE_FEE_A.lateFee === 3_958,
+      expected: 3_958,
+      actual: EXAMPLE_LATE_FEE_A.lateFee,
+    },
+    {
+      name: 'Late fee B: months late',
+      pass: EXAMPLE_LATE_FEE_B.monthsLate === 2,
+      expected: 2,
+      actual: EXAMPLE_LATE_FEE_B.monthsLate,
+    },
+    {
+      name: 'Late fee B: amount',
+      pass: EXAMPLE_LATE_FEE_B.lateFee === 2_639,
+      expected: 2_639,
+      actual: EXAMPLE_LATE_FEE_B.lateFee,
+    },
+    {
+      name: 'Late fee C: future zero',
+      pass:
+        EXAMPLE_LATE_FEE_C.lateFeeAmount === 0 &&
+        EXAMPLE_LATE_FEE_C.monthsLate === 0,
+      expected: { lateFeeAmount: 0, monthsLate: 0 },
+      actual: {
+        lateFeeAmount: EXAMPLE_LATE_FEE_C.lateFeeAmount,
+        monthsLate: EXAMPLE_LATE_FEE_C.monthsLate,
+      },
     },
   ];
 }

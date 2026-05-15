@@ -1,4 +1,5 @@
 import { countInterestCyclesDueByDate } from '../finance/dueDates';
+import { resolveCurrentInstallmentNumber as resolveFixedCurrentInstallment } from '../finance/fixedInstallmentStatus';
 import type { InterestCycleForAllocation } from '../finance/interestOnly';
 import type { InstallmentForAllocation } from '../finance/paymentAllocation';
 import type { PaymentPreviewBundle } from '../../pages/payments/paymentPreviewData';
@@ -35,23 +36,23 @@ function toInstallmentForAllocation(
   };
 }
 
-/** Current installment = latest due on or before as-of date. */
+/** Current installment = latest unpaid due on or before as-of date. */
 export function resolveCurrentInstallmentNumber(
   installments: DbLoanInstallment[],
   asOfDate: string = new Date().toISOString().split('T')[0]
 ): number {
-  const sorted = [...installments].sort(
-    (a, b) => a.installment_number - b.installment_number
+  if (installments.length === 0) return 1;
+  return resolveFixedCurrentInstallment(
+    installments.map((i) => ({
+      installmentNumber: i.installment_number,
+      dueDate: i.due_date,
+      installmentAmount: i.installment_amount,
+      paidAmount: i.paid_amount,
+      lateFeeAmount: i.late_fee_amount,
+      lateFeePaid: i.late_fee_paid,
+    })),
+    asOfDate
   );
-  if (sorted.length === 0) return 1;
-  const asOf = new Date(asOfDate);
-  let current = sorted[0].installment_number;
-  for (const inst of sorted) {
-    if (new Date(inst.due_date) <= asOf) {
-      current = inst.installment_number;
-    }
-  }
-  return current;
 }
 
 export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
