@@ -244,7 +244,7 @@ export function BikeDetail() {
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <p className="text-sm font-medium text-brand-600 truncate font-mono">
-                        {loan.id}
+                        {loan.loanCode}
                       </p>
                       <p className="mt-1 text-sm text-neutral-500">
                         {formatDate(loan.startDate)}
@@ -253,7 +253,7 @@ export function BikeDetail() {
                     <div className="flex flex-col items-end">
                       <StatusChip status={loan.status} />
                       <p className="mt-1 text-sm font-medium text-neutral-900 tabular-nums">
-                        {formatLKR(loan.amount)}
+                        {formatLKR(loan.principalAmount)}
                       </p>
                     </div>
                   </div>

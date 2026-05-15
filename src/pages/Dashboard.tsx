@@ -166,7 +166,7 @@ export function Dashboard() {
                         {loan.customer?.name}
                       </p>
                       <p className="text-sm text-neutral-500 flex items-center gap-2 mt-1">
-                        <span className="tabular-nums">{loan.id}</span>
+                        <span className="tabular-nums">{loan.loanCode}</span>
                         <span>·</span>
                         <span className="text-danger-600 font-medium">
                           {loan.daysOverdue} days overdue
@@ -176,7 +176,7 @@ export function Dashboard() {
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-sm font-semibold text-neutral-900 tabular-nums">
-                          {formatLKR(loan.balance)}
+                          {formatLKR(loan.balanceAmount)}
                         </p>
                         <p className="text-xs text-neutral-500 mt-1">Balance</p>
                       </div>

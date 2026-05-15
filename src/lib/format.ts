@@ -17,7 +17,12 @@ export function formatEnum(value: string | null | undefined): string {
     RELEASED: 'Released',
     PAID: 'Paid',
     PENDING: 'Pending',
-    CANCELLED: 'Cancelled'
+    CANCELLED: 'Cancelled',
+    CASH_LOAN: 'Cash loan',
+    BIKE_INSTALLMENT: 'Bike installment',
+    INTEREST_ONLY_REDUCING_PRINCIPAL: 'Monthly interest / reducing principal',
+    FIXED_TERM_INSTALLMENT: 'Fixed term installment',
+    SETTLED: 'Settled'
   };
 
   if (map[value]) return map[value];

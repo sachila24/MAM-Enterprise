@@ -14,7 +14,7 @@ export function LoanDetail() {
   }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    'schedule' | 'payments' | 'collateral'>(
+    'schedule' | 'payments' | 'guarantees'>(
     'schedule');
   const loans: Loan[] = [];
   const customers: Customer[] = [];
@@ -49,12 +49,12 @@ export function LoanDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold leading-6 text-neutral-900">
-              {loan.id}
+              {loan.loanCode}
             </h1>
             <StatusChip status={loan.status} />
           </div>
           <p className="mt-2 text-sm text-neutral-500">
-            {customer.name} • {formatEnum(loan.type)} Loan
+            {customer.name} • {formatEnum(loan.loanPurpose)}
           </p>
         </div>
         <div className="flex gap-3">
@@ -72,19 +72,11 @@ export function LoanDetail() {
           label="Principal Amount"
           value={formatLKR(loan.principalAmount)} />
         
-        <KpiCard label="Current Balance" value={formatLKR(loan.balance)} />
+        <KpiCard label="Current Balance" value={formatLKR(loan.balanceAmount)} />
         <KpiCard label="Total Paid" value={formatLKR(totalPaid)} />
         <KpiCard
           label="Next Installment"
-          value={formatDate(loan.nextDueDate)}
-          delta={
-          loan.daysOverdue ?
-          {
-            value: `${loan.daysOverdue} days overdue`,
-            trend: 'down'
-          } :
-          undefined
-          } />
+          value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
         
       </div>
 
@@ -104,10 +96,10 @@ export function LoanDetail() {
               Payments
             </button>
             <button
-              onClick={() => setActiveTab('collateral')}
-              className={`w-1/3 border-b-2 py-4 px-1 text-center text-sm font-medium ${activeTab === 'collateral' ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}>
+              onClick={() => setActiveTab('guarantees')}
+              className={`w-1/3 border-b-2 py-4 px-1 text-center text-sm font-medium ${activeTab === 'guarantees' ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}>
               
-              Collateral
+              Guarantees
             </button>
           </nav>
         </div>
@@ -207,9 +199,9 @@ export function LoanDetail() {
             </table>
           }
 
-          {activeTab === 'collateral' &&
+          {activeTab === 'guarantees' &&
           <div className="p-6">
-              {loan.type === 'bike' && bike ?
+              {loan.loanPurpose === 'BIKE_INSTALLMENT' && bike ?
             <div className="rounded-md bg-neutral-50 p-4 ring-1 ring-neutral-200 max-w-md">
                   <h4 className="text-sm font-medium text-neutral-900 mb-4">
                     Linked Bike
@@ -242,8 +234,8 @@ export function LoanDetail() {
 
             <EmptyState
               icon={FileTextIcon}
-              title="No collateral"
-              description="This loan does not have any linked collateral or guarantees." />
+              title="No guarantees"
+              description="Add guarantee items for this loan from the guarantees screen." />
 
             }
             </div>

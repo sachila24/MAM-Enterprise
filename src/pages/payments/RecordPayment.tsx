@@ -70,7 +70,7 @@ export function RecordPayment() {
     if (currentStep === 1 && amount <= 0) return;
     if (currentStep < steps.length - 1) {
       if (currentStep === 0 && selectedLoan && amount === 0) {
-        setAmount(selectedLoan.installmentAmount);
+        setAmount(selectedLoan.installmentAmount ?? 0);
       }
       setCurrentStep(currentStep + 1);
     } else {
@@ -186,7 +186,7 @@ export function RecordPayment() {
                       Loan ID
                     </dt>
                     <dd className="text-sm text-brand-900 tabular-nums">
-                      {selectedLoan?.id}
+                      {selectedLoan?.loanCode}
                     </dd>
                   </div>
                   <div className="py-2 flex justify-between">
@@ -194,7 +194,7 @@ export function RecordPayment() {
                       Current Balance
                     </dt>
                     <dd className="text-sm font-bold text-brand-900 tabular-nums">
-                      {formatLKR(selectedLoan?.balance || 0)}
+                      {formatLKR(selectedLoan?.balanceAmount || 0)}
                     </dd>
                   </div>
                 </dl>
@@ -218,17 +218,17 @@ export function RecordPayment() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                 type="button"
-                onClick={() => setAmount(selectedLoan.installmentAmount)}
+                onClick={() => setAmount(selectedLoan.installmentAmount ?? 0)}
                 className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-600/20 hover:bg-brand-100">
                 
-                  Installment: {formatLKR(selectedLoan.installmentAmount)}
+                  Installment: {formatLKR(selectedLoan.installmentAmount ?? 0)}
                 </button>
                 <button
                 type="button"
-                onClick={() => setAmount(selectedLoan.balance)}
+                onClick={() => setAmount(selectedLoan.balanceAmount)}
                 className="inline-flex items-center rounded-full bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-neutral-600 ring-1 ring-inset ring-neutral-500/20 hover:bg-neutral-100">
                 
-                  Full Balance: {formatLKR(selectedLoan.balance)}
+                  Full Balance: {formatLKR(selectedLoan.balanceAmount)}
                 </button>
                 <button
                 type="button"
@@ -288,7 +288,7 @@ export function RecordPayment() {
                     Loan ID
                   </dt>
                   <dd className="text-sm text-neutral-900 tabular-nums">
-                    {selectedLoan.id}
+                    {selectedLoan.loanCode}
                   </dd>
                 </div>
                 <div className="py-3 flex justify-between">
@@ -312,7 +312,7 @@ export function RecordPayment() {
                     New Balance
                   </dt>
                   <dd className="text-sm font-medium text-neutral-900 tabular-nums">
-                    {formatLKR(Math.max(0, selectedLoan.balance - amount))}
+                    {formatLKR(Math.max(0, selectedLoan.balanceAmount - amount))}
                   </dd>
                 </div>
               </dl>
