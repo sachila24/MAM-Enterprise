@@ -157,3 +157,11 @@ export function buildFixedInstallmentAllocationRows(
 
   return rows;
 }
+
+/** Rows touched by this payment only — for compact receipts (excludes untouched schedule). */
+export function filterAffectedAllocationRows(
+  rows: AllocationDisplayRow[],
+  maxRows = 5
+): AllocationDisplayRow[] {
+  return rows.filter((r) => r.paidByPayment > 0).slice(0, maxRows);
+}

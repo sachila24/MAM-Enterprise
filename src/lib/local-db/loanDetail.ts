@@ -97,13 +97,18 @@ export function getLoanDetailFromDb(
       : null;
   const pending = ioSummary?.pendingInterest ?? totalPendingInterest(cycleAllocPreview);
 
-  const start = new Date(dbLoan.start_date);
-  const now = new Date();
-  const monthsCompleted = Math.max(
-    0,
-    (now.getFullYear() - start.getFullYear()) * 12 +
-      (now.getMonth() - start.getMonth())
-  );
+  const monthsCompleted =
+    dbLoan.repayment_method === 'FIXED_TERM_INSTALLMENT'
+      ? installments.filter((i) => i.status === 'PAID').length
+      : (() => {
+          const start = new Date(dbLoan.start_date);
+          const now = new Date();
+          return Math.max(
+            0,
+            (now.getFullYear() - start.getFullYear()) * 12 +
+              (now.getMonth() - start.getMonth())
+          );
+        })();
 
   return {
     loan: {

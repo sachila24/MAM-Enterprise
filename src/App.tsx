@@ -12,6 +12,7 @@ import { CustomerForm } from './pages/customers/CustomerForm';
 import { LoansList } from './pages/loans/LoansList';
 import { CreateLoan } from './pages/loans/CreateLoan';
 import { LoanDetail } from './pages/loans/LoanDetail';
+import { EarlySettlement } from './pages/loans/EarlySettlement';
 import { PaymentsList } from './pages/payments/PaymentsList';
 import { RecordPayment } from './pages/payments/RecordPayment';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
@@ -56,6 +57,7 @@ export function App() {
               <Route path="loans">
                 <Route index element={<LoansList />} />
                 <Route path="new" element={<CreateLoan />} />
+                <Route path=":id/early-settlement" element={<EarlySettlement />} />
                 <Route path=":id" element={<LoanDetail />} />
               </Route>
 

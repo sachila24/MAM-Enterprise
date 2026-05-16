@@ -521,10 +521,7 @@ function LoanActionBar({
         {showEarlySettlement && (
           <ActionButton
             disabled={!settlementEligible}
-            onClick={() =>
-              settlementEligible &&
-              navigate(`/loans/${loanId}/early-settlement`)
-            }
+            onClick={() => navigate(`/loans/${loanId}/early-settlement`)}
           >
             Early Settlement
           </ActionButton>

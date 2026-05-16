@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/ui/Toast';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
@@ -309,18 +310,11 @@ export function CreateLoan() {
                 <h3 className="text-lg font-medium text-neutral-900">
                   Select Customer
                 </h3>
-                <select
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm bg-white"
-                >
-                  <option value="">-- Select a customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.nic})
-                    </option>
-                  ))}
-                </select>
+                <CustomerSearchSelect
+                  customers={customers}
+                  selectedCustomerId={customerId || null}
+                  onSelect={(id) => setCustomerId(id ?? '')}
+                />
               </div>
             )}
 

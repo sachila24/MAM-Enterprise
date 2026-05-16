@@ -27,6 +27,12 @@ import {
 } from './fixedInstallment';
 import { getNextDueDateForFixedInstallments } from './loanNextDue';
 import { roundLKR } from './money';
+import {
+  allocateFixedInstallmentPayment,
+  allocateInterestOnlyPaymentLines,
+  type InstallmentForAllocation,
+} from './paymentAllocation';
+import { splitAllocationsCashAndDiscount } from './paymentDiscountSplit';
 
 export const EXAMPLE_1_INTEREST_ONLY = (() => {
   const allocation = allocateInterestOnlyPayment(100_000, 5, 55_000);
@@ -246,6 +252,129 @@ export const EXAMPLE_FIX_ARREARS = (() => {
     },
   ];
   return getFixedLoanArrearsSummary(installments, asOf, 5);
+})();
+
+function runDiscountPaymentExample(
+  installments: InstallmentForAllocation[],
+  loanBalance: number,
+  cash: number,
+  discount: number,
+  paymentDate: string,
+  currentInstallmentNumber: number,
+  lateFeeRatePercent = 0
+) {
+  const totalApply = roundLKR(cash + discount);
+  const base = allocateFixedInstallmentPayment(
+    {
+      installments,
+      paymentDate,
+      currentInstallmentNumber,
+      loanBalanceAmount: loanBalance,
+      lateFeeRatePercent,
+    },
+    totalApply
+  );
+  const lines = splitAllocationsCashAndDiscount(
+    base.allocations,
+    cash,
+    discount
+  );
+  const totalAllocated = roundLKR(
+    lines.reduce((s, l) => s + l.amount, 0)
+  );
+  const advance = base.summary.advanceAmount ?? 0;
+  const appliedToBalance = roundLKR(totalAllocated - advance);
+  return {
+    cash,
+    discount,
+    totalApply,
+    totalAllocated,
+    unallocated: roundLKR(totalApply - totalAllocated),
+    arrearsRemainingAfter: base.summary.arrearsRemainingAfter ?? 0,
+    appliedToBalance,
+  };
+}
+
+/** A: due 4,320 · cash 4,000 · discount 320 */
+export const EXAMPLE_DISCOUNT_FIXED_A = runDiscountPaymentExample(
+  [
+    {
+      id: 'ex-a',
+      installmentNumber: 1,
+      dueDate: '2026-01-01',
+      installmentAmount: 4_320,
+      paidAmount: 0,
+      lateFeeAmount: 0,
+      lateFeePaid: 0,
+    },
+  ],
+  4_320,
+  4_000,
+  320,
+  '2026-01-01',
+  1,
+  0
+);
+
+/** B: due 32,460 · cash 32,000 · discount 460 */
+export const EXAMPLE_DISCOUNT_FIXED_B = runDiscountPaymentExample(
+  [
+    {
+      id: 'ex-b',
+      installmentNumber: 1,
+      dueDate: '2026-01-01',
+      installmentAmount: 32_000,
+      paidAmount: 0,
+      lateFeeAmount: 460,
+      lateFeePaid: 0,
+    },
+  ],
+  32_460,
+  32_000,
+  460,
+  '2026-01-01',
+  1,
+  0
+);
+
+/** C: interest due 5,000 · cash 4,000 · discount 1,000 */
+export const EXAMPLE_DISCOUNT_INTEREST_ONLY_C = (() => {
+  const cash = 4_000;
+  const discount = 1_000;
+  const totalApply = cash + discount;
+  const base = allocateInterestOnlyPaymentLines(
+    {
+      currentPrincipal: 100_000,
+      monthlyInterestRatePercent: 5,
+      cycles: [
+        {
+          id: 'c-ex',
+          cycleNumber: 1,
+          dueDate: '2026-06-15',
+          openingPrincipal: 100_000,
+          interestDue: 5_000,
+          interestPaid: 0,
+          isCurrentCycle: true,
+        },
+      ],
+    },
+    totalApply
+  );
+  const lines = splitAllocationsCashAndDiscount(
+    base.allocations,
+    cash,
+    discount
+  );
+  const totalAllocated = roundLKR(lines.reduce((s, l) => s + l.amount, 0));
+  return {
+    cash,
+    discount,
+    totalApply,
+    totalAllocated,
+    unallocated: roundLKR(totalApply - totalAllocated),
+    interestPaid: base.summary.interestPaid ?? 0,
+    pendingAfter: base.summary.pendingInterestRemaining ?? 0,
+  };
 })();
 
 export const EXAMPLE_5_EARLY_SETTLEMENT = {
@@ -541,6 +670,39 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       pass: roundLKR(7_000 + 167) === 7_167,
       expected: 7_167,
       actual: roundLKR(7_000 + 167),
+    },
+    {
+      name: 'Discount fixed A: total applied 4,320',
+      pass:
+        EXAMPLE_DISCOUNT_FIXED_A.totalApply === 4_320 &&
+        EXAMPLE_DISCOUNT_FIXED_A.unallocated === 0 &&
+        EXAMPLE_DISCOUNT_FIXED_A.arrearsRemainingAfter === 0,
+      expected: { totalApply: 4_320, unallocated: 0, arrears: 0 },
+      actual: EXAMPLE_DISCOUNT_FIXED_A,
+    },
+    {
+      name: 'Discount fixed A: cash 4,000 only',
+      pass: EXAMPLE_DISCOUNT_FIXED_A.cash === 4_000,
+      expected: 4_000,
+      actual: EXAMPLE_DISCOUNT_FIXED_A.cash,
+    },
+    {
+      name: 'Discount fixed B: total applied 32,460',
+      pass:
+        EXAMPLE_DISCOUNT_FIXED_B.totalApply === 32_460 &&
+        EXAMPLE_DISCOUNT_FIXED_B.unallocated === 0 &&
+        EXAMPLE_DISCOUNT_FIXED_B.arrearsRemainingAfter === 0,
+      expected: { totalApply: 32_460, unallocated: 0, arrears: 0 },
+      actual: EXAMPLE_DISCOUNT_FIXED_B,
+    },
+    {
+      name: 'Discount interest-only C: interest cleared',
+      pass:
+        EXAMPLE_DISCOUNT_INTEREST_ONLY_C.totalApply === 5_000 &&
+        EXAMPLE_DISCOUNT_INTEREST_ONLY_C.unallocated === 0 &&
+        EXAMPLE_DISCOUNT_INTEREST_ONLY_C.interestPaid === 5_000,
+      expected: { totalApply: 5_000, interestPaid: 5_000 },
+      actual: EXAMPLE_DISCOUNT_INTEREST_ONLY_C,
     },
   ];
 }

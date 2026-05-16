@@ -68,9 +68,9 @@ export function buildFixedInstallmentReceipt(
   const remainingArrears = roundLKR(
     Math.max(0, totalArrearsBefore - paidTowardArrears)
   );
-  const loanBalance = roundLKR(
-    Math.max(0, loanBalanceBefore - allocation.totalAllocated)
-  );
+  const advance = allocation.summary.advanceAmount ?? 0;
+  const appliedToBalance = roundLKR(allocation.totalAllocated - advance);
+  const loanBalance = roundLKR(Math.max(0, loanBalanceBefore - appliedToBalance));
 
   return {
     cashReceived,

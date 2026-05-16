@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircleIcon, SearchIcon } from 'lucide-react';
+import { AlertCircleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
+import { filterAffectedAllocationRows } from '../../lib/finance/allocationDisplay';
 import { useToast } from '../../components/ui/Toast';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
@@ -30,6 +32,7 @@ export function RecordPayment() {
   const db = useDemoDb();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+  const toastShownRef = useRef(false);
   const clientSubmitIdRef = useRef<string | null>(null);
   const previewBundle = useMemo(() => buildPaymentBundle(db), [db]);
   const [searchParams] = useSearchParams();
@@ -42,7 +45,6 @@ export function RecordPayment() {
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(
     initialLoanId
   );
-  const [customerSearch, setCustomerSearch] = useState('');
   const [loanSearch, setLoanSearch] = useState('');
 
   const [form, setForm] = useState<PaymentFormState>({
@@ -86,14 +88,6 @@ export function RecordPayment() {
       }
     }
   }, [initialLoanId, loans]);
-
-  const filteredCustomers = customers.filter(
-    (c) =>
-      !customerSearch ||
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      c.nic.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      (c.customerCode ?? '').toLowerCase().includes(customerSearch.toLowerCase())
-  );
 
   const filteredLoans = customerLoans.filter(
     (l) =>
@@ -152,6 +146,12 @@ export function RecordPayment() {
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
+    toastShownRef.current = false;
+
+    const receiptRows = filterAffectedAllocationRows(
+      computation.allocationRows,
+      5
+    );
 
     const successState = {
       loanCode: selectedLoan.loanCode,
@@ -164,12 +164,9 @@ export function RecordPayment() {
       paymentDate: form.paymentDate,
       repaymentMethod: selectedLoan.repaymentMethod,
       receipt: computation.receipt,
-      allocationRows: computation.allocationRows,
+      allocationRows: receiptRows,
       supabasePending: false,
     };
-
-    let saved = false;
-    let receiptNumber = '';
 
     try {
       const result = recordPayment(
@@ -187,27 +184,24 @@ export function RecordPayment() {
         },
         db
       );
-      saved = true;
-      receiptNumber = result.receiptNumber;
       navigate('/payments/success', {
         replace: true,
-        state: { ...successState, receiptNumber, paymentId: result.payment.id },
+        state: {
+          ...successState,
+          receiptNumber: result.receiptNumber,
+          paymentId: result.payment.id,
+        },
       });
-      showToast('Payment recorded successfully', 'success');
-    } catch (err) {
-      if (saved) {
-        navigate('/payments/success', {
-          replace: true,
-          state: { ...successState, receiptNumber },
-        });
+      if (!toastShownRef.current) {
+        toastShownRef.current = true;
         showToast('Payment recorded successfully', 'success');
-      } else {
-        const message =
-          err instanceof Error ? err.message : 'Could not save payment';
-        showToast(message, 'error');
-        isSubmittingRef.current = false;
-        setIsSubmitting(false);
       }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not save payment';
+      showToast(message, 'error');
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -254,41 +248,14 @@ export function RecordPayment() {
                 />
               ) : (
                 <>
-                  <div className="relative mb-4">
-                    <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                    <input
-                      type="text"
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="Search name, NIC, or customer code"
-                      className="block w-full rounded-md border-0 py-2 pl-10 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm"
-                    />
-                  </div>
-                  <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200 overflow-hidden">
-                    {filteredCustomers.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCustomerId(c.id)}
-                          className={`w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors ${
-                            selectedCustomerId === c.id
-                              ? 'bg-brand-50 ring-2 ring-inset ring-brand-500'
-                              : ''
-                          }`}
-                        >
-                          <p className="font-medium text-neutral-900">{c.name}</p>
-                          <p className="text-xs text-neutral-500">
-                            {c.customerCode ?? c.nic} · {c.phone}
-                          </p>
-                        </button>
-                      </li>
-                    ))}
-                    {filteredCustomers.length === 0 && (
-                      <li className="px-4 py-8 text-center text-sm text-neutral-500">
-                        No customers match your search.
-                      </li>
-                    )}
-                  </ul>
+                  <CustomerSearchSelect
+                    customers={customers}
+                    selectedCustomerId={selectedCustomerId}
+                    onSelect={(id) => {
+                      setSelectedCustomerId(id);
+                      setSelectedLoanId(null);
+                    }}
+                  />
                   <p className="mt-3 text-xs text-neutral-500">
                     Local demo · {previewBundle.label}
                   </p>
@@ -783,15 +750,25 @@ function SummaryPanel({
             />
             <SummaryLine label="Paid" value={formatLKR(loan.paidAmount)} />
             <SummaryLine label="Balance" value={formatLKR(loan.balanceAmount)} />
+            {loan.installmentAmount != null && loan.installmentAmount > 0 && (
+              <SummaryLine
+                label="Monthly installment"
+                value={formatLKR(loan.installmentAmount)}
+              />
+            )}
             <SummaryLine
-              label="Next due"
+              label="Next due date"
               value={
                 computation.paymentNextDue?.dueDate
                   ? formatDate(computation.paymentNextDue.dueDate)
                   : computation.paymentNextDue?.label ?? '—'
               }
             />
-            {computation.fixedDueSummary && step >= 2 && (
+            <SummaryLine
+              label="Late fee rate"
+              value={`${loan.lateFeeRate}%`}
+            />
+            {computation.fixedDueSummary && (
               <>
                 <div className="pt-3 border-t border-brand-700" />
                 <SummaryLine
