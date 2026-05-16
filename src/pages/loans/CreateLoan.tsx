@@ -23,7 +23,8 @@ import {
   listCustomers,
   listInStockBikes,
 } from '../../lib/local-db/repositories';
-import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
+import type { CreateGuaranteeDraft, LoanEntryMode } from '../../lib/local-db/repositories/loansRepo';
+import { CustomerSearchPicker } from '../../components/customers/CustomerSearchPicker';
 
 const steps = [
   { id: 'customer', label: 'Customer' },
@@ -97,9 +98,25 @@ export function CreateLoan() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const db = useDemoDb();
-  const [currentStep, setCurrentStep] = useState(0);
+  const todayIso = new Date().toISOString().split('T')[0];
+  const [entryMode, setEntryMode] = useState<LoanEntryMode>('NEW');
+  const [openingDateBooks, setOpeningDateBooks] = useState(todayIso);
+  const [completedInstBooks, setCompletedInstBooks] = useState(0);
+  const [nextDueImport, setNextDueImport] = useState('');
+  const [openingArrearsImport, setOpeningArrearsImport] = useState(0);
+  const [openingLateFeeImport, setOpeningLateFeeImport] = useState(0);
+  const [paidBeforeSystem, setPaidBeforeSystem] = useState(0);
+  const [importNotesFixed, setImportNotesFixed] = useState('');
+  const [iobOpening, setIobOpening] = useState(todayIso);
+  const [iobOriginalPrincipal, setIobOriginalPrincipal] = useState(0);
+  const [iobCurrentPrincipal, setIobCurrentPrincipal] = useState(0);
+  const [iobPendingInterest, setIobPendingInterest] = useState(0);
+  const [iobNextDue, setIobNextDue] = useState('');
+  const [iobOrigStart, setIobOrigStart] = useState('');
+  const [iobNotes, setIobNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const [customerId, setCustomerId] = useState('');
   const [loanPurpose, setLoanPurpose] = useState<LoanPurpose>('CASH_LOAN');
@@ -209,15 +226,30 @@ export function CreateLoan() {
     const err = ((): string | null => {
       if (currentStep === 0 && !customerId) return 'Select a customer.';
       if (currentStep === 3 && isInterestOnly) {
-        if (!isBike && (!loanAmount || loanAmount <= 0))
-          return 'Enter a loan amount.';
-        if (!firstDueDate) return 'Set a first due date.';
+        if (entryMode === 'FROM_BOOKS') {
+          if (iobOriginalPrincipal <= 0) return 'Enter the original principal.';
+          if (iobCurrentPrincipal <= 0)
+            return 'Enter the current principal balance from the old book.';
+          if (!iobNextDue) return 'Enter the next interest due date.';
+          if (!iobOpening) return 'Enter the system opening date.';
+        } else {
+          if (!isBike && (!loanAmount || loanAmount <= 0))
+            return 'Enter a loan amount.';
+          if (!firstDueDate) return 'Set a first due date.';
+        }
       }
       if (currentStep === 3 && !isInterestOnly) {
-        if (!isBike && (!financeAmount || financeAmount <= 0))
-          return 'Enter a finance amount.';
-        if (!termMonths || termMonths < 1) return 'Enter a valid term.';
-        if (!firstDueDate) return 'Set a first due date.';
+        if (entryMode === 'FROM_BOOKS') {
+          if (!openingDateBooks) return 'Enter the system opening date.';
+          if (!nextDueImport) return 'Enter the next due date from the old book.';
+          if (completedInstBooks < 0)
+            return 'Completed installments cannot be negative.';
+        } else {
+          if (!isBike && (!financeAmount || financeAmount <= 0))
+            return 'Enter a finance amount.';
+          if (!termMonths || termMonths < 1) return 'Enter a valid term.';
+          if (!firstDueDate) return 'Set a first due date.';
+        }
       }
       if (currentStep === 3 && isBike && !bikeId) {
         return 'Select an in-stock bike for this installment.';
@@ -234,8 +266,10 @@ export function CreateLoan() {
       if (currentStep === steps.length - 1) {
         if (!customerId) return 'Select a customer.';
         if (isBike && !bikeId) return 'Select a bike before confirming.';
-        if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
-          return 'Finance amount must be greater than zero.';
+        if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0) {
+          if (!(entryMode === 'FROM_BOOKS' && isInterestOnly))
+            return 'Finance amount must be greater than zero.';
+        }
         const gErr = validateGuaranteeDrafts(guaranteeDrafts);
         if (gErr) return gErr;
       }
@@ -262,7 +296,10 @@ export function CreateLoan() {
           customerId,
           loanPurpose,
           repaymentMethod,
-          principalAmount: effectiveFinanceAmount,
+          principalAmount:
+            entryMode === 'FROM_BOOKS' && isInterestOnly
+              ? iobOriginalPrincipal
+              : effectiveFinanceAmount,
           interestRate: isInterestOnly ? monthlyInterestRate : monthlyFlatRate,
           termMonths: isInterestOnly ? undefined : termMonths,
           lateFeeRate: isInterestOnly ? 0 : lateFeeRate,
@@ -272,6 +309,32 @@ export function CreateLoan() {
           dueDay: isInterestOnly ? dueDay : undefined,
           bikeId: isBike ? bikeId : undefined,
           guarantees: mapCompleteGuarantees(guaranteeDrafts),
+          entryMode,
+          fromBooksFixed:
+            entryMode === 'FROM_BOOKS' && !isInterestOnly
+              ? {
+                  openingDate: openingDateBooks,
+                  completedInstallments: completedInstBooks,
+                  nextDueDate: nextDueImport,
+                  openingArrearsAmount: openingArrearsImport || undefined,
+                  openingLateFeeAmount: openingLateFeeImport || undefined,
+                  amountPaidBeforeSystem:
+                    paidBeforeSystem > 0 ? paidBeforeSystem : undefined,
+                  importedNotes: importNotesFixed.trim() || undefined,
+                }
+              : undefined,
+          fromBooksIO:
+            entryMode === 'FROM_BOOKS' && isInterestOnly
+              ? {
+                  openingDate: iobOpening,
+                  originalPrincipal: iobOriginalPrincipal,
+                  currentPrincipal: iobCurrentPrincipal,
+                  pendingInterestCarried: iobPendingInterest,
+                  nextInterestDueDate: iobNextDue,
+                  originalBookStartDate: iobOrigStart.trim() || undefined,
+                  importedNotes: iobNotes.trim() || undefined,
+                }
+              : undefined,
         },
         db
       );
@@ -306,21 +369,55 @@ export function CreateLoan() {
             <div className="flex-1">
             {currentStep === 0 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-medium text-neutral-900">
-                  Select Customer
-                </h3>
-                <select
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  className="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm bg-white"
-                >
-                  <option value="">-- Select a customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.nic})
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <h3 className="text-lg font-medium text-neutral-900 mb-3">
+                    Loan entry mode
+                  </h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="entryMode"
+                        checked={entryMode === 'NEW'}
+                        onChange={() => setEntryMode('NEW')}
+                        className="h-4 w-4 text-brand-600"
+                      />
+                      <span className="text-sm text-neutral-900">
+                        New loan starting now
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="entryMode"
+                        checked={entryMode === 'FROM_BOOKS'}
+                        onChange={() => setEntryMode('FROM_BOOKS')}
+                        className="h-4 w-4 text-brand-600"
+                      />
+                      <span className="text-sm text-neutral-900">
+                        Existing loan from old books (opening balance)
+                      </span>
+                    </label>
+                  </div>
+                  {entryMode === 'FROM_BOOKS' && (
+                    <p className="mt-3 rounded-lg bg-info-50 text-info-900 text-sm p-3 ring-1 ring-info-200">
+                      Use this when entering loans that already existed before the system.
+                      Past paid months you mark will not be treated as new overdue
+                      installments.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium text-neutral-900 mb-3">
+                    Select customer
+                  </h3>
+                  <CustomerSearchPicker
+                    customers={customers}
+                    selectedCustomerId={customerId || null}
+                    onSelect={(id) => setCustomerId(id ?? '')}
+                  />
+                </div>
               </div>
             )}
 
@@ -397,15 +494,94 @@ export function CreateLoan() {
             {currentStep === 3 && isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Interest-Only Terms
+                  Interest-only terms
                 </h3>
-                <CurrencyInput
-                  label="Loan amount *"
-                  value={isBike ? effectiveFinanceAmount : loanAmount}
-                  onChange={(v) => !isBike && setLoanAmount(v)}
-                  placeholder="e.g. 100,000"
-                  disabled={isBike}
-                />
+                {entryMode === 'FROM_BOOKS' && (
+                  <div className="space-y-4 rounded-lg bg-neutral-50 p-4 ring-1 ring-neutral-200">
+                    <p className="text-sm font-semibold text-neutral-900">
+                      Historical loan (old book)
+                    </p>
+                    <DatePicker
+                      label="System opening date (as-at) *"
+                      value={iobOpening}
+                      onChange={(e) => setIobOpening(e.target.value)}
+                    />
+                    <CurrencyInput
+                      label="Original principal *"
+                      value={iobOriginalPrincipal}
+                      onChange={setIobOriginalPrincipal}
+                    />
+                    <CurrencyInput
+                      label="Current principal balance *"
+                      value={iobCurrentPrincipal}
+                      onChange={setIobCurrentPrincipal}
+                    />
+                    <CurrencyInput
+                      label="Pending interest carried from book *"
+                      value={iobPendingInterest}
+                      onChange={setIobPendingInterest}
+                    />
+                    <DatePicker
+                      label="Next interest due date *"
+                      value={iobNextDue}
+                      onChange={(e) => setIobNextDue(e.target.value)}
+                    />
+                    <DatePicker
+                      label="Original contract start (optional, for records)"
+                      value={iobOrigStart}
+                      onChange={(e) => setIobOrigStart(e.target.value)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-1">
+                        Notes from old book
+                      </label>
+                      <textarea
+                        value={iobNotes}
+                        onChange={(e) => setIobNotes(e.target.value)}
+                        rows={2}
+                        className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+                {entryMode === 'NEW' && (
+                  <>
+                    <CurrencyInput
+                      label="Loan amount *"
+                      value={isBike ? effectiveFinanceAmount : loanAmount}
+                      onChange={(v) => !isBike && setLoanAmount(v)}
+                      placeholder="e.g. 100,000"
+                      disabled={isBike}
+                    />
+                    <DatePicker
+                      label="Start date *"
+                      value={startDate}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-1">
+                        Due day (1–28) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={dueDay}
+                        onChange={(e) =>
+                          setDueDay(parseInt(e.target.value, 10) || 1)
+                        }
+                        className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                      />
+                    </div>
+                    <DatePicker
+                      label="First due date *"
+                      value={firstDueDate}
+                      onChange={(e) => setFirstDueDate(e.target.value)}
+                    />
+                    <p className="text-xs text-neutral-500">
+                      Same day each month (e.g. start May 15 → first due June 15).
+                    </p>
+                  </>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
                     Monthly interest rate (%) *
@@ -421,31 +597,6 @@ export function CreateLoan() {
                     className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm tabular-nums"
                   />
                 </div>
-                <DatePicker
-                  label="Start date *"
-                  value={startDate}
-                  onChange={(e) => handleStartDateChange(e.target.value)}
-                />
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Due day (1–28) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(parseInt(e.target.value, 10) || 1)}
-                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
-                  />
-                </div>
-                <DatePicker
-                  label="First due date *"
-                  value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)}
-                />
-                <p className="text-xs text-neutral-500">
-                  Same day each month (e.g. start May 15 → first due June 15).
-                </p>
                 <p className="text-sm text-info-700 bg-info-50 rounded-md p-3">
                   Guarantee required. No late fees. Unpaid interest stays pending.
                 </p>
@@ -457,6 +608,63 @@ export function CreateLoan() {
                 <h3 className="text-lg font-medium text-neutral-900">
                   {isBike ? 'Bike & installment terms' : 'Fixed Installment Terms'}
                 </h3>
+                {entryMode === 'FROM_BOOKS' && (
+                  <div className="space-y-4 rounded-lg bg-neutral-50 p-4 ring-1 ring-neutral-200">
+                    <p className="text-sm font-semibold text-neutral-900">
+                      Historical loan (old book)
+                    </p>
+                    <DatePicker
+                      label="System opening date (as-at) *"
+                      value={openingDateBooks}
+                      onChange={(e) => setOpeningDateBooks(e.target.value)}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-1">
+                        Installments already completed in the old book *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={completedInstBooks}
+                        onChange={(e) =>
+                          setCompletedInstBooks(parseInt(e.target.value, 10) || 0)
+                        }
+                        className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+                      />
+                    </div>
+                    <DatePicker
+                      label="Next due date (from book) *"
+                      value={nextDueImport}
+                      onChange={(e) => setNextDueImport(e.target.value)}
+                    />
+                    <CurrencyInput
+                      label="Opening arrears on current period (optional)"
+                      value={openingArrearsImport}
+                      onChange={setOpeningArrearsImport}
+                    />
+                    <CurrencyInput
+                      label="Opening late fee already on book (optional)"
+                      value={openingLateFeeImport}
+                      onChange={setOpeningLateFeeImport}
+                    />
+                    <CurrencyInput
+                      label="Total already paid before system (optional, for records)"
+                      value={paidBeforeSystem}
+                      onChange={setPaidBeforeSystem}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-1">
+                        Notes from old book
+                      </label>
+                      <textarea
+                        value={importNotesFixed}
+                        onChange={(e) => setImportNotesFixed(e.target.value)}
+                        rows={2}
+                        className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
                 {isBike && (
                   <div className="space-y-4 pb-6 border-b border-neutral-200">
                     <select
@@ -545,12 +753,20 @@ export function CreateLoan() {
                   onChange={setDiscountAmount}
                 />
                 <DatePicker
-                  label="Start date *"
+                  label={
+                    entryMode === 'FROM_BOOKS'
+                      ? 'Original loan start date *'
+                      : 'Start date *'
+                  }
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
                 <DatePicker
-                  label="First due date *"
+                  label={
+                    entryMode === 'FROM_BOOKS'
+                      ? 'Original first due date *'
+                      : 'First due date *'
+                  }
                   value={firstDueDate}
                   onChange={(e) => setFirstDueDate(e.target.value)}
                 />

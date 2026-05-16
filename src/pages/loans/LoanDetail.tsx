@@ -200,6 +200,50 @@ function InterestOnlyLoanDetail({
         <KpiCard label="Next due date" value={nextDueLabel} />
       </div>
 
+      {loan.isImported && (
+        <div className="mb-8 rounded-xl bg-info-50 ring-1 ring-info-200 p-5 space-y-3">
+          <span className="inline-flex rounded-full bg-info-700 px-3 py-1 text-xs font-semibold text-white">
+            Imported from old books
+          </span>
+          <p className="text-sm text-info-900">
+            Pending interest and principal here match your old book as of the opening date.
+            The system does not invent many overdue past cycles.
+          </p>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-info-800">Original principal</dt>
+              <dd className="tabular-nums font-medium text-info-950">
+                {formatLKR(loan.originalPrincipalAmount)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-info-800">Current principal</dt>
+              <dd className="tabular-nums font-medium text-info-950">
+                {formatLKR(loan.currentPrincipalBalance)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-info-800">System tracking started</dt>
+              <dd className="font-medium text-info-950">
+                {loan.openingDate ? formatDate(loan.openingDate) : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-info-800">Next interest due</dt>
+              <dd className="font-medium text-info-950">
+                {loan.firstDueDate ? formatDate(loan.firstDueDate) : '—'}
+              </dd>
+            </div>
+          </dl>
+          {loan.importedNotes && (
+            <p className="text-sm text-info-950 border-t border-info-200 pt-3">
+              <span className="font-semibold">Notes from book: </span>
+              {loan.importedNotes}
+            </p>
+          )}
+        </div>
+      )}
+
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title="Interest cycles" />
         <DataTable
@@ -341,6 +385,85 @@ function FixedInstallmentLoanDetail({
         />
       </div>
 
+      {loan.isImported && (
+        <div className="mb-8 rounded-xl bg-info-50 ring-1 ring-info-200 p-5 space-y-3">
+          <span className="inline-flex rounded-full bg-info-700 px-3 py-1 text-xs font-semibold text-white">
+            Imported from old books
+          </span>
+          <p className="text-sm text-info-900">
+            This loan was carried in from your manual ledger. Past installments marked paid
+            here are not treated as new overdue amounts.
+          </p>
+          <h3 className="text-sm font-semibold text-info-950">Opening summary</h3>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-info-800">Original contract start</dt>
+              <dd className="font-medium text-info-950">
+                {loan.originalBookStartDate
+                  ? formatDate(loan.originalBookStartDate)
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-info-800">System tracking started</dt>
+              <dd className="font-medium text-info-950">
+                {loan.openingDate ? formatDate(loan.openingDate) : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-info-800">Finance / loan amount</dt>
+              <dd className="tabular-nums font-medium text-info-950">
+                {formatLKR(loan.principalAmount)}
+              </dd>
+            </div>
+            {loan.openingPaidBeforeSystem != null && loan.openingPaidBeforeSystem > 0 && (
+              <div>
+                <dt className="text-info-800">Already paid before system</dt>
+                <dd className="tabular-nums font-medium text-info-950">
+                  {formatLKR(loan.openingPaidBeforeSystem)}
+                </dd>
+              </div>
+            )}
+            {loan.openingArrearsAtImport != null && loan.openingArrearsAtImport > 0 && (
+              <div>
+                <dt className="text-info-800">Opening arrears carried</dt>
+                <dd className="tabular-nums font-medium text-info-950">
+                  {formatLKR(loan.openingArrearsAtImport)}
+                </dd>
+              </div>
+            )}
+            {loan.openingLateFeeAtImport != null && loan.openingLateFeeAtImport > 0 && (
+              <div>
+                <dt className="text-info-800">Opening late fees carried</dt>
+                <dd className="tabular-nums font-medium text-info-950">
+                  {formatLKR(loan.openingLateFeeAtImport)}
+                </dd>
+              </div>
+            )}
+            {loan.completedInstallmentsAtImport != null && (
+              <div>
+                <dt className="text-info-800">Installments completed at import</dt>
+                <dd className="font-medium text-info-950">
+                  {loan.completedInstallmentsAtImport}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-info-800">Opening balance (remaining)</dt>
+              <dd className="tabular-nums font-medium text-info-950">
+                {formatLKR(loan.openingBalanceAtImport ?? loan.balanceAmount)}
+              </dd>
+            </div>
+          </dl>
+          {loan.importedNotes && (
+            <p className="text-sm text-info-950 border-t border-info-200 pt-3">
+              <span className="font-semibold">Notes from book: </span>
+              {loan.importedNotes}
+            </p>
+          )}
+        </div>
+      )}
+
       {bike && (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
           <div>
@@ -475,7 +598,7 @@ function LoanHeader({
           </h1>
           <StatusChip status={displayStatus ?? loan.status} />
         </div>
-        <p className="mt-2 text-sm text-neutral-500">
+        <div className="mt-2 text-sm text-neutral-500">
           <Link
             to={`/customers/${loan.customerId}`}
             className="font-medium text-brand-600 hover:text-brand-500"
@@ -484,7 +607,7 @@ function LoanHeader({
           </Link>
           {' · '}
           {subtitle}
-        </p>
+        </div>
       </div>
       {actions}
     </div>
@@ -521,10 +644,11 @@ function LoanActionBar({
         {showEarlySettlement && (
           <ActionButton
             disabled={!settlementEligible}
-            onClick={() =>
-              settlementEligible &&
-              navigate(`/loans/${loanId}/early-settlement`)
-            }
+            onClick={() => {
+              if (settlementEligible) {
+                navigate(`/loans/${loanId}/early-settlement`);
+              }
+            }}
           >
             Early Settlement
           </ActionButton>
@@ -538,7 +662,7 @@ function LoanActionBar({
       </div>
       {showEarlySettlement && !settlementEligible && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
-          Early settlement is allowed after {minimumMonths} completed months.
+          Early settlement is allowed after {minimumMonths} completed installments.
           {monthsCompleted > 0 && ` (${monthsCompleted} completed so far.)`}
         </p>
       )}

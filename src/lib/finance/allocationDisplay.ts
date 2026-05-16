@@ -42,7 +42,7 @@ export function buildInterestOnlyAllocationRows(
   }
 
   const rows: AllocationDisplayRow[] = cycles
-    .filter((c) => interestOutstandingOnCycle(c) > 0 || paidByCycle.has(c.id))
+    .filter((c) => (paidByCycle.get(c.id) ?? 0) > 0)
     .sort((a, b) => a.cycleNumber - b.cycleNumber)
     .map((c) => {
       const due = interestOutstandingOnCycle(c);
@@ -123,7 +123,7 @@ export function buildFixedInstallmentAllocationRows(
     const paid = paidByInst.get(inst.id) ?? { late: 0, inst: 0 };
 
     const lateDue = lateFeeOutstanding;
-    if (lateDue > 0 || paid.late > 0) {
+    if (paid.late > 0) {
       rows.push({
         type: 'Late fee',
         period: `#${inst.installmentNumber} · ${inst.dueDate}`,
@@ -133,7 +133,7 @@ export function buildFixedInstallmentAllocationRows(
       });
     }
 
-    if (instOwed > 0 || paid.inst > 0) {
+    if (paid.inst > 0) {
       rows.push({
         type: 'Installment',
         period: `#${inst.installmentNumber} · ${inst.dueDate}`,

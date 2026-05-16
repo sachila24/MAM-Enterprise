@@ -10,13 +10,13 @@ import {
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
-import type { Customer, Loan, Payment, Guarantee } from '../../types/entities';
+import { roundLKR } from '../../lib/finance/money';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   getCustomer,
   listGuarantees,
   listLoans,
-  listPayments,
+  listLoanPayments,
 } from '../../lib/local-db/repositories';
 
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
@@ -47,9 +47,10 @@ export function CustomerDetail() {
   const loans = id
     ? listLoans(db).filter((l) => l.customerId === id)
     : [];
-  const payments = id
-    ? listPayments(db).filter((p) => p.loanId && loans.some((l) => l.id === p.loanId))
-    : [];
+  const loanIds = new Set(loans.map((l) => l.id));
+  const payments = listLoanPayments(db).filter(
+    (p) => p.customerId === id && loanIds.has(p.loanId)
+  );
   const guarantees = id
     ? listGuarantees(db).filter((g) => g.loanId && loans.some((l) => l.id === g.loanId))
     : [];
@@ -87,7 +88,8 @@ export function CustomerDetail() {
             <StatusChip status={customer.status} />
           </h1>
           <p className="mt-1 text-sm text-neutral-500 tabular-nums">
-            {customer.id} · NIC: {customer.nic}
+            {customer.customerCode ? `Code: ${customer.customerCode} · ` : ''}NIC:{' '}
+            {customer.nic}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
@@ -243,7 +245,7 @@ export function CustomerDetail() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                    Loan ID
+                    Loan code
                   </th>
                   <th
                   scope="col"
@@ -327,76 +329,90 @@ export function CustomerDetail() {
                   <th
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                  
-                    Receipt No
+                    Receipt
+                  </th>
+                  <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
+                    Cash received
+                  </th>
+                  <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
+                    Discount
+                  </th>
+                  <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
+                    Total applied
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  
-                    Date
-                  </th>
-                  <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  
-                    Loan ID
-                  </th>
-                  <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  
                     Method
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  
-                    Status
+                    Date
                   </th>
                   <th
                   scope="col"
-                  className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                  
-                    Amount
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
+                    Loan
+                  </th>
+                  <th
+                  scope="col"
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900 sm:pr-6">
+                    Status
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 bg-white">
-                {payments.map((payment) =>
-              <tr key={payment.id} className="hover:bg-neutral-50">
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6 tabular-nums">
-                      {payment.receiptNo}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
-                      {formatDate(payment.paidAt)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
-                      <Link to={`/loans/${payment.loanId}`}>
-                        {payment.loanId}
-                      </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {payment.method.replace('_', ' ')}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <StatusChip status={payment.status} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-neutral-900 text-right tabular-nums">
-                      {formatLKR(payment.amount)}
-                    </td>
-                  </tr>
-              )}
-                {payments.length === 0 &&
-              <tr>
+                {payments.map((payment) => {
+                  const disc = payment.discountAmount ?? 0;
+                  const applied =
+                    payment.appliedAmount ?? roundLKR(payment.amount + disc);
+                  const loanRow = loans.find((l) => l.id === payment.loanId);
+                  const loanLabel = loanRow?.loanCode ?? '—';
+                  return (
+                    <tr key={payment.id} className="hover:bg-neutral-50">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-brand-600 sm:pl-6 tabular-nums">
+                        {payment.receiptNumber}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-right text-neutral-900 tabular-nums font-medium">
+                        {formatLKR(payment.amount)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-right tabular-nums text-neutral-700">
+                        {formatLKR(disc)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-right tabular-nums font-semibold text-neutral-900">
+                        {formatLKR(applied)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
+                        {formatEnum(payment.paymentMethod)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
+                        {formatDate(payment.paymentDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
+                        <Link to={`/loans/${payment.loanId}`}>{loanLabel}</Link>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm sm:pr-6">
+                        <StatusChip status={payment.status.toLowerCase()} />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {payments.length === 0 && (
+                  <tr>
                     <td
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-neutral-500">
-                  
+                      colSpan={8}
+                      className="py-10 text-center text-sm text-neutral-500">
                       No payments found.
                     </td>
                   </tr>
-              }
+                )}
               </tbody>
             </table>
           </div>
@@ -423,7 +439,7 @@ export function CustomerDetail() {
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Loan ID
+                    Loan
                   </th>
                   <th
                   scope="col"
@@ -440,27 +456,31 @@ export function CustomerDetail() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 bg-white">
-                {guarantees.map((guarantee) =>
-              <tr key={guarantee.id} className="hover:bg-neutral-50">
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
-                      {guarantee.type.replace('_', ' ')}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {guarantee.description}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
-                      <Link to={`/loans/${guarantee.loanId}`}>
-                        {guarantee.loanId}
-                      </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {guarantee.storageLocation}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <StatusChip status={guarantee.status} />
-                    </td>
-                  </tr>
-              )}
+                {guarantees.map((guarantee) => {
+                  const gLoan = loans.find((l) => l.id === guarantee.loanId);
+                  const gLoanLabel = gLoan?.loanCode ?? '—';
+                  return (
+                    <tr key={guarantee.id} className="hover:bg-neutral-50">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
+                        {guarantee.type.replace('_', ' ')}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
+                        {guarantee.description}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
+                        <Link to={`/loans/${guarantee.loanId}`}>
+                          {gLoanLabel}
+                        </Link>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
+                        {guarantee.storageLocation}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm">
+                        <StatusChip status={guarantee.status} />
+                      </td>
+                    </tr>
+                  );
+                })}
                 {guarantees.length === 0 &&
               <tr>
                     <td

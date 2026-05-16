@@ -55,6 +55,7 @@ function seedAndPersist(): MamDemoDb {
   normalizeDemoPayments(db);
   normalizeDemoGuarantees(db);
   normalizeDemoBikes(db);
+  normalizeImportedLoanFields(db);
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
@@ -104,6 +105,12 @@ function normalizeDemoBikes(db: MamDemoDb) {
   }
 }
 
+function normalizeImportedLoanFields(db: MamDemoDb) {
+  for (const l of db.loans) {
+    if (l.is_imported === undefined) l.is_imported = false;
+  }
+}
+
 /** Stable snapshot for useSyncExternalStore — same reference until storage changes. */
 export function getDbSnapshot(): MamDemoDb {
   if (typeof window === 'undefined') {
@@ -123,6 +130,7 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeDemoPayments(cachedDb);
   normalizeDemoGuarantees(cachedDb);
   normalizeDemoBikes(cachedDb);
+  normalizeImportedLoanFields(cachedDb);
   cachedRaw = raw;
   return cachedDb;
 }

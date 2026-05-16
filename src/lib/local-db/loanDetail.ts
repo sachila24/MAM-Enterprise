@@ -99,11 +99,17 @@ export function getLoanDetailFromDb(
 
   const start = new Date(dbLoan.start_date);
   const now = new Date();
-  const monthsCompleted = Math.max(
+  const calendarMonthsElapsed = Math.max(
     0,
     (now.getFullYear() - start.getFullYear()) * 12 +
       (now.getMonth() - start.getMonth())
   );
+  const completedInstallments =
+    dbLoan.repayment_method === 'FIXED_TERM_INSTALLMENT'
+      ? db.loan_installments.filter(
+          (i) => i.loan_id === loanId && i.status === 'PAID'
+        ).length
+      : calendarMonthsElapsed;
 
   return {
     loan: {
@@ -117,7 +123,7 @@ export function getLoanDetailFromDb(
     installments,
     guarantees,
     principalPayments,
-    monthsCompleted,
+    monthsCompleted: completedInstallments,
   };
 }
 

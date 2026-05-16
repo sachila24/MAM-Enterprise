@@ -1,5 +1,28 @@
 import { roundLKR } from './money';
 
+export interface InstallmentSettlementSlice {
+  installmentAmount: number;
+  paidAmount: number;
+  principalComponent: number;
+  interestComponent: number;
+}
+
+/** Split remaining scheduled amounts into notional principal vs interest (flat schedule). */
+export function estimateFixedLoanSettlementParts(
+  installments: InstallmentSettlementSlice[]
+): { remainingPrincipal: number; remainingInterest: number } {
+  let rp = 0;
+  let ri = 0;
+  for (const i of installments) {
+    const rem = roundLKR(Math.max(0, i.installmentAmount - i.paidAmount));
+    if (rem <= 0) continue;
+    const scale = i.installmentAmount > 0 ? rem / i.installmentAmount : 0;
+    rp = roundLKR(rp + i.principalComponent * scale);
+    ri = roundLKR(ri + i.interestComponent * scale);
+  }
+  return { remainingPrincipal: rp, remainingInterest: ri };
+}
+
 export interface EarlySettlementInput {
   monthsCompleted: number;
   minimumMonthsBeforeSettlement: number;

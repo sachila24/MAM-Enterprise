@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircleIcon, UploadCloudIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { CustomerSearchPicker } from '../../components/customers/CustomerSearchPicker';
 import { Stepper } from '../../components/ui/Stepper';
 import { useToast } from '../../components/ui/Toast';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
@@ -156,39 +157,21 @@ export function AddGuarantee() {
             {currentStep === 0 && (
               <div className="space-y-6">
                 <div>
-                  <label
-                    htmlFor="customerId"
-                    className="block text-sm font-medium leading-6 text-neutral-900"
-                  >
+                  <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
                     Select customer *
                   </label>
-                  <select
-                    id="customerId"
-                    value={formData.customerId}
-                    onChange={(e) =>
+                  <CustomerSearchPicker
+                    customers={customers}
+                    selectedCustomerId={formData.customerId || null}
+                    onSelect={(id) =>
                       setFormData({
                         ...formData,
-                        customerId: e.target.value,
+                        customerId: id ?? '',
                         loanId: '',
                       })
                     }
-                    className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
-                  >
-                    <option value="">-- Select customer --</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} · {c.customerCode ?? c.nic}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
-
-                {selectedCustomer && (
-                  <div className="rounded-lg bg-brand-50 p-4 border border-brand-100">
-                    <p className="font-medium text-brand-900">{selectedCustomer.name}</p>
-                    <p className="text-brand-700 tabular-nums">{selectedCustomer.customerCode}</p>
-                  </div>
-                )}
               </div>
             )}
 

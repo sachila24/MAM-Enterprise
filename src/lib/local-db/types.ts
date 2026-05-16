@@ -79,6 +79,16 @@ export interface DbLoan {
   status: 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED' | 'SETTLED';
   notes?: string;
   pending_interest_amount: number;
+  /** Carried from old paper books — past paid months are not treated as new arrears */
+  is_imported?: boolean;
+  opening_date?: string;
+  original_book_start_date?: string;
+  opening_balance_at_import?: number;
+  opening_paid_before_system?: number;
+  opening_arrears_at_import?: number;
+  opening_late_fee_at_import?: number;
+  imported_notes?: string;
+  completed_installments_at_import?: number;
   created_at: string;
   updated_at: string;
 }

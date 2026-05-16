@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircleIcon, SearchIcon } from 'lucide-react';
+import { AlertCircleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { CustomerSearchPicker } from '../../components/customers/CustomerSearchPicker';
 import { useToast } from '../../components/ui/Toast';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
@@ -42,7 +43,6 @@ export function RecordPayment() {
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(
     initialLoanId
   );
-  const [customerSearch, setCustomerSearch] = useState('');
   const [loanSearch, setLoanSearch] = useState('');
 
   const [form, setForm] = useState<PaymentFormState>({
@@ -86,14 +86,6 @@ export function RecordPayment() {
       }
     }
   }, [initialLoanId, loans]);
-
-  const filteredCustomers = customers.filter(
-    (c) =>
-      !customerSearch ||
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      c.nic.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      (c.customerCode ?? '').toLowerCase().includes(customerSearch.toLowerCase())
-  );
 
   const filteredLoans = customerLoans.filter(
     (l) =>
@@ -253,47 +245,15 @@ export function RecordPayment() {
                   description="Create a customer and an active loan first, or reset demo data from the header."
                 />
               ) : (
-                <>
-                  <div className="relative mb-4">
-                    <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                    <input
-                      type="text"
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="Search name, NIC, or customer code"
-                      className="block w-full rounded-md border-0 py-2 pl-10 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm"
-                    />
-                  </div>
-                  <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200 overflow-hidden">
-                    {filteredCustomers.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCustomerId(c.id)}
-                          className={`w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors ${
-                            selectedCustomerId === c.id
-                              ? 'bg-brand-50 ring-2 ring-inset ring-brand-500'
-                              : ''
-                          }`}
-                        >
-                          <p className="font-medium text-neutral-900">{c.name}</p>
-                          <p className="text-xs text-neutral-500">
-                            {c.customerCode ?? c.nic} · {c.phone}
-                          </p>
-                        </button>
-                      </li>
-                    ))}
-                    {filteredCustomers.length === 0 && (
-                      <li className="px-4 py-8 text-center text-sm text-neutral-500">
-                        No customers match your search.
-                      </li>
-                    )}
-                  </ul>
-                  <p className="mt-3 text-xs text-neutral-500">
-                    Local demo · {previewBundle.label}
-                  </p>
-                </>
+                <CustomerSearchPicker
+                  customers={customers}
+                  selectedCustomerId={selectedCustomerId}
+                  onSelect={setSelectedCustomerId}
+                />
               )}
+              <p className="mt-3 text-xs text-neutral-500">
+                Local demo · {previewBundle?.label ?? 'demo data'}
+              </p>
             </div>
           )}
 
@@ -784,6 +744,15 @@ function SummaryPanel({
             <SummaryLine label="Paid" value={formatLKR(loan.paidAmount)} />
             <SummaryLine label="Balance" value={formatLKR(loan.balanceAmount)} />
             <SummaryLine
+              label="One installment"
+              value={formatLKR(loan.installmentAmount ?? 0)}
+              highlight
+            />
+            <SummaryLine
+              label="Late fee rate"
+              value={`${loan.lateFeeRate}% / month on overdue installment`}
+            />
+            <SummaryLine
               label="Next due"
               value={
                 computation.paymentNextDue?.dueDate
@@ -794,6 +763,10 @@ function SummaryPanel({
             {computation.fixedDueSummary && step >= 2 && (
               <>
                 <div className="pt-3 border-t border-brand-700" />
+                <SummaryLine
+                  label="Arrears count"
+                  value={String(computation.arrearsCount)}
+                />
                 <SummaryLine
                   label="Late fees due"
                   value={formatLKR(computation.fixedDueSummary.totalLateFeesDue)}
@@ -831,7 +804,7 @@ function SummaryPanel({
                 />
                 {computation.receipt.discountApplied > 0 && (
                   <SummaryLine
-                    label="Discount applied"
+                    label="Discount given"
                     value={formatLKR(computation.receipt.discountApplied)}
                   />
                 )}

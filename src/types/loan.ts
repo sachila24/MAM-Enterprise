@@ -93,6 +93,16 @@ export interface Loan {
   daysOverdue?: number;
   /** Denormalized sum of unpaid interest cycles (interest-only) */
   pendingInterestAmount?: number;
+  /** Opening / migration from manual ledger */
+  isImported?: boolean;
+  openingDate?: string;
+  originalBookStartDate?: string;
+  openingBalanceAtImport?: number;
+  openingPaidBeforeSystem?: number;
+  openingArrearsAtImport?: number;
+  openingLateFeeAtImport?: number;
+  importedNotes?: string;
+  completedInstallmentsAtImport?: number;
 }
 
 /** Receipt / payment preview — interest-only */
