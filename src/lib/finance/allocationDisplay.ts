@@ -165,3 +165,61 @@ export function filterAffectedAllocationRows(
 ): AllocationDisplayRow[] {
   return rows.filter((r) => r.paidByPayment > 0).slice(0, maxRows);
 }
+
+function parseScheduleNumber(period: string): number | null {
+  const inst = period.match(/#(\d+)/);
+  if (inst) return parseInt(inst[1], 10);
+  const cycle = period.match(/Cycle\s+(\d+)/i);
+  if (cycle) return parseInt(cycle[1], 10);
+  return null;
+}
+
+function rowKey(row: AllocationDisplayRow): string {
+  return `${row.type}|${row.period}`;
+}
+
+export type AllocationRowBadge = 'Paid' | 'Partial' | 'Remaining';
+
+/** UI-only badge for schedule rows (does not affect allocation). */
+export function getAllocationRowBadge(
+  row: AllocationDisplayRow
+): AllocationRowBadge | null {
+  if (row.paidByPayment > 0 && row.remaining === 0) return 'Paid';
+  if (row.paidByPayment > 0 && row.remaining > 0) return 'Partial';
+  if (row.remaining > 0) return 'Remaining';
+  return null;
+}
+
+/**
+ * Subset for payment review: current period, next upcoming, partials, and rows
+ * touched by this payment. Display-only — does not change allocation math.
+ */
+export function selectCompactAllocationRows(
+  rows: AllocationDisplayRow[],
+  currentNumber: number,
+  maxUpcoming = 2
+): AllocationDisplayRow[] {
+  const maxNum = currentNumber + maxUpcoming;
+  const keys = new Set<string>();
+
+  for (const row of rows) {
+    const num = parseScheduleNumber(row.period);
+    const key = rowKey(row);
+
+    if (num == null) {
+      if (row.paidByPayment > 0) keys.add(key);
+      continue;
+    }
+
+    const inWindow = num >= currentNumber && num <= maxNum;
+    const touchedByPayment = row.paidByPayment > 0;
+    const partialBefore =
+      row.remaining > 0 && row.due > row.remaining && num < currentNumber;
+
+    if (inWindow || touchedByPayment || partialBefore) {
+      keys.add(key);
+    }
+  }
+
+  return rows.filter((r) => keys.has(rowKey(r)));
+}

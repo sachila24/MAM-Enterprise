@@ -17,6 +17,7 @@ import { usePaymentComputation, type PaymentFormState } from './usePaymentComput
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
 import { recordPayment } from '../../lib/local-db/repositories';
+import { RecordPaymentReview } from '../../components/payments/RecordPaymentReview';
 
 const STEPS = [
   { id: 'customer', label: 'Customer' },
@@ -232,7 +233,13 @@ export function RecordPayment() {
       )}
 
       <div className="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-10">
-        <div className="flex-1 min-w-0 lg:max-w-[58%] space-y-6">
+        <div
+          className={`flex-1 min-w-0 lg:max-w-[58%] space-y-6 ${
+            currentStep === 3
+              ? 'lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1'
+              : ''
+          }`}
+        >
           {/* Step 0: Customer */}
           {currentStep === 0 && (
             <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
@@ -490,21 +497,7 @@ export function RecordPayment() {
 
           {/* Step 3: Review */}
           {currentStep === 3 && selectedLoan && computation.allocation && (
-            <div className="space-y-6">
-              <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                  Allocation preview
-                </h3>
-                <AllocationSummary
-                  loan={selectedLoan}
-                  allocation={computation.allocation}
-                  receipt={computation.receipt}
-                />
-                {computation.allocationRows.length > 0 && (
-                  <AllocationTable rows={computation.allocationRows} />
-                )}
-              </div>
-            </div>
+            <RecordPaymentReview loan={selectedLoan} computation={computation} />
           )}
 
           {/* Step 4: Confirm */}
@@ -557,12 +550,13 @@ export function RecordPayment() {
           />
         </div>
 
-        <aside className="flex-1 min-w-0 lg:max-w-[40%] shrink-0 lg:sticky lg:top-24 self-start">
+        <aside className="flex-1 min-w-0 lg:max-w-[40%] shrink-0 lg:sticky lg:top-24 lg:self-start">
           <SummaryPanel
             step={currentStep}
             customer={selectedCustomer}
             loan={selectedLoan}
             computation={computation}
+            compactLivePreview={currentStep === 3}
           />
         </aside>
       </div>
@@ -687,11 +681,13 @@ function SummaryPanel({
   customer,
   loan,
   computation,
+  compactLivePreview = false,
 }: {
   step: number;
   customer: Customer | null | undefined;
   loan: Loan | null | undefined;
   computation: ReturnType<typeof usePaymentComputation>;
+  compactLivePreview?: boolean;
 }) {
   if (!loan) {
     return (
@@ -716,7 +712,7 @@ function SummaryPanel({
         </p>
       </div>
       <div className="p-6 space-y-3 text-sm">
-        {isIO && (
+        {!compactLivePreview && isIO && (
           <>
             <SummaryLine
               label="Loan amount"
@@ -734,7 +730,7 @@ function SummaryPanel({
             />
           </>
         )}
-        {isFixed && (
+        {!compactLivePreview && isFixed && (
           <>
             <SummaryLine
               label={
@@ -798,7 +794,7 @@ function SummaryPanel({
           <>
             <div className="pt-3 border-t border-brand-700" />
             <p className="text-xs uppercase tracking-wide text-brand-300">
-              Live preview
+              {compactLivePreview ? 'Payment impact' : 'Live preview'}
             </p>
             {computation.receipt && 'cashReceived' in computation.receipt && (
               <>
@@ -815,11 +811,25 @@ function SummaryPanel({
                 <SummaryLine
                   label="Total applied"
                   value={formatLKR(computation.receipt.totalApplied)}
-                  highlight
+                  highlight={!compactLivePreview}
                 />
               </>
             )}
-            {isIO && computation.receipt && 'interestPaid' in computation.receipt && (
+            {compactLivePreview && computation.receipt && (
+              <SummaryLine
+                label="Loan balance after payment"
+                value={formatLKR(
+                  'loanBalance' in computation.receipt
+                    ? computation.receipt.loanBalance
+                    : computation.receipt.remainingPrincipal
+                )}
+                highlight
+              />
+            )}
+            {!compactLivePreview &&
+              isIO &&
+              computation.receipt &&
+              'interestPaid' in computation.receipt && (
               <>
                 <SummaryLine
                   label="Interest paid"
@@ -847,7 +857,8 @@ function SummaryPanel({
                 )}
               </>
             )}
-            {isFixed &&
+            {!compactLivePreview &&
+              isFixed &&
               computation.receipt &&
               'lateFeePaid' in computation.receipt && (
                 <>
@@ -900,126 +911,6 @@ function SummaryLine({
       >
         {value}
       </span>
-    </div>
-  );
-}
-
-function AllocationSummary({
-  loan,
-  allocation,
-  receipt,
-}: {
-  loan: Loan;
-  allocation: NonNullable<ReturnType<typeof usePaymentComputation>['allocation']>;
-  receipt: ReturnType<typeof usePaymentComputation>['receipt'];
-}) {
-  if (isInterestOnlyLoan(loan) && receipt && 'interestPaid' in receipt) {
-    return (
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-6">
-        <Metric label="Interest paid" value={formatLKR(receipt.interestPaid)} />
-        <Metric label="Principal paid" value={formatLKR(receipt.principalPaid)} />
-        <Metric
-          label="Remaining principal"
-          value={formatLKR(receipt.remainingPrincipal)}
-        />
-        <Metric
-          label="Next estimated interest"
-          value={formatLKR(receipt.nextEstimatedInterest)}
-        />
-        {receipt.pendingInterestRemaining > 0 && (
-          <Metric
-            label="Pending interest left"
-            value={formatLKR(receipt.pendingInterestRemaining)}
-            className="sm:col-span-2"
-          />
-        )}
-      </dl>
-    );
-  }
-  if (isFixedInstallmentLoan(loan) && receipt && 'lateFeePaid' in receipt) {
-    return (
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-6">
-        <Metric label="Late fees paid" value={formatLKR(receipt.lateFeePaid)} />
-        <Metric
-          label="Installments paid"
-          value={formatLKR(receipt.installmentPaid)}
-        />
-        <Metric
-          label="Arrears remaining"
-          value={formatLKR(receipt.remainingArrears)}
-        />
-        <Metric label="Loan balance" value={formatLKR(receipt.loanBalance)} />
-        {receipt.advancePaid > 0 && (
-          <Metric
-            label="Advance paid"
-            value={formatLKR(receipt.advancePaid)}
-            className="sm:col-span-2"
-          />
-        )}
-      </dl>
-    );
-  }
-  return (
-    <p className="text-sm text-neutral-500 mb-4">
-      Total allocated: {formatLKR(allocation.totalAllocated)}
-    </p>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  className = '',
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200 ${className}`}>
-      <dt className="text-xs text-neutral-500">{label}</dt>
-      <dd className="mt-1 text-base font-semibold text-neutral-900 tabular-nums">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function AllocationTable({
-  rows,
-}: {
-  rows: import('../../lib/finance/allocationDisplay').AllocationDisplayRow[];
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b border-neutral-200 text-left text-neutral-500">
-            <th className="py-2 pr-3">Type</th>
-            <th className="py-2 pr-3">Period</th>
-            <th className="py-2 pr-3 text-right">Due</th>
-            <th className="py-2 pr-3 text-right">Paid</th>
-            <th className="py-2 text-right">Remaining</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-100">
-          {rows.map((row, i) => (
-            <tr key={i}>
-              <td className="py-2 pr-3 font-medium">{row.type}</td>
-              <td className="py-2 pr-3 text-neutral-600">{row.period}</td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {formatLKR(row.due)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums text-brand-600">
-                {formatLKR(row.paidByPayment)}
-              </td>
-              <td className="py-2 text-right tabular-nums">
-                {formatLKR(row.remaining)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
