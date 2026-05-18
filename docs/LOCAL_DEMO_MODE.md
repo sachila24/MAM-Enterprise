@@ -35,3 +35,13 @@ MAM Enterprise can run entirely in the browser without Supabase. Data is stored 
 3. Swap page imports from `local-db/repositories` to the Supabase adapters.
 
 Finance logic in `src/lib/finance/` stays unchanged.
+
+## Manual QA tests
+
+### Duplicate payment prevention
+
+1. Open **Record Payment** and select a loan with an amount entered.
+2. On the **Confirm** step, rapidly click **Confirm Payment** five times.
+3. **Expected:** only one payment and one receipt are saved; loan balance updates once; the button shows **Saving payment…** and is disabled; you are navigated to the receipt screen once.
+
+Reset demo data from the header if you need a clean loan balance before re-testing.

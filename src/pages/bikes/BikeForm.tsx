@@ -1,295 +1,318 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { useT } from '../../i18n/I18nProvider';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
-import type { Bike } from '../../types/entities';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { createBike, getBike, updateBike } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
+
 export function BikeForm() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { t } = useT();
+  const db = useDemoDb();
   const { showToast } = useToast();
   const isEdit = Boolean(id);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientSubmitIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     model: '',
+    registrationNo: '',
     chassisNo: '',
     engineNo: '',
     year: new Date().getFullYear(),
     color: '',
     costPrice: 0,
     sellingPrice: 0,
-    status: 'in_stock',
-    notes: ''
+    repairCost: 0,
+    otherCost: 0,
+    purchaseDate: new Date().toISOString().split('T')[0],
+    notes: '',
   });
+
   useEffect(() => {
     if (isEdit && id) {
-      const bikes: Bike[] = [];
-      const bike = bikes.find((b) => b.id === id);
+      const bike = getBike(id, db);
       if (bike) {
         setFormData({
           model: bike.model,
+          registrationNo: bike.registrationNo ?? '',
           chassisNo: bike.chassisNo,
           engineNo: bike.engineNo,
           year: bike.year,
           color: bike.color,
           costPrice: bike.costPrice,
           sellingPrice: bike.sellingPrice,
-          status: bike.status,
-          notes: ''
+          repairCost: bike.repairCost,
+          otherCost: bike.otherCost,
+          purchaseDate: bike.purchaseDate,
+          notes: '',
         });
       }
     }
-  }, [id, isEdit]);
-  const handleChange = (
-  e: React.ChangeEvent<
-    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+  }, [id, isEdit, db]);
 
-  {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: name === 'year' ? Number(value) : value,
     }));
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.model.trim() || !formData.chassisNo.trim()) {
+      showToast(t('modelChassisRequired'), 'error');
+      return;
+    }
+    if (isSubmittingRef.current) return;
+
+    if (!isEdit && !clientSubmitIdRef.current) {
+      clientSubmitIdRef.current = crypto.randomUUID();
+    }
+
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      if (isEdit && id) {
+        const updated = updateBike(
+          id,
+          {
+            model: formData.model.trim(),
+            registration_no: formData.registrationNo.trim() || undefined,
+            chassis_no: formData.chassisNo.trim(),
+            engine_no: formData.engineNo.trim(),
+            color: formData.color.trim(),
+            year: formData.year,
+            cost_price: formData.costPrice,
+            selling_price: formData.sellingPrice,
+            repair_cost: formData.repairCost,
+            other_cost: formData.otherCost,
+            purchase_date: formData.purchaseDate,
+          },
+          db
+        );
+        if (!updated) {
+          throw new Error(t('bikeNotFound'));
+        }
+        showToast(t('bikeSaved'), 'success');
+        navigate(`/bikes/${id}`, { replace: true });
+      } else {
+        const bike = createBike(
+          {
+            model: formData.model.trim(),
+            registrationNo: formData.registrationNo.trim() || undefined,
+            chassisNo: formData.chassisNo.trim(),
+            engineNo: formData.engineNo.trim(),
+            color: formData.color.trim(),
+            year: formData.year,
+            costPrice: formData.costPrice,
+            sellingPrice: formData.sellingPrice,
+            repairCost: formData.repairCost,
+            otherCost: formData.otherCost,
+            purchaseDate: formData.purchaseDate,
+            clientSubmitId: clientSubmitIdRef.current ?? undefined,
+          },
+          db
+        );
+        showToast(`${bike.bikeCode} ${t('bikeAdded')}`, 'success');
+        navigate(`/bikes/${bike.id}`, { replace: true });
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t('bikeSaveFailed');
+      showToast(message, 'error');
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
-      showToast(
-        isEdit ? 'Bike updated successfully' : 'Bike added successfully',
-        'success'
-      );
-      navigate('/bikes');
-    }, 800);
+    }
   };
+
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <PageHeader
-        title={isEdit ? 'Edit bike details' : 'Add bike to stock'}
-        subtitle={
-        isEdit ?
-        'Update information for this bike' :
-        'Enter details for the new inventory item'
-        } />
-      
+        title={isEdit ? t('editBike') : t('addBikeToStock')}
+        subtitle={isEdit ? t('editBikeSubtitle') : t('addBikeSubtitle')}
+      />
 
-      <div className="space-y-10 divide-y divide-neutral-200">
+      <form onSubmit={handleSubmit} className="space-y-10 divide-y divide-neutral-200">
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">
           <div className="sm:col-span-6">
             <h2 className="text-base font-semibold leading-7 text-neutral-900">
-              Identification
+              {t('identification')}
             </h2>
-            <p className="mt-1 text-sm leading-6 text-neutral-500">
-              Basic details about the motorcycle.
-            </p>
           </div>
 
           <div className="sm:col-span-6">
-            <label
-              htmlFor="model"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Model *
+            <label htmlFor="model" className="block text-sm font-medium text-neutral-900">
+              {t('model')} *
             </label>
-            <div className="mt-2">
-              <input
-                type="text"
-                name="model"
-                id="model"
-                value={formData.model}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
-              
-            </div>
+            <input
+              type="text"
+              name="model"
+              id="model"
+              required
+              value={formData.model}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm"
+            />
           </div>
 
           <div className="sm:col-span-3">
-            <label
-              htmlFor="chassisNo"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Chassis Number *
+            <label htmlFor="registrationNo" className="block text-sm font-medium text-neutral-900">
+              {t('registrationNo')}
             </label>
-            <div className="mt-2">
-              <input
-                type="text"
-                name="chassisNo"
-                id="chassisNo"
-                value={formData.chassisNo}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6 font-mono" />
-              
-            </div>
+            <input
+              type="text"
+              name="registrationNo"
+              id="registrationNo"
+              value={formData.registrationNo}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+            />
           </div>
 
           <div className="sm:col-span-3">
-            <label
-              htmlFor="engineNo"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Engine Number *
+            <label htmlFor="chassisNo" className="block text-sm font-medium text-neutral-900">
+              {t('chassisNumber')} *
             </label>
-            <div className="mt-2">
-              <input
-                type="text"
-                name="engineNo"
-                id="engineNo"
-                value={formData.engineNo}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6 font-mono" />
-              
-            </div>
+            <input
+              type="text"
+              name="chassisNo"
+              id="chassisNo"
+              required
+              value={formData.chassisNo}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 font-mono ring-1 ring-inset ring-neutral-300 sm:text-sm"
+            />
           </div>
 
           <div className="sm:col-span-3">
-            <label
-              htmlFor="year"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Year
+            <label htmlFor="engineNo" className="block text-sm font-medium text-neutral-900">
+              {t('engineNumber')}
             </label>
-            <div className="mt-2">
-              <input
-                type="number"
-                name="year"
-                id="year"
-                value={formData.year}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6 tabular-nums" />
-              
-            </div>
+            <input
+              type="text"
+              name="engineNo"
+              id="engineNo"
+              value={formData.engineNo}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 font-mono ring-1 ring-inset ring-neutral-300 sm:text-sm"
+            />
           </div>
 
           <div className="sm:col-span-3">
-            <label
-              htmlFor="color"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Color
+            <label htmlFor="year" className="block text-sm font-medium text-neutral-900">
+              {t('yearLabel')}
             </label>
-            <div className="mt-2">
-              <input
-                type="text"
-                name="color"
-                id="color"
-                value={formData.color}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
-              
-            </div>
+            <input
+              type="number"
+              name="year"
+              id="year"
+              value={formData.year}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
+            />
+          </div>
+
+          <div className="sm:col-span-3">
+            <label htmlFor="color" className="block text-sm font-medium text-neutral-900">
+              {t('colorLabel')}
+            </label>
+            <input
+              type="text"
+              name="color"
+              id="color"
+              value={formData.color}
+              onChange={handleChange}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+            />
+          </div>
+
+          <div className="sm:col-span-3">
+            <DatePicker
+              label={t('purchaseDate')}
+              value={formData.purchaseDate}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  purchaseDate: e.target.value,
+                }))
+              }
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8">
           <div className="sm:col-span-6">
-            <h2 className="text-base font-semibold leading-7 text-neutral-900">
-              Financials
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-neutral-500">
-              Pricing information for this unit.
-            </p>
+            <h2 className="text-base font-semibold text-neutral-900">{t('financials')}</h2>
           </div>
-
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="Cost Price"
+              label={t('boughtPrice')}
               value={formData.costPrice}
-              onChange={(val) =>
-              setFormData((prev) => ({
-                ...prev,
-                costPrice: val
-              }))
-              } />
-            
+              onChange={(costPrice) => setFormData((p) => ({ ...p, costPrice }))}
+            />
           </div>
-
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="Selling Price *"
+              label={`${t('listSellingPrice')} *`}
               value={formData.sellingPrice}
-              onChange={(val) =>
-              setFormData((prev) => ({
-                ...prev,
-                sellingPrice: val
-              }))
-              } />
-            
+              onChange={(sellingPrice) =>
+                setFormData((p) => ({ ...p, sellingPrice }))
+              }
+            />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8">
-          <div className="sm:col-span-6">
-            <h2 className="text-base font-semibold leading-7 text-neutral-900">
-              Status & Notes
-            </h2>
-          </div>
-
           <div className="sm:col-span-3">
-            <label
-              htmlFor="status"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Status
-            </label>
-            <div className="mt-2">
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6">
-                
-                <option value="in_stock">In Stock</option>
-                <option value="sold">Sold</option>
-                <option value="held">Held</option>
-              </select>
-            </div>
+            <CurrencyInput
+              label={t('repairCostOptional')}
+              value={formData.repairCost}
+              onChange={(repairCost) => setFormData((p) => ({ ...p, repairCost }))}
+            />
           </div>
-
-          <div className="sm:col-span-6">
-            <label
-              htmlFor="notes"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              Notes
-            </label>
-            <div className="mt-2">
-              <textarea
-                id="notes"
-                name="notes"
-                rows={3}
-                value={formData.notes}
-                onChange={handleChange}
-                className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
-              
-            </div>
+          <div className="sm:col-span-3">
+            <CurrencyInput
+              label={t('otherCostOptional')}
+              value={formData.otherCost}
+              onChange={(otherCost) => setFormData((p) => ({ ...p, otherCost }))}
+            />
           </div>
         </div>
-      </div>
+      </form>
 
       <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white border-t border-neutral-200 p-4 z-10">
         <div className="max-w-2xl mx-auto flex justify-end gap-x-3">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50">
-            
-            Cancel
+            disabled={isSubmitting}
+            className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {t('action.cancel')}
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50">
-            
-            {isSubmitting ? 'Saving...' : 'Save bike'}
+            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 min-w-[9rem]"
+          >
+            {isSubmitting
+              ? t('savingBike')
+              : isEdit
+                ? t('saveChanges')
+                : t('addToStock')}
           </button>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
+

@@ -2,7 +2,7 @@
  * Typed preview data for Loan Detail (no Supabase, not mockData.ts).
  */
 
-import type { Customer, Guarantee } from '../../types/entities';
+import type { Customer, Guarantee, Bike } from '../../types/entities';
 import type {
   Loan,
   LoanInstallment,
@@ -31,6 +31,7 @@ export interface PrincipalPaymentRecord {
 export interface LoanDetailData {
   loan: Loan;
   customer: Customer;
+  bike?: Bike;
   interestCycles: LoanInterestCycle[];
   installments: LoanInstallment[];
   guarantees: Guarantee[];
@@ -94,11 +95,13 @@ function buildInterestOnlyDetail(): LoanDetailData {
       pendingInterestAmount: pending,
     },
     customer,
+    bike: undefined,
     interestCycles: cycles,
     installments: [],
     guarantees: [
       {
         id: 'g-io-1',
+        guaranteeCode: 'GUA-PRE-1',
         loanId: loan.id,
         type: 'VEHICLE_BOOK',
         description: 'Vehicle book — ABC-1234',
@@ -219,6 +222,7 @@ function buildFixedDetail(): LoanDetailData {
   return {
     loan,
     customer,
+    bike: undefined,
     interestCycles: [],
     installments,
     guarantees: [],

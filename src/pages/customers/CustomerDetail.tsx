@@ -18,9 +18,11 @@ import {
   listLoans,
   listPayments,
 } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
 export function CustomerDetail() {
+  const { t } = useT();
   const { id } = useParams<{
     id: string;
   }>();
@@ -35,11 +37,11 @@ export function CustomerDetail() {
           onClick={() => navigate('/customers')}
           className="flex items-center text-sm font-medium text-neutral-500 hover:text-neutral-700">
           
-          <ArrowLeftIcon className="mr-1 h-4 w-4" /> Back to Customers
+          <ArrowLeftIcon className="mr-1 h-4 w-4" /> {t('backToCustomers')}
         </button>
         <EmptyState
-          title="Customer not found"
-          description="The customer you are looking for does not exist." />
+          title={t('customerNotFound')}
+          description={t('customerNotFound')} />
         
       </div>);
 
@@ -56,19 +58,19 @@ export function CustomerDetail() {
   const tabs = [
   {
     id: 'overview',
-    name: 'Overview'
+    name: t('tabOverview')
   },
   {
     id: 'loans',
-    name: `Loans (${loans.length})`
+    name: `${t('nav.loans')} (${loans.length})`
   },
   {
     id: 'payments',
-    name: `Payments (${payments.length})`
+    name: `${t('payments')} (${payments.length})`
   },
   {
     id: 'guarantees',
-    name: `Guarantees (${guarantees.length})`
+    name: `${t('guarantees')} (${guarantees.length})`
   }];
 
   return (
@@ -77,7 +79,7 @@ export function CustomerDetail() {
         onClick={() => navigate('/customers')}
         className="flex items-center text-sm font-medium text-neutral-500 hover:text-neutral-700">
         
-        <ArrowLeftIcon className="mr-1 h-4 w-4" /> Back to Customers
+        <ArrowLeftIcon className="mr-1 h-4 w-4" /> {t('backToCustomers')}
       </button>
 
       <div className="sm:flex sm:items-start sm:justify-between">
@@ -96,14 +98,14 @@ export function CustomerDetail() {
             onClick={() => navigate(`/customers/${customer.id}/edit`)}
             className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50">
             <EditIcon className="-ml-0.5 h-4 w-4 text-neutral-400" />
-            Edit
+            {t('action.edit')}
           </button>
           <Link
             to={`/loans/new?customerId=${customer.id}`}
             className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
             
             <BanknoteIcon className="-ml-0.5 h-4 w-4" />
-            New Loan
+            {t('newLoan')}
           </Link>
         </div>
       </div>

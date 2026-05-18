@@ -2,16 +2,49 @@ import type { ActivityLog, Customer, DashboardKpis, Loan } from '../../../types/
 import { getDb } from '../localDb';
 import { mapCustomer, mapLoan } from '../mappers';
 import type { MamDemoDb } from '../types';
+import {
+  daysBetweenDates,
+  getFixedLoanArrearsSummary,
+  oldestArrearsDueDate,
+} from '../../finance/fixedInstallmentStatus';
+
+const today = () => new Date().toISOString().split('T')[0];
+
+function loanHasArrears(loanId: string, db: MamDemoDb, asOf: string): boolean {
+  const loan = db.loans.find((l) => l.id === loanId);
+  if (!loan) return false;
+  if (loan.status === 'OVERDUE') return true;
+  if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return false;
+
+  const installments = db.loan_installments
+    .filter((i) => i.loan_id === loanId)
+    .map((i) => ({
+      installmentNumber: i.installment_number,
+      dueDate: i.due_date,
+      installmentAmount: i.installment_amount,
+      paidAmount: i.paid_amount,
+      lateFeeAmount: i.late_fee_amount,
+      lateFeePaid: i.late_fee_paid,
+    }));
+
+  return getFixedLoanArrearsSummary(installments, asOf, loan.late_fee_rate)
+    .hasArrears;
+}
 
 export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {
-  const today = new Date().toISOString().split('T')[0];
-  const monthPrefix = today.slice(0, 7);
+  const asOf = today();
+  const monthPrefix = asOf.slice(0, 7);
 
   const todayPayments = db.loan_payments.filter(
-    (p) => p.status === 'CONFIRMED' && p.payment_date === today
+    (p) => p.status === 'CONFIRMED' && p.payment_date === asOf
   );
   const todayCollections = todayPayments.reduce((s, p) => s + p.amount, 0);
-  const overdueCount = db.loans.filter((l) => l.status === 'OVERDUE').length;
+
+  const overdueCount = db.loans.filter(
+    (l) =>
+      ['ACTIVE', 'OVERDUE'].includes(l.status) && loanHasArrears(l.id, db, asOf)
+  ).length;
+
   const outstandingPortfolio = db.loans
     .filter((l) => ['ACTIVE', 'OVERDUE'].includes(l.status))
     .reduce((s, l) => s + l.balance_amount, 0);
@@ -44,14 +77,34 @@ export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {
 
 export function getOverdueLoans(
   db: MamDemoDb = getDb()
-): (Loan & { customer?: Customer })[] {
+): (Loan & { customer?: Customer; daysOverdue?: number })[] {
+  const asOf = today();
+
   return db.loans
-    .filter((l) => l.status === 'OVERDUE')
+    .filter(
+      (l) =>
+        ['ACTIVE', 'OVERDUE'].includes(l.status) && loanHasArrears(l.id, db, asOf)
+    )
     .map((l) => {
       const c = db.customers.find((x) => x.id === l.customer_id);
+      const installments = db.loan_installments
+        .filter((i) => i.loan_id === l.id)
+        .map((i) => ({
+          installmentNumber: i.installment_number,
+          dueDate: i.due_date,
+          installmentAmount: i.installment_amount,
+          paidAmount: i.paid_amount,
+          lateFeeAmount: i.late_fee_amount,
+          lateFeePaid: i.late_fee_paid,
+        }));
+      const oldest = oldestArrearsDueDate(installments, asOf);
+      const daysOverdue = oldest ? daysBetweenDates(oldest, asOf) : 0;
+
       return {
         ...mapLoan(l),
+        status: 'OVERDUE' as const,
         customer: c ? mapCustomer(c, db) : undefined,
+        daysOverdue,
       };
     });
 }

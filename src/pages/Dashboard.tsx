@@ -21,14 +21,16 @@ import {
   getOverdueLoans,
   getRecentActivity,
 } from '../lib/local-db/repositories';
+import { useT } from '../i18n/I18nProvider';
 
 export function Dashboard() {
+  const { t } = useT();
   const db = useDemoDb();
   const kpis = useMemo(() => getDashboardKpis(db), [db]);
   const overdueLoans = useMemo(() => getOverdueLoans(db), [db]);
   const recentActivity = useMemo(() => getRecentActivity(db), [db]);
   const today = new Date();
-  const greeting = `Good morning, Sachila`;
+  const greeting = `${t('goodMorning')}, Sachila`;
   const dateStr = formatDate(today, 'long');
   const quickActions =
   <div className="flex gap-2">
@@ -40,7 +42,7 @@ export function Dashboard() {
         className="-ml-0.5 h-4 w-4 text-neutral-400"
         aria-hidden="true" />
       
-        Customer
+        {t('nav.customers')}
       </Link>
       <Link
       to="/loans/new"
@@ -50,32 +52,32 @@ export function Dashboard() {
         className="-ml-0.5 h-4 w-4 text-neutral-400"
         aria-hidden="true" />
       
-        Loan
+        {t('field.loan')}
       </Link>
       <Link
       to="/payments/new"
       className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
       
         <CreditCardIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-        Payment
+        {t('stepPayment')}
       </Link>
     </div>;
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title="Dashboard" subtitle={`${greeting} · ${dateStr}`} />
+        <PageHeader title={t('dashboard')} subtitle={`${greeting} · ${dateStr}`} />
         <div className="mt-4 sm:mt-0 pb-6">{quickActions}</div>
       </div>
 
       {/* Today Strip */}
       <div>
         <h2 className="text-base font-semibold leading-6 text-neutral-900 mb-4">
-          Today
+          {t('today')}
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard
-            label="Collections / Target"
+            label={t('collectionsTarget')}
             value={`${formatLKR(kpis.todayCollections, {
               withSymbol: false
             })} / ${formatLKR(kpis.todayTarget, {
@@ -94,18 +96,18 @@ export function Dashboard() {
           />
           
           <KpiCard
-            label="Payments Received"
+            label={t('paymentsReceived')}
             value={kpis.todayPaymentsCount}
             icon={CreditCardIcon} />
           
           <KpiCard
-            label="Overdue Follow-ups"
+            label={t('overdueFollowups')}
             value={kpis.overdueCount}
             icon={AlertCircleIcon}
             delta={
             kpis.overdueCount > 0 ?
             {
-              value: 'Needs attention',
+              value: t('needsAttention'),
               trend: 'down'
             } :
             undefined
@@ -117,25 +119,25 @@ export function Dashboard() {
       {/* Money Snapshot */}
       <div>
         <h2 className="text-base font-semibold leading-6 text-neutral-900 mb-4">
-          Money Snapshot
+          {t('moneySnapshot')}
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard
-            label="Cash on Hand"
+            label={t('cashOnHand')}
             value={formatLKR(kpis.cashOnHand)}
             icon={WalletIcon} />
           
           <KpiCard
-            label="Outstanding Portfolio"
+            label={t('outstandingPortfolio')}
             value={formatLKR(kpis.outstandingPortfolio)}
             icon={PieChartIcon} />
           
           <KpiCard
-            label="This Month Net"
+            label={t('thisMonthNet')}
             value={formatLKR(kpis.monthNet)}
             icon={BanknoteIcon}
             delta={{
-              value: 'vs last month',
+              value: t('vsLastMonth'),
               trend: 'up'
             }} />
           
@@ -150,13 +152,13 @@ export function Dashboard() {
             <div className="border-b border-neutral-200 px-4 py-5 sm:px-6 flex justify-between items-center bg-danger-50/50">
               <h3 className="text-base font-semibold leading-6 text-danger-900 flex items-center gap-2">
                 <AlertCircleIcon className="h-5 w-5 text-danger-600" />
-                Overdue Queue
+                {t('overdueQueue')}
               </h3>
               <Link
                 to="/loans"
                 className="text-sm font-medium text-brand-600 hover:text-brand-500">
                 
-                View all
+                {t('action.viewAll')}
               </Link>
             </div>
             <ul role="list" className="divide-y divide-neutral-200">
@@ -174,7 +176,7 @@ export function Dashboard() {
                         <span className="tabular-nums">{loan.loanCode}</span>
                         <span>·</span>
                         <span className="text-danger-600 font-medium">
-                          {loan.daysOverdue} days overdue
+                          {loan.daysOverdue} {t('daysOverdue')}
                         </span>
                       </p>
                     </div>
@@ -183,7 +185,7 @@ export function Dashboard() {
                         <p className="text-sm font-semibold text-neutral-900 tabular-nums">
                           {formatLKR(loan.balanceAmount)}
                         </p>
-                        <p className="text-xs text-neutral-500 mt-1">Balance</p>
+                        <p className="text-xs text-neutral-500 mt-1">{t('field.balance')}</p>
                       </div>
                       <div className="flex gap-2">
                         <a
@@ -207,7 +209,7 @@ export function Dashboard() {
               )}
               {overdueLoans.length === 0 &&
               <li className="px-4 py-8 text-center text-sm text-neutral-500">
-                  No overdue loans. Great job!
+                  {t('noOverdueLoans')}
                 </li>
               }
             </ul>
@@ -216,12 +218,12 @@ export function Dashboard() {
           {/* Stock Status */}
           <div>
             <h2 className="text-base font-semibold leading-6 text-neutral-900 mb-4">
-              Stock Status
+              {t('stockStatus')}
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200">
                 <dt className="truncate text-sm font-medium text-neutral-500 uppercase tracking-wider">
-                  In Stock
+                  {t('inStock')}
                 </dt>
                 <dd className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 tabular-nums">
                   {kpis.inStockCount}
@@ -229,7 +231,7 @@ export function Dashboard() {
               </div>
               <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200">
                 <dt className="truncate text-sm font-medium text-neutral-500 uppercase tracking-wider">
-                  Sold This Month
+                  {t('soldThisMonth')}
                 </dt>
                 <dd className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 tabular-nums">
                   {kpis.soldThisMonth}
@@ -240,7 +242,7 @@ export function Dashboard() {
                   to="/bikes/new"
                   className="text-sm font-medium text-brand-600 hover:text-brand-500 flex items-center gap-1">
                   
-                  <PlusIcon className="h-4 w-4" /> Add Bike
+                  <PlusIcon className="h-4 w-4" /> {t('addBikeLink')}
                 </Link>
               </div>
             </div>
@@ -252,13 +254,13 @@ export function Dashboard() {
           <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden h-full">
             <div className="border-b border-neutral-200 px-4 py-5 sm:px-6 flex justify-between items-center">
               <h3 className="text-base font-semibold leading-6 text-neutral-900">
-                Recent Activity
+                {t('recentActivity')}
               </h3>
               <Link
                 to="/activity"
                 className="text-sm font-medium text-brand-600 hover:text-brand-500">
                 
-                View all
+                {t('action.viewAll')}
               </Link>
             </div>
             <div className="px-4 py-5 sm:p-6">
@@ -266,7 +268,7 @@ export function Dashboard() {
                 <ul role="list" className="-mb-8">
                   {recentActivity.length === 0 && (
                     <li className="py-4 text-center text-sm text-neutral-500">
-                      No recent activity yet.
+                      {t('noRecentActivity')}
                     </li>
                   )}
                   {recentActivity.map((activity, activityIdx) =>

@@ -22,12 +22,15 @@ export function StatusChip({ status, showDot = true }: StatusChipProps) {
   const s = status.toLowerCase();
   let colorClass = 'bg-neutral-100 text-neutral-700 ring-neutral-200';
   let dotClass = 'bg-neutral-500';
-  if (['active', 'confirmed', 'paid', 'in_stock', 'released'].includes(s)) {
+  if (['active', 'confirmed', 'paid', 'in_stock', 'released', 'returned'].includes(s)) {
     colorClass = 'bg-success-50 text-success-700 ring-success-200';
     dotClass = 'bg-success-500';
   } else if (['overdue', 'danger', 'cancelled'].includes(s)) {
     colorClass = 'bg-danger-50 text-danger-700 ring-danger-200';
     dotClass = 'bg-danger-500';
+  } else if (['partial'].includes(s)) {
+    colorClass = 'bg-info-50 text-info-700 ring-info-200';
+    dotClass = 'bg-info-500';
   } else if (['held', 'warning', 'pending', 'reserved'].includes(s)) {
     colorClass = 'bg-warning-50 text-warning-700 ring-warning-200';
     dotClass = 'bg-warning-500';

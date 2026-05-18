@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider } from './i18n/I18nProvider';
+import { FormatModeSync } from './components/layout/FormatModeSync';
 import { ToastProvider } from './components/ui/Toast';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -12,6 +13,7 @@ import { CustomerForm } from './pages/customers/CustomerForm';
 import { LoansList } from './pages/loans/LoansList';
 import { CreateLoan } from './pages/loans/CreateLoan';
 import { LoanDetail } from './pages/loans/LoanDetail';
+import { EarlySettlement } from './pages/loans/EarlySettlement';
 import { PaymentsList } from './pages/payments/PaymentsList';
 import { RecordPayment } from './pages/payments/RecordPayment';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
@@ -21,6 +23,7 @@ import { BikeForm } from './pages/bikes/BikeForm';
 import { BikeDetail } from './pages/bikes/BikeDetail';
 import { GuaranteesList } from './pages/guarantees/GuaranteesList';
 import { AddGuarantee } from './pages/guarantees/AddGuarantee';
+import { GuaranteeDetail } from './pages/guarantees/GuaranteeDetail';
 import { ExpensesList } from './pages/expenses/ExpensesList';
 import { AddExpense } from './pages/expenses/AddExpense';
 import { Reports } from './pages/reports/Reports';
@@ -31,6 +34,7 @@ import { ActivityLog } from './pages/admin/ActivityLog';
 export function App() {
   return (
     <I18nProvider>
+      <FormatModeSync />
       <ToastProvider>
         <BrowserRouter>
           <Routes>
@@ -55,6 +59,7 @@ export function App() {
               <Route path="loans">
                 <Route index element={<LoansList />} />
                 <Route path="new" element={<CreateLoan />} />
+                <Route path=":id/early-settlement" element={<EarlySettlement />} />
                 <Route path=":id" element={<LoanDetail />} />
               </Route>
 
@@ -76,6 +81,7 @@ export function App() {
               <Route path="guarantees">
                 <Route index element={<GuaranteesList />} />
                 <Route path="new" element={<AddGuarantee />} />
+                <Route path=":id" element={<GuaranteeDetail />} />
               </Route>
 
               <Route path="expenses">

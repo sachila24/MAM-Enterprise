@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircleIcon,
@@ -9,18 +9,20 @@ import {
 import { KpiCard } from '../../components/ui/KpiCard';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
-import {
-  isInterestOnlyLoan,
-  type Loan,
-  type LoanInstallment,
-} from '../../types/loan';
+import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
-  calculateLateFee,
-  monthsLate,
-} from '../../lib/finance/fixedInstallment';
+  enrichFixedInstallment,
+  getFixedLoanArrearsSummary,
+  getFixedLoanDisplayStatus,
+  type InstallmentArrearsInput,
+} from '../../lib/finance/fixedInstallmentStatus';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import {
+  getNextDueDateForFixedInstallments,
+  getNextDueDateForInterestOnly,
+} from '../../lib/finance/loanNextDue';
 import {
   resolveLoanDetailPreview,
   LOAN_DETAIL_PREVIEW_LINKS,
@@ -31,6 +33,11 @@ import {
   getLoanDetailFromDb,
   listLoanDetailLinks,
 } from '../../lib/local-db/loanDetail';
+import { getDb } from '../../lib/local-db/localDb';
+import { syncFixedInstallmentLateFees } from '../../lib/local-db/fixedInstallmentSync';
+import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
+import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
+import { roundLKR } from '../../lib/finance/money';
 
 const AS_OF_DATE = new Date().toISOString().split('T')[0];
 
@@ -38,6 +45,18 @@ export function LoanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
+
+  useEffect(() => {
+    if (!id) return;
+    const loan = db.loans.find((l) => l.id === id);
+    if (loan?.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+      persistInterestOnlyCycles(getDb(), id);
+    }
+    if (loan?.repayment_method === 'FIXED_TERM_INSTALLMENT') {
+      syncFixedInstallmentLateFees(getDb(), id);
+    }
+  }, [id, db]);
+
   const detail =
     (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
   const demoLinks = listLoanDetailLinks(db);
@@ -95,20 +114,52 @@ function InterestOnlyLoanDetail({
   const { loan, customer, interestCycles, guarantees, principalPayments } =
     detail;
 
-  const pendingInterest = useMemo(
+  const asOf = AS_OF_DATE;
+  const cycleAlloc = useMemo(
     () =>
-      loan.pendingInterestAmount ??
-      interestCycles.reduce(
-        (s, c) => s + Math.max(0, c.interestDue - c.interestPaid),
-        0
-      ),
-    [loan.pendingInterestAmount, interestCycles]
+      interestCycles.map((c) => ({
+        id: c.id,
+        cycleNumber: c.cycleNumber,
+        dueDate: c.dueDate,
+        openingPrincipal: c.openingPrincipal,
+        interestDue: c.interestDue,
+        interestPaid: c.interestPaid,
+        principalPaid: c.principalPaid,
+      })),
+    [interestCycles]
   );
 
-  const currentCycle = interestCycles.find((c) => c.status !== 'PAID') ?? interestCycles.at(-1);
-  const currentMonthInterestDue = currentCycle
-    ? Math.max(0, currentCycle.interestDue - currentCycle.interestPaid)
-    : 0;
+  const summary = useMemo(
+    () =>
+      summarizeInterestOnlyLoan(
+        loan.startDate,
+        loan.interestRate,
+        loan.currentPrincipalBalance,
+        cycleAlloc,
+        asOf
+      ),
+    [loan.startDate, loan.interestRate, loan.currentPrincipalBalance, cycleAlloc, asOf]
+  );
+
+  const nextDueIo = useMemo(
+    () =>
+      getNextDueDateForInterestOnly(
+        loan.startDate,
+        cycleAlloc,
+        AS_OF_DATE
+      ),
+    [loan.startDate, cycleAlloc]
+  );
+
+  const pendingInterest =
+    loan.pendingInterestAmount ?? summary.pendingInterest;
+
+  const nextDueLabel =
+    loan.status === 'COMPLETED'
+      ? 'Completed'
+      : nextDueIo.dueDate
+        ? formatDate(nextDueIo.dueDate)
+        : nextDueIo.label;
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
@@ -128,11 +179,25 @@ function InterestOnlyLoanDetail({
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
-        <KpiCard label="Current principal" value={formatLKR(loan.currentPrincipalBalance)} />
-        <KpiCard label="Pending interest" value={formatLKR(pendingInterest)} />
-        <KpiCard label="Current month interest" value={formatLKR(currentMonthInterestDue)} />
+        <KpiCard
+          label="Original principal"
+          value={formatLKR(loan.originalPrincipalAmount)}
+        />
+        <KpiCard
+          label="Current principal balance"
+          value={formatLKR(loan.currentPrincipalBalance)}
+        />
+        <KpiCard label="Pending interest due" value={formatLKR(pendingInterest)} />
+        <KpiCard
+          label="Interest cycles due"
+          value={String(summary.cyclesDueCount)}
+        />
+        <KpiCard
+          label="Next estimated interest"
+          value={formatLKR(summary.nextEstimatedInterest)}
+        />
         <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
-        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
+        <KpiCard label="Next due date" value={nextDueLabel} />
       </div>
 
       <section className="mb-8">
@@ -193,17 +258,49 @@ function FixedInstallmentLoanDetail({
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { loan, customer, installments, guarantees } = detail;
+  const { loan, customer, installments, guarantees, bike } = detail;
   const enriched = useMemo(
-    () => enrichInstallments(installments, loan),
-    [installments, loan]
+    () =>
+      installments.map((inst) =>
+        enrichFixedInstallment(inst, AS_OF_DATE, loan.lateFeeRate)
+      ),
+    [installments, loan.lateFeeRate]
   );
 
-  const arrearsCount = enriched.filter((i) => i.status === 'OVERDUE').length;
-  const totalLateFeesDue = enriched.reduce((s, i) => s + i.lateFeeDue, 0);
-  const totalArrearsInstallments = enriched
-    .filter((i) => i.status === 'OVERDUE' || (i.status === 'PARTIAL' && i.isArrear))
-    .reduce((s, i) => s + i.amountDue, 0);
+  const arrears = useMemo(
+    () => getFixedLoanArrearsSummary(enriched, AS_OF_DATE, loan.lateFeeRate),
+    [enriched, loan.lateFeeRate]
+  );
+
+  const displayLoanStatus = useMemo(
+    () => getFixedLoanDisplayStatus(loan.status, enriched, AS_OF_DATE),
+    [loan.status, enriched]
+  );
+
+  const nextFixed = useMemo(
+    () =>
+      getNextDueDateForFixedInstallments(
+        enriched as InstallmentArrearsInput[],
+        loan.lateFeeRate,
+        AS_OF_DATE
+      ),
+    [enriched, loan.lateFeeRate]
+  );
+
+  const nextDueLabel =
+    loan.status === 'COMPLETED'
+      ? 'Completed'
+      : nextFixed.dueDate
+        ? formatDate(nextFixed.dueDate)
+        : nextFixed.label;
+
+  const financeLabel =
+    loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
+
+  const downPaymentHint =
+    bike && loan.principalAmount <= bike.sellingPrice
+      ? roundLKR(bike.sellingPrice - loan.principalAmount)
+      : undefined;
 
   const settlementEligible = canRequestEarlySettlement(
     detail.monthsCompleted,
@@ -214,6 +311,7 @@ function FixedInstallmentLoanDetail({
     <div className="max-w-7xl mx-auto pb-12">
       <LoanHeader
         loan={loan}
+        displayStatus={displayLoanStatus}
         customerName={customer.name}
         subtitle={`${formatEnum(loan.loanPurpose)} · ${formatEnum(loan.repaymentMethod)}`}
         actions={
@@ -228,7 +326,12 @@ function FixedInstallmentLoanDetail({
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+        <KpiCard
+          label={financeLabel}
+          value={formatLKR(loan.principalAmount)}
+        />
+        <KpiCard label="Total interest" value={formatLKR(loan.totalInterestAmount ?? 0)} />
         <KpiCard label="Total payable" value={formatLKR(loan.totalPayable ?? 0)} />
         <KpiCard label="Paid" value={formatLKR(loan.paidAmount)} />
         <KpiCard label="Balance" value={formatLKR(loan.balanceAmount)} />
@@ -238,26 +341,81 @@ function FixedInstallmentLoanDetail({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      {bike && (
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Linked bike
+            </p>
+            <p className="mt-1 font-semibold text-neutral-900">{bike.model}</p>
+            <p className="text-sm text-neutral-600">
+              Stock ref {bike.bikeCode} · Engine {bike.engineNo}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Bike selling price
+            </p>
+            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+              {formatLKR(bike.sellingPrice)}
+            </p>
+          </div>
+          {downPaymentHint !== undefined ? (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                Estimated down payment
+              </p>
+              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+                {formatLKR(downPaymentHint)}
+              </p>
+              <p className="mt-2 text-xs text-neutral-500">
+                Selling price minus finance amount
+              </p>
+            </div>
+          ) : null}
+          <div className="sm:col-span-3">
+            <Link
+              to={`/bikes/${bike.id}`}
+              className="text-sm font-semibold text-brand-600 hover:text-brand-500"
+            >
+              Open bike detail
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
         <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
         <KpiCard label="Late fee rate" value={`${loan.lateFeeRate}%`} />
-        <KpiCard label="Next due" value={formatDate(loan.dueDate ?? loan.firstDueDate)} />
+        <KpiCard label="Next due" value={nextDueLabel} />
         <KpiCard
           label="Arrears"
-          value={arrearsCount > 0 ? `${arrearsCount} installment(s)` : 'None'}
+          value={
+            arrears.hasArrears
+              ? `${arrears.arrearsInstallmentCount} installment${arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue`
+              : 'None'
+          }
           delta={
-            arrearsCount > 0
-              ? { value: formatLKR(totalLateFeesDue + totalArrearsInstallments), trend: 'down' }
+            arrears.hasArrears
+              ? {
+                  value: formatLKR(arrears.totalArrearsDue),
+                  trend: 'down',
+                }
               : undefined
           }
         />
       </div>
 
-      {arrearsCount > 0 && (
-        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 p-4 text-sm text-danger-800">
-          <strong>Arrears summary:</strong> {arrearsCount} overdue installment(s). Late
-          fees due {formatLKR(totalLateFeesDue)}. Unpaid installments{' '}
-          {formatLKR(totalArrearsInstallments)}.
+      {arrears.hasArrears && (
+        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 p-4 text-sm text-danger-800 space-y-1">
+          <p className="font-semibold">Arrears summary</p>
+          <p>
+            {arrears.arrearsInstallmentCount} installment
+            {arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue
+          </p>
+          <p>Installments: {formatLKR(arrears.arrearsInstallmentAmount)}</p>
+          <p>Late fees: {formatLKR(arrears.lateFeesDue)}</p>
+          <p className="font-medium">Total due: {formatLKR(arrears.totalArrearsDue)}</p>
         </div>
       )}
 
@@ -270,6 +428,7 @@ function FixedInstallmentLoanDetail({
             'Installment',
             'Paid',
             'Late fee',
+            'Remaining',
             'Status',
           ]}
           rows={enriched.map((i) => [
@@ -277,8 +436,9 @@ function FixedInstallmentLoanDetail({
             formatDate(i.dueDate),
             formatLKR(i.installmentAmount),
             formatLKR(i.paidAmount),
-            formatLKR(i.lateFeeDue),
-            <StatusChip key={i.id} status={i.status} />,
+            formatLKR(i.lateFeeAccrued),
+            formatLKR(i.remaining),
+            <StatusChip key={i.id} status={i.displayStatus} />,
           ])}
           emptyMessage="No installments on this loan."
         />
@@ -293,51 +453,15 @@ function FixedInstallmentLoanDetail({
   );
 }
 
-type EnrichedInstallment = LoanInstallment & {
-  lateFeeDue: number;
-  amountDue: number;
-  isArrear: boolean;
-};
-
-function enrichInstallments(
-  installments: LoanInstallment[],
-  loan: Loan
-): EnrichedInstallment[] {
-  const currentNum =
-    installments.find((i) => i.status === 'PENDING' || i.status === 'OVERDUE')
-      ?.installmentNumber ?? installments.length;
-
-  return installments.map((inst) => {
-    const amountDue = Math.max(0, inst.installmentAmount - inst.paidAmount);
-    const months = monthsLate(inst.dueDate, AS_OF_DATE);
-    const lateFeeDue =
-      amountDue > 0 && months > 0
-        ? Math.max(
-            inst.lateFeeAmount - inst.lateFeePaid,
-            calculateLateFee({
-              installmentAmount: inst.installmentAmount,
-              lateFeeRatePercent: loan.lateFeeRate,
-              monthsLate: months,
-            })
-          )
-        : Math.max(0, inst.lateFeeAmount - inst.lateFeePaid);
-
-    return {
-      ...inst,
-      lateFeeDue,
-      amountDue,
-      isArrear: inst.installmentNumber < currentNum,
-    };
-  });
-}
-
 function LoanHeader({
   loan,
+  displayStatus,
   customerName,
   subtitle,
   actions,
 }: {
   loan: Loan;
+  displayStatus?: string;
   customerName: string;
   subtitle: string;
   actions: React.ReactNode;
@@ -349,7 +473,7 @@ function LoanHeader({
           <h1 className="text-2xl font-semibold text-neutral-900 tabular-nums">
             {loan.loanCode}
           </h1>
-          <StatusChip status={loan.status} />
+          <StatusChip status={displayStatus ?? loan.status} />
         </div>
         <p className="mt-2 text-sm text-neutral-500">
           <Link
@@ -397,10 +521,7 @@ function LoanActionBar({
         {showEarlySettlement && (
           <ActionButton
             disabled={!settlementEligible}
-            onClick={() =>
-              settlementEligible &&
-              navigate(`/loans/${loanId}/early-settlement`)
-            }
+            onClick={() => navigate(`/loans/${loanId}/early-settlement`)}
           >
             Early Settlement
           </ActionButton>
@@ -552,9 +673,12 @@ function GuaranteesSection({
               className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
             >
               <div className="flex justify-between items-start gap-2">
-                <p className="font-medium text-neutral-900">
-                  {formatEnum(g.type)}
-                </p>
+                <div>
+                  <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
+                  <p className="font-medium text-neutral-900">
+                    {formatEnum(g.type)}
+                  </p>
+                </div>
                 <StatusChip status={g.status} />
               </div>
               <p className="mt-2 text-sm text-neutral-600">{g.description}</p>

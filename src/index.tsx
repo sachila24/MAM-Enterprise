@@ -2,9 +2,14 @@ import './index.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { initLocalDemoDb } from './lib/local-db/localDb';
+import { getDbSnapshot, initLocalDemoDb } from './lib/local-db/localDb';
+import { syncAllFixedInstallmentLateFees } from './lib/local-db/fixedInstallmentSync';
+import { syncAllInterestOnlyLoans } from './lib/local-db/interestOnlySync';
 
 initLocalDemoDb();
+const db = getDbSnapshot();
+syncAllInterestOnlyLoans(db);
+syncAllFixedInstallmentLateFees(db);
 
 const root = document.getElementById('root');
 if (root) {

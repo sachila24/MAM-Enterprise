@@ -46,3 +46,41 @@ export function buildMonthlyDueDates(
     computeDueDateForCycle(startDate, i + 1)
   );
 }
+
+/** Number of interest cycles whose due date is on or before asOfDate. */
+export function countInterestCyclesDueByDate(
+  startDate: string,
+  asOfDate: string
+): number {
+  let count = 0;
+  let n = 1;
+  let due = computeDueDateForCycle(startDate, n);
+  while (due <= asOfDate) {
+    count = n;
+    n += 1;
+    due = computeDueDateForCycle(startDate, n);
+  }
+  return count;
+}
+
+/** First due date strictly after asOfDate (next month not yet charged). */
+export function nextInterestDueDateAfter(
+  startDate: string,
+  asOfDate: string
+): string {
+  const dueCount = countInterestCyclesDueByDate(startDate, asOfDate);
+  return computeDueDateForCycle(startDate, dueCount + 1);
+}
+
+/** Period bounds for interest cycle n (1-based). */
+export function interestCyclePeriodBounds(
+  startDate: string,
+  cycleNumber: number
+): { periodStart: string; periodEnd: string; dueDate: string } {
+  const dueDate = computeDueDateForCycle(startDate, cycleNumber);
+  const periodStart =
+    cycleNumber === 1
+      ? startDate
+      : computeDueDateForCycle(startDate, cycleNumber - 1);
+  return { periodStart, periodEnd: dueDate, dueDate };
+}

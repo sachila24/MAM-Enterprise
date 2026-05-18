@@ -1,6 +1,8 @@
+import { summarizeInterestOnlyLoan } from '../finance/interestOnlyCycles';
 import { totalPendingInterest } from '../finance/interestOnly';
 import type { LoanDetailData } from '../../pages/loans/loanDetailPreviewData';
 import {
+  mapBike,
   mapCustomer,
   mapGuarantee,
   mapInstallment,
@@ -21,6 +23,10 @@ export function getLoanDetailFromDb(
 
   const loan = mapLoan(dbLoan);
   const customer = mapCustomer(customerRow, db);
+  const bikeRow = dbLoan.bike_id
+    ? db.bikes.find((b) => b.id === dbLoan.bike_id)
+    : undefined;
+  const bike = bikeRow ? mapBike(bikeRow) : undefined;
   const installments = db.loan_installments
     .filter((i) => i.loan_id === loanId)
     .sort((a, b) => a.installment_number - b.installment_number)
@@ -55,7 +61,10 @@ export function getLoanDetailFromDb(
     .filter((p) => p.loan_id === loanId && p.status === 'CONFIRMED')
     .flatMap((p) => {
       const principalAllocs = db.payment_allocations.filter(
-        (a) => a.payment_id === p.id && a.allocation_type === 'PRINCIPAL'
+        (a) =>
+          a.payment_id === p.id &&
+          (a.allocation_type === 'PRINCIPAL' ||
+            a.allocation_type === 'PRINCIPAL_DISCOUNT')
       );
       return principalAllocs.map((a) => ({
         paymentCode: p.payment_code,
@@ -75,19 +84,40 @@ export function getLoanDetailFromDb(
     interestPaid: c.interestPaid,
     principalPaid: c.principalPaid,
   }));
-  const pending = totalPendingInterest(cycleAllocPreview);
+  const asOf = new Date().toISOString().split('T')[0];
+  const ioSummary =
+    dbLoan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL'
+      ? summarizeInterestOnlyLoan(
+          dbLoan.start_date,
+          dbLoan.interest_rate,
+          dbLoan.current_principal_balance,
+          cycleAllocPreview,
+          asOf
+        )
+      : null;
+  const pending = ioSummary?.pendingInterest ?? totalPendingInterest(cycleAllocPreview);
 
-  const start = new Date(dbLoan.start_date);
-  const now = new Date();
-  const monthsCompleted = Math.max(
-    0,
-    (now.getFullYear() - start.getFullYear()) * 12 +
-      (now.getMonth() - start.getMonth())
-  );
+  const monthsCompleted =
+    dbLoan.repayment_method === 'FIXED_TERM_INSTALLMENT'
+      ? installments.filter((i) => i.status === 'PAID').length
+      : (() => {
+          const start = new Date(dbLoan.start_date);
+          const now = new Date();
+          return Math.max(
+            0,
+            (now.getFullYear() - start.getFullYear()) * 12 +
+              (now.getMonth() - start.getMonth())
+          );
+        })();
 
   return {
-    loan: { ...loan, pendingInterestAmount: pending },
+    loan: {
+      ...loan,
+      pendingInterestAmount: pending,
+      dueDate: ioSummary?.nextDueDate ?? loan.dueDate,
+    },
     customer,
+    bike,
     interestCycles,
     installments,
     guarantees,

@@ -42,11 +42,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     };
   }, [menuOpen]);
   const handleResetDemo = () => {
-    if (
-      window.confirm(
-        'Reset all demo data to the seeded sample? This cannot be undone.'
-      )
-    ) {
+    if (window.confirm(t('misc.resetDemoConfirm'))) {
       resetDemoDb();
       window.location.reload();
     }
@@ -59,15 +55,15 @@ export function Header({ onMenuClick }: HeaderProps) {
       animate={{ opacity: 1, y: 0 }}
       className="sticky top-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-900"
     >
-      <span className="font-medium">Local demo mode</span>
-      <span className="hidden sm:inline"> — data stored in your browser only.</span>
+      <span className="font-medium">{t('misc.localDemo')}</span>
+      <span className="hidden sm:inline"> — {t('misc.localDemoHint')}.</span>
       {' '}
       <button
         type="button"
         onClick={handleResetDemo}
         className="font-semibold text-amber-800 underline hover:text-amber-950"
       >
-        Reset demo data
+        {t('misc.resetDemo')}
       </button>
     </motion.div>
     <header className="sticky top-16 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-neutral-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">

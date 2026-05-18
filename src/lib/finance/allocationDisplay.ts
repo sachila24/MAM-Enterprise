@@ -1,8 +1,14 @@
 import type { PaymentAllocationResult } from './paymentAllocation';
 import type { InstallmentForAllocation } from './paymentAllocation';
-import { calculateLateFee, monthsLate } from './fixedInstallment';
+import {
+  calculateInstallmentLateFee,
+  type InstallmentArrearsInput,
+} from './fixedInstallmentStatus';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
-import { interestOutstandingOnCycle, type InterestCycleForAllocation } from './interestOnly';
+import {
+  interestOutstandingOnCycle,
+  type InterestCycleForAllocation,
+} from './interestOnly';
 import { roundLKR } from './money';
 
 export interface AllocationDisplayRow {
@@ -23,7 +29,11 @@ export function buildInterestOnlyAllocationRows(
 ): AllocationDisplayRow[] {
   const paidByCycle = new Map<string, number>();
   for (const line of allocation.allocations) {
-    if (line.allocationType === 'INTEREST' && line.interestCycleId) {
+    if (
+      (line.allocationType === 'INTEREST' ||
+        line.allocationType === 'INTEREST_DISCOUNT') &&
+      line.interestCycleId
+    ) {
       paidByCycle.set(
         line.interestCycleId,
         roundLKR((paidByCycle.get(line.interestCycleId) ?? 0) + line.amount)
@@ -76,10 +86,16 @@ export function buildFixedInstallmentAllocationRows(
   for (const line of allocation.allocations) {
     if (!line.installmentId) continue;
     const cur = paidByInst.get(line.installmentId) ?? { late: 0, inst: 0 };
-    if (line.allocationType === 'LATE_FEE') {
+    if (
+      line.allocationType === 'LATE_FEE' ||
+      line.allocationType === 'LATE_FEE_DISCOUNT'
+    ) {
       cur.late = roundLKR(cur.late + line.amount);
     }
-    if (line.allocationType === 'INSTALLMENT') {
+    if (
+      line.allocationType === 'INSTALLMENT' ||
+      line.allocationType === 'INSTALLMENT_DISCOUNT'
+    ) {
       cur.inst = roundLKR(cur.inst + line.amount);
     }
     paidByInst.set(line.installmentId, cur);
@@ -90,23 +106,28 @@ export function buildFixedInstallmentAllocationRows(
   );
 
   for (const inst of sorted) {
+    const instInput: InstallmentArrearsInput = {
+      installmentNumber: inst.installmentNumber,
+      dueDate: inst.dueDate,
+      installmentAmount: inst.installmentAmount,
+      paidAmount: inst.paidAmount,
+      lateFeeAmount: inst.lateFeeAmount,
+      lateFeePaid: inst.lateFeePaid,
+    };
+    const { lateFeeOutstanding } = calculateInstallmentLateFee(
+      instInput,
+      lateFeeRatePercent,
+      paymentDate
+    );
     const instOwed = installmentOutstanding(inst);
-    const months = monthsLate(inst.dueDate, paymentDate);
-    const lateDue =
-      instOwed > 0 && months > 0
-        ? calculateLateFee({
-            installmentAmount: inst.installmentAmount,
-            lateFeeRatePercent,
-            monthsLate: months,
-          })
-        : roundLKR(Math.max(0, inst.lateFeeAmount - inst.lateFeePaid));
     const paid = paidByInst.get(inst.id) ?? { late: 0, inst: 0 };
 
+    const lateDue = lateFeeOutstanding;
     if (lateDue > 0 || paid.late > 0) {
       rows.push({
         type: 'Late fee',
         period: `#${inst.installmentNumber} · ${inst.dueDate}`,
-        due: lateDue + paid.late,
+        due: roundLKR(lateDue + paid.late),
         paidByPayment: paid.late,
         remaining: roundLKR(Math.max(0, lateDue - paid.late)),
       });
@@ -135,4 +156,70 @@ export function buildFixedInstallmentAllocationRows(
   }
 
   return rows;
+}
+
+/** Rows touched by this payment only — for compact receipts (excludes untouched schedule). */
+export function filterAffectedAllocationRows(
+  rows: AllocationDisplayRow[],
+  maxRows = 5
+): AllocationDisplayRow[] {
+  return rows.filter((r) => r.paidByPayment > 0).slice(0, maxRows);
+}
+
+function parseScheduleNumber(period: string): number | null {
+  const inst = period.match(/#(\d+)/);
+  if (inst) return parseInt(inst[1], 10);
+  const cycle = period.match(/Cycle\s+(\d+)/i);
+  if (cycle) return parseInt(cycle[1], 10);
+  return null;
+}
+
+function rowKey(row: AllocationDisplayRow): string {
+  return `${row.type}|${row.period}`;
+}
+
+export type AllocationRowBadge = 'Paid' | 'Partial' | 'Remaining';
+
+/** UI-only badge for schedule rows (does not affect allocation). */
+export function getAllocationRowBadge(
+  row: AllocationDisplayRow
+): AllocationRowBadge | null {
+  if (row.paidByPayment > 0 && row.remaining === 0) return 'Paid';
+  if (row.paidByPayment > 0 && row.remaining > 0) return 'Partial';
+  if (row.remaining > 0) return 'Remaining';
+  return null;
+}
+
+/**
+ * Subset for payment review: current period, next upcoming, partials, and rows
+ * touched by this payment. Display-only — does not change allocation math.
+ */
+export function selectCompactAllocationRows(
+  rows: AllocationDisplayRow[],
+  currentNumber: number,
+  maxUpcoming = 2
+): AllocationDisplayRow[] {
+  const maxNum = currentNumber + maxUpcoming;
+  const keys = new Set<string>();
+
+  for (const row of rows) {
+    const num = parseScheduleNumber(row.period);
+    const key = rowKey(row);
+
+    if (num == null) {
+      if (row.paidByPayment > 0) keys.add(key);
+      continue;
+    }
+
+    const inWindow = num >= currentNumber && num <= maxNum;
+    const touchedByPayment = row.paidByPayment > 0;
+    const partialBefore =
+      row.remaining > 0 && row.due > row.remaining && num < currentNumber;
+
+    if (inWindow || touchedByPayment || partialBefore) {
+      keys.add(key);
+    }
+  }
+
+  return rows.filter((r) => keys.has(rowKey(r)));
 }

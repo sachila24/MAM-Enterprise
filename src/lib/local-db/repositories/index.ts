@@ -6,3 +6,4 @@ export * from './guaranteesRepo';
 export * from './receiptsRepo';
 export * from './expensesRepo';
 export * from './dashboardRepo';
+export * from './earlySettlementRepo';

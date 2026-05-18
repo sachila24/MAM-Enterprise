@@ -5,6 +5,7 @@
 
 import type { MamDemoDb } from './types';
 import { buildSeedDatabase } from './seedDemoData';
+import { roundLKR } from '../finance/money';
 
 export const STORAGE_KEY = 'mam_demo_db_v1';
 
@@ -51,6 +52,9 @@ function isValidDb(value: unknown): value is MamDemoDb {
 
 function seedAndPersist(): MamDemoDb {
   const db = buildSeedDatabase();
+  normalizeDemoPayments(db);
+  normalizeDemoGuarantees(db);
+  normalizeDemoBikes(db);
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
@@ -75,6 +79,31 @@ function parseStoredDb(raw: string): MamDemoDb {
   }
 }
 
+function normalizeDemoPayments(db: MamDemoDb) {
+  for (const p of db.loan_payments) {
+    if (typeof p.discount_amount !== 'number') p.discount_amount = 0;
+    if (typeof p.applied_amount !== 'number') {
+      p.applied_amount = roundLKR(p.amount + p.discount_amount);
+    }
+  }
+}
+
+function normalizeDemoGuarantees(db: MamDemoDb) {
+  for (const g of db.guarantees) {
+    if (!g.customer_id) {
+      const loan = db.loans.find((l) => l.id === g.loan_id);
+      if (loan) g.customer_id = loan.customer_id;
+    }
+  }
+}
+
+function normalizeDemoBikes(db: MamDemoDb) {
+  for (const b of db.bikes) {
+    if (typeof b.repair_cost !== 'number') b.repair_cost = 0;
+    if (typeof b.other_cost !== 'number') b.other_cost = 0;
+  }
+}
+
 /** Stable snapshot for useSyncExternalStore — same reference until storage changes. */
 export function getDbSnapshot(): MamDemoDb {
   if (typeof window === 'undefined') {
@@ -91,6 +120,9 @@ export function getDbSnapshot(): MamDemoDb {
   }
 
   cachedDb = parseStoredDb(raw);
+  normalizeDemoPayments(cachedDb);
+  normalizeDemoGuarantees(cachedDb);
+  normalizeDemoBikes(cachedDb);
   cachedRaw = raw;
   return cachedDb;
 }

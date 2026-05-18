@@ -1,43 +1,63 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
-import { en } from './dictionaries/en';
-import { si } from './dictionaries/si';
-import { ta } from './dictionaries/ta';
-export type Language = 'en' | 'si' | 'ta';
-export type DictionaryKey = keyof typeof en;
-const dictionaries: Record<Language, typeof en> = {
-  en,
-  si,
-  ta
-};
+import {
+  type DisplayMode,
+  type LabelKey,
+  getLabel,
+  resolveLabel,
+  t as labels,
+} from '../lib/i18n/simpleLabels';
+
+export type Language = DisplayMode;
+export type DictionaryKey = LabelKey;
+
 interface I18nContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (key: DictionaryKey) => string;
+  language: DisplayMode;
+  setLanguage: (lang: DisplayMode) => void;
+  /** Resolve a label key for the current display mode. */
+  t: (key: LabelKey) => string;
+  /** Alias for `t` — use in components as `label('cashReceived')`. */
+  label: (key: LabelKey) => string;
+  /** Resolve a raw bilingual string for the current display mode. */
+  resolve: (text: string) => string;
 }
+
 const I18nContext = createContext<I18nContextType | null>(null);
-export function I18nProvider({ children }: {children: React.ReactNode;}) {
-  const [language, setLanguage] = useState<Language>(() => {
-    return localStorage.getItem('language') as Language || 'en';
-  });
+
+function normalizeStoredLanguage(value: string | null): DisplayMode {
+  if (value === 'en' || value === 'si' || value === 'both') return value;
+  // Legacy: separate en/si/ta dictionaries → default to bilingual
+  return 'both';
+}
+
+export function I18nProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguage] = useState<DisplayMode>(() =>
+    normalizeStoredLanguage(localStorage.getItem('language'))
+  );
+
   useEffect(() => {
     localStorage.setItem('language', language);
-    document.documentElement.lang = language;
+    document.documentElement.lang = language === 'si' ? 'si' : 'en';
   }, [language]);
-  const t = (key: DictionaryKey): string => {
-    return dictionaries[language][key] || dictionaries['en'][key] || key;
-  };
+
+  const resolve = (text: string): string => resolveLabel(text, language);
+
+  const t = (key: LabelKey): string => getLabel(key, language);
+
   return (
     <I18nContext.Provider
       value={{
         language,
         setLanguage,
-        t
-      }}>
-      
+        t,
+        label: t,
+        resolve,
+      }}
+    >
       {children}
-    </I18nContext.Provider>);
-
+    </I18nContext.Provider>
+  );
 }
+
 export function useT() {
   const context = useContext(I18nContext);
   if (!context) {
@@ -45,3 +65,6 @@ export function useT() {
   }
   return context;
 }
+
+/** All bilingual label strings (English + Sinhala in brackets). */
+export { labels as simpleLabels };

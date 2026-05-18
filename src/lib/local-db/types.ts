@@ -23,14 +23,22 @@ export interface DbCustomer {
 
 export interface DbBike {
   id: string;
+  /** Idempotency key for create — prevents duplicate bikes on rapid clicks */
+  client_submit_id?: string;
   bike_code: string;
   model: string;
+  /** Registration / number plate (falls back to chassis in UI if empty) */
+  registration_no?: string;
   chassis_no: string;
   engine_no: string;
   color: string;
   year: number;
   cost_price: number;
   selling_price: number;
+  /** Actual sale price when status is SOLD */
+  sold_price?: number;
+  repair_cost?: number;
+  other_cost?: number;
   status: 'IN_STOCK' | 'SOLD' | 'HELD';
   purchase_date: string;
   sold_date?: string;
@@ -116,11 +124,15 @@ export interface DbLoanPayment {
   loan_id: string;
   customer_id: string;
   amount: number;
+  discount_amount?: number;
+  applied_amount?: number;
   payment_method: 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'OTHER';
   cheque_number?: string;
   bank_reference?: string;
   payment_date: string;
   receipt_number: string;
+  /** Idempotency key — duplicate submits return the same payment */
+  client_submit_id?: string;
   notes?: string;
   status: 'CONFIRMED' | 'VOIDED';
   created_at: string;
@@ -137,7 +149,11 @@ export interface DbPaymentAllocation {
     | 'INSTALLMENT'
     | 'LATE_FEE'
     | 'ADVANCE'
-    | 'SETTLEMENT';
+    | 'SETTLEMENT'
+    | 'INTEREST_DISCOUNT'
+    | 'PRINCIPAL_DISCOUNT'
+    | 'INSTALLMENT_DISCOUNT'
+    | 'LATE_FEE_DISCOUNT';
   installment_id?: string;
   interest_cycle_id?: string;
   amount: number;
@@ -166,12 +182,17 @@ export interface DbGuarantee {
   guarantee_code: string;
   loan_id: string;
   customer_id: string;
-  item_type: 'VEHICLE_BOOK' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  item_type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  /** Vehicle number / item reference */
+  item_reference?: string;
+  owner_name_on_document?: string;
   description: string;
   storage_location: string;
+  notes?: string;
   status: 'HELD' | 'RELEASED';
   received_at: string;
   released_at?: string;
+  released_to?: string;
   created_at: string;
 }
 
