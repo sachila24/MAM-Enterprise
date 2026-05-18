@@ -14,6 +14,7 @@ import type { AllocationDisplayRow } from '../../lib/finance/allocationDisplay';
 import { isFixedInstallmentLoan, isInterestOnlyLoan } from '../../types/loan';
 import type { Loan, RepaymentMethod } from '../../types/loan';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { useT } from '../../i18n/I18nProvider';
 
 export interface PaymentSuccessState {
   loanCode: string;
@@ -33,6 +34,7 @@ export interface PaymentSuccessState {
 }
 
 export function PaymentSuccess() {
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as PaymentSuccessState | null;
@@ -40,12 +42,12 @@ export function PaymentSuccess() {
   if (!state?.receipt) {
     return (
       <div className="max-w-lg mx-auto pt-12 text-center">
-        <p className="text-neutral-600 mb-4">No payment details available.</p>
+        <p className="text-neutral-600 mb-4">{t('noPaymentDetails')}</p>
         <Link
           to="/payments/new"
           className="text-brand-600 font-semibold hover:text-brand-500"
         >
-          Record a payment
+          {t('recordPayment')}
         </Link>
       </div>
     );
@@ -71,13 +73,13 @@ export function PaymentSuccess() {
         className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900 print:hidden"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        Back to payments
+        {t('backToPayments')}
       </button>
 
       <div id="payment-receipt" className="bg-white shadow-lg ring-1 ring-neutral-200 rounded-2xl overflow-hidden print:shadow-none">
         <div className="bg-gradient-to-br from-success-600 to-success-700 px-6 py-8 text-center text-white print:bg-success-600">
           <CheckCircleIcon className="mx-auto h-12 w-12 mb-3 opacity-90" />
-          <h1 className="text-2xl font-bold">Payment Recorded</h1>
+          <h1 className="text-2xl font-bold">{t('paymentRecordedTitle')}</h1>
           <p className="mt-2 font-mono text-lg tabular-nums">{receiptNo}</p>
           <p className="mt-1 text-sm text-success-100">
             {formatDate(state.paymentDate)}

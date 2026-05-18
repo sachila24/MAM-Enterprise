@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { BikeIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
+import { useT } from '../i18n/I18nProvider';
 import { signIn, isAuthenticated } from '../lib/auth';
 export function Login() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +37,7 @@ export function Login() {
           <h1 className="mt-8 text-4xl font-bold tracking-tight">
             M A M TRADING ENTERPRISE
           </h1>
-          <p className="mt-4 text-xl text-brand-200">Bike Sales & Finance</p>
+          <p className="mt-4 text-xl text-brand-200">{t('bikeSalesFinance')}</p>
         </div>
 
         <div className="space-y-8">
@@ -63,10 +65,10 @@ export function Login() {
 
           <div>
             <h2 className="text-2xl font-bold leading-9 tracking-tight text-neutral-900">
-              Sign in to your account
+              {t('signInToAccount')}
             </h2>
             <p className="mt-2 text-sm leading-6 text-neutral-500">
-              Welcome back! Please enter your details.
+              {t('welcomeBack')}
             </p>
           </div>
 
@@ -77,7 +79,7 @@ export function Login() {
                   htmlFor="email"
                   className="block text-sm font-medium leading-6 text-neutral-900">
                   
-                  Email address
+                  {t('emailAddress')}
                 </label>
                 <div className="mt-2">
                   <input
@@ -98,7 +100,7 @@ export function Login() {
                   htmlFor="password"
                   className="block text-sm font-medium leading-6 text-neutral-900">
                   
-                  Password
+                  {t('password')}
                 </label>
                 <div className="relative mt-2">
                   <input
@@ -137,7 +139,7 @@ export function Login() {
                     htmlFor="remember-me"
                     className="ml-3 block text-sm leading-6 text-neutral-900">
                     
-                    Remember me
+                    {t('rememberMe')}
                   </label>
                 </div>
 
@@ -146,7 +148,7 @@ export function Login() {
                     href="#"
                     className="font-semibold text-brand-600 hover:text-brand-500">
                     
-                    Forgot password?
+                    {t('forgotPassword')}
                   </a>
                 </div>
               </div>
@@ -160,20 +162,14 @@ export function Login() {
                   {isLoading ?
                   <Loader2Icon className="h-5 w-5 animate-spin" /> :
 
-                  'Sign in'
+                  t('signIn')
                   }
                 </button>
               </div>
             </form>
 
             <p className="mt-10 text-center text-sm text-neutral-500">
-              Need access?{' '}
-              <a
-                href="#"
-                className="font-semibold leading-6 text-brand-600 hover:text-brand-500">
-                
-                Ask your manager.
-              </a>
+              {t('needAccess')}
             </p>
           </div>
         </div>

@@ -17,8 +17,10 @@ import {
   markBikeSold,
 } from '../../lib/local-db/repositories';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
+import { useT } from '../../i18n/I18nProvider';
 
 export function BikeDetail() {
+  const { t } = useT();
   const { id } = useParams();
   const navigate = useNavigate();
   const db = useDemoDb();
@@ -62,8 +64,8 @@ export function BikeDetail() {
       <div className="max-w-7xl mx-auto">
         <EmptyState
           icon={BikeIcon}
-          title="Bike not found"
-          description="The bike you are looking for does not exist or has been removed."
+          title={t('bikeNotFound')}
+          description={t('bikeNotFound')}
         />
       </div>
     );
@@ -75,7 +77,7 @@ export function BikeDetail() {
   const handleMarkSold = () => {
     if (isSavingSoldRef.current) return;
     if (bike.status !== 'in_stock' || soldPrice <= 0) {
-      showToast('Enter a valid sold price', 'error');
+      showToast(t('enterValidSoldPrice'), 'error');
       return;
     }
     isSavingSoldRef.current = true;
@@ -92,17 +94,17 @@ export function BikeDetail() {
         db
       );
       if (!updated) {
-        throw new Error('Could not update bike');
+        throw new Error(t('couldNotUpdateBike'));
       }
       if (linkLoanId) {
         attachBikeToLoan(linkLoanId, bike.id, db);
       }
-      showToast(`${bike.bikeCode} marked as sold`, 'success');
+      showToast(`${bike.bikeCode} ${t('bikeMarkedSold')}`, 'success');
       setSoldOpen(false);
       setLinkLoanId('');
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not update bike';
+        err instanceof Error ? err.message : t('couldNotUpdateBike');
       showToast(message, 'error');
       isSavingSoldRef.current = false;
       setIsSavingSold(false);
@@ -110,9 +112,9 @@ export function BikeDetail() {
   };
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'history', label: 'History' },
-    { id: 'loans', label: 'Linked Loans' },
+    { id: 'overview', label: t('tabOverview') },
+    { id: 'history', label: t('tabHistory') },
+    { id: 'loans', label: t('tabLinkedLoans') },
   ];
 
   return (
@@ -141,7 +143,7 @@ export function BikeDetail() {
                 className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
               >
                 <CheckIcon className="-ml-0.5 h-4 w-4 text-success-600" />
-                Mark as sold
+                {t('markAsSold')}
               </button>
             )}
             <button
@@ -150,7 +152,7 @@ export function BikeDetail() {
               className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
             >
               <EditIcon className="-ml-0.5 h-4 w-4 text-neutral-400" />
-              Edit
+              {t('action.edit')}
             </button>
           </>
         }
@@ -158,7 +160,7 @@ export function BikeDetail() {
 
       {saleLoan && bike.status === 'sold' && (
         <div className="mb-6 rounded-xl bg-brand-50 ring-1 ring-brand-100 p-4 text-sm">
-          <p className="font-semibold text-brand-900 mb-1">Sold via loan</p>
+          <p className="font-semibold text-brand-900 mb-1">{t('soldViaLoan')}</p>
           <Link
             to={`/loans/${saleLoan.id}`}
             className="font-semibold text-brand-600 hover:text-brand-500 tabular-nums"
@@ -166,7 +168,7 @@ export function BikeDetail() {
             {saleLoan.loanCode}
           </Link>
           <p className="text-brand-800 mt-2 tabular-nums">
-            Principal financed:{' '}
+            {t('principalFinanced')}:{' '}
             <span className="font-medium">{formatLKR(saleLoan.principalAmount)}</span>
           </p>
         </div>
@@ -174,17 +176,17 @@ export function BikeDetail() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <KpiCard
-          label={bike.status === 'sold' ? 'Sold price' : 'List price'}
+          label={bike.status === 'sold' ? t('soldPriceLabel') : t('listPrice')}
           value={formatLKR(
             bike.status === 'sold'
               ? (bike.soldPrice ?? bike.sellingPrice)
               : bike.sellingPrice
           )}
         />
-        <KpiCard label="Bought price" value={formatLKR(bike.costPrice)} />
+        <KpiCard label={t('boughtPriceLabel')} value={formatLKR(bike.costPrice)} />
         {bike.status === 'sold' ? (
           <KpiCard
-            label="Profit"
+            label={t('profitLabel')}
             value={formatLKR(profit)}
             delta={{
               value: `${bike.costPrice > 0 ? Math.round((profit / bike.costPrice) * 100) : 0}%`,
@@ -193,12 +195,12 @@ export function BikeDetail() {
           />
         ) : (
           <KpiCard
-            label="Repair + other"
+            label={t('repairAndOther')}
             value={formatLKR(bike.repairCost + bike.otherCost)}
           />
         )}
         <KpiCard
-          label={bike.status === 'sold' ? 'Sold date' : 'Purchase date'}
+          label={bike.status === 'sold' ? t('soldDateLabel') : t('purchaseDateLabel')}
           value={
             bike.status === 'sold' && bike.soldDate
               ? formatDate(bike.soldDate)
@@ -240,12 +242,12 @@ export function BikeDetail() {
             <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
               <div className="px-4 py-5 sm:p-6">
                 <h3 className="text-base font-semibold leading-6 text-neutral-900 mb-4">
-                  Bike details
+                  {t('bikeDetails')}
                 </h3>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">
-                      Registration
+                      {t('registrationLabel')}
                     </dt>
                     <dd className="mt-1 text-sm text-neutral-900 font-mono">
                       {displayReg}
@@ -253,7 +255,7 @@ export function BikeDetail() {
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">
-                      Chassis
+                      {t('chassisLabel')}
                     </dt>
                     <dd className="mt-1 text-sm text-neutral-900 font-mono">
                       {bike.chassisNo}
@@ -261,18 +263,18 @@ export function BikeDetail() {
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-neutral-500">
-                      Engine
+                      {t('engineLabel')}
                     </dt>
                     <dd className="mt-1 text-sm text-neutral-900 font-mono">
                       {bike.engineNo}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-neutral-500">Year</dt>
+                    <dt className="text-sm font-medium text-neutral-500">{t('yearLabel')}</dt>
                     <dd className="mt-1 text-sm text-neutral-900">{bike.year}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-neutral-500">Color</dt>
+                    <dt className="text-sm font-medium text-neutral-500">{t('colorLabel')}</dt>
                     <dd className="mt-1 text-sm text-neutral-900">{bike.color}</dd>
                   </div>
                 </dl>
@@ -299,7 +301,7 @@ export function BikeDetail() {
                       </span>
                     </div>
                     <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                      <p className="text-sm text-neutral-500">Added to stock</p>
+                      <p className="text-sm text-neutral-500">{t('addedToStockHistory')}</p>
                       <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
                         {formatDate(bike.purchaseDate)}
                       </p>
@@ -317,7 +319,7 @@ export function BikeDetail() {
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                        <p className="text-sm text-neutral-500">Marked as sold</p>
+                        <p className="text-sm text-neutral-500">{t('markedAsSoldHistory')}</p>
                         <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
                           {formatDate(bike.soldDate)}
                         </p>
@@ -362,7 +364,7 @@ export function BikeDetail() {
             </ul>
           ) : (
             <div className="p-6 text-center text-sm text-neutral-500">
-              No installment loan linked to this bike yet.
+              {t('noInstallmentLoanLinked')}
             </div>
           )}
         </div>
@@ -375,37 +377,37 @@ export function BikeDetail() {
             className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl ring-1 ring-neutral-200"
           >
             <h3 className="text-lg font-semibold text-neutral-900">
-              Mark {bike.bikeCode} as sold?
+              {bike.bikeCode} — {t('markSoldConfirmTitle')}
             </h3>
             <p className="mt-2 text-sm text-neutral-600">
-              Record the actual sale price. Optionally link a bike-installment loan.
+              {t('markSoldHint')}
             </p>
             <div className="mt-4 space-y-4">
               <CurrencyInput
-                label="Sold price *"
+                label={`${t('soldPriceLabel')} *`}
                 value={soldPrice}
                 onChange={setSoldPrice}
               />
               <CurrencyInput
-                label="Repair cost"
+                label={t('repairCost')}
                 value={soldRepairCost}
                 onChange={setSoldRepairCost}
               />
               <CurrencyInput
-                label="Other cost"
+                label={t('otherCost')}
                 value={soldOtherCost}
                 onChange={setSoldOtherCost}
               />
             </div>
             <label className="mt-4 block text-xs font-semibold text-neutral-700 mb-1">
-              Link loan (optional)
+              {t('linkLoanOptional')}
             </label>
             <select
               value={linkLoanId}
               onChange={(e) => setLinkLoanId(e.target.value)}
               className="block w-full rounded-md border-0 py-2 pl-3 pr-8 text-sm ring-1 ring-inset ring-neutral-300 bg-white"
             >
-              <option value="">No loan link (cash / external)</option>
+              <option value="">{t('noLoanLink')}</option>
               {linkableLoans.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.loanCode}
@@ -422,7 +424,7 @@ export function BikeDetail() {
                 disabled={isSavingSold}
                 className="rounded-md px-3 py-2 text-sm font-semibold text-neutral-800 ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
               >
-                Cancel
+                {t('action.cancel')}
               </button>
               <button
                 type="button"
@@ -430,7 +432,7 @@ export function BikeDetail() {
                 disabled={isSavingSold}
                 className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 min-w-[7.5rem]"
               >
-                {isSavingSold ? 'Saving…' : 'Confirm sold'}
+                {isSavingSold ? t('savingGeneric') : t('confirmSold')}
               </button>
             </div>
           </div>

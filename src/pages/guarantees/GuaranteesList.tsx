@@ -12,8 +12,10 @@ import {
   listGuarantees,
   listLoans,
 } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function GuaranteesList() {
+  const { t } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
@@ -60,29 +62,29 @@ export function GuaranteesList() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Guarantees"
-        subtitle="Items held as collateral for loans"
+        title={t('guarantees')}
+        subtitle={t('guaranteesSubtitle')}
         actions={
         <button
           onClick={() => navigate('/guarantees/new')}
           className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            Add guarantee
+            {t('addGuaranteeBtn')}
           </button>
         } />
       
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">
-        <KpiCard label="Total Held" value={totalHeld} />
-        <KpiCard label="Vehicle Books" value={vehicleBooks} />
-        <KpiCard label="Gold" value={gold} />
-        <KpiCard label="Electronics" value={electronics} />
-        <KpiCard label="Bikes held" value={bikeHeld} />
+        <KpiCard label={t('totalHeld')} value={totalHeld} />
+        <KpiCard label={t('vehicleBooksKpi')} value={vehicleBooks} />
+        <KpiCard label={t('gold')} value={gold} />
+        <KpiCard label={t('electronics')} value={electronics} />
+        <KpiCard label={t('bikesHeld')} value={bikeHeld} />
       </div>
 
       <FilterToolbar
-        searchPlaceholder="Search description, customer, loan..."
+        searchPlaceholder={t('searchGuaranteesPlaceholder')}
         onSearchChange={setSearch}
         filters={
         <>
@@ -91,21 +93,21 @@ export function GuaranteesList() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="block w-32 rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6">
             
-              <option value="All">All Status</option>
-              <option value="held">Held</option>
-              <option value="returned">Returned</option>
+              <option value="All">{t('allStatus')}</option>
+              <option value="held">{t('statusHeld')}</option>
+              <option value="returned">{t('statusReturned')}</option>
             </select>
             <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="block w-40 rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6">
             
-              <option value="All">All Types</option>
-              <option value="VEHICLE_BOOK">Vehicle Book</option>
-              <option value="GOLD">Gold</option>
-              <option value="ELECTRONICS">Electronics</option>
-              <option value="BIKE">Bike</option>
-              <option value="OTHER">Other</option>
+              <option value="All">{t('allTypes')}</option>
+              <option value="VEHICLE_BOOK">{t('vehicleBook')}</option>
+              <option value="GOLD">{t('gold')}</option>
+              <option value="ELECTRONICS">{t('electronics')}</option>
+              <option value="BIKE">{t('typeBike')}</option>
+              <option value="OTHER">{t('statusOther')}</option>
             </select>
           </>
         } />
@@ -117,19 +119,19 @@ export function GuaranteesList() {
             <thead className="bg-neutral-50">
               <tr>
                 <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                  Code / type / description
+                  {t('colCodeModel')} / {t('field.type')} / {t('field.description')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Linked To
+                  {t('colLinkedTo')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Storage Location
+                  {t('storageLocation')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Received
+                  {t('colReceived')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Status
+                  {t('field.status')}
                 </th>
                 <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                   <span className="sr-only">Actions</span>
@@ -159,7 +161,7 @@ export function GuaranteesList() {
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                     <div className="flex items-center text-xs">
                       <span className="font-medium text-neutral-900">
-                        {g.customer?.name || 'Unknown'}
+                        {g.customer?.name || t('misc.unknown')}
                       </span>
                       <ChevronRightIcon className="h-3 w-3 mx-1 text-neutral-400" />
                       <span className="font-semibold text-brand-600 tabular-nums">
@@ -185,7 +187,7 @@ export function GuaranteesList() {
                       }}
                       className="text-brand-600 hover:text-brand-900 font-semibold"
                     >
-                      View
+                      {t('action.view')}
                     </button>
                   </td>
                 </tr>
@@ -196,7 +198,7 @@ export function GuaranteesList() {
                   colSpan={6}
                   className="py-10 text-center text-sm text-neutral-500">
                   
-                    No guarantees found matching your criteria.
+                    {t('noGuaranteesFound')}
                   </td>
                 </tr>
               }

@@ -17,8 +17,10 @@ import {
   releaseGuarantee,
 } from '../../lib/local-db/repositories';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useT } from '../../i18n/I18nProvider';
 
 export function GuaranteeDetail() {
+  const { t } = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
@@ -36,15 +38,15 @@ export function GuaranteeDetail() {
       <div className="max-w-3xl mx-auto pt-8">
         <EmptyState
           icon={AlertCircleIcon}
-          title="Guarantee not found"
-          description="It may have been removed or the link is invalid."
+          title={t('guaranteeNotFound')}
+          description={t('guaranteeNotFound')}
         />
         <div className="text-center mt-4">
           <Link
             to="/guarantees"
             className="text-sm font-semibold text-brand-600 hover:text-brand-500"
           >
-            Back to guarantees
+            {t('backToGuarantees')}
           </Link>
         </div>
       </div>
@@ -54,15 +56,15 @@ export function GuaranteeDetail() {
   const handleRelease = () => {
     const to = releasedTo.trim();
     if (!to) {
-      showToast('Enter who received the item.', 'error');
+      showToast(t('enterReturnedTo'), 'error');
       return;
     }
     const updated = releaseGuarantee(guarantee.id, to, db);
     if (!updated) {
-      showToast('Could not update guarantee.', 'error');
+      showToast(t('guaranteeSaveFailed'), 'error');
       return;
     }
-    showToast(`${updated.guaranteeCode} marked as returned`, 'success');
+    showToast(`${updated.guaranteeCode} ${t('markReturned')}`, 'success');
     navigate('/guarantees');
   };
 
@@ -75,7 +77,7 @@ export function GuaranteeDetail() {
           className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900"
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          Guarantees
+          {t('guarantees')}
         </button>
       </div>
 

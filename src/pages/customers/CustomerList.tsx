@@ -9,8 +9,10 @@ import { formatLKR } from '../../lib/format';
 import type { Customer } from '../../types/entities';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listCustomers } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function CustomerList() {
+  const { t } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
@@ -33,14 +35,14 @@ export function CustomerList() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Customers"
+        title={t('customers')}
         actions={
         <Link
           to="/customers/new"
           className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            Add Customer
+            {t('addCustomer')}
           </Link>
         } />
       
@@ -48,13 +50,13 @@ export function CustomerList() {
       {/* KPI Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiCard
-          label="Total Customers"
+          label={t('totalCustomers')}
           value={totalCustomers}
           icon={UsersIcon} />
         
-        <KpiCard label="Active Loans" value={activeLoans} icon={BanknoteIcon} />
+        <KpiCard label={t('activeLoans')} value={activeLoans} icon={BanknoteIcon} />
         <KpiCard
-          label="Total Outstanding"
+          label={t('totalOutstanding')}
           value={formatLKR(totalOutstanding)}
           icon={PieChartIcon} />
         
@@ -64,16 +66,16 @@ export function CustomerList() {
         <div className="p-4 border-b border-neutral-200">
           <FilterToolbar
             onSearchChange={setSearch}
-            searchPlaceholder="Search by name, NIC, or phone..."
+            searchPlaceholder={t('searchCustomers')}
             filters={
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white">
               
-                <option value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="all">{t('allStatuses')}</option>
+                <option value="active">{t('statusActive')}</option>
+                <option value="inactive">{t('statusInactive')}</option>
               </select>
             } />
           
@@ -87,37 +89,37 @@ export function CustomerList() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                  Name
+                  {t('field.name')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  NIC
+                  {t('colNic')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Phone
+                  {t('field.phone')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Status
+                  {t('field.status')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                  Active Loans
+                  {t('colActiveLoans')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                  Outstanding
+                  {t('colOutstanding')}
                 </th>
               </tr>
             </thead>
@@ -158,8 +160,8 @@ export function CustomerList() {
                   className="py-10 text-center text-sm text-neutral-500">
                   
                     {customers.length === 0
-                      ? 'No customers yet. Add your first customer to get started.'
-                      : 'No customers found matching your filters.'}
+                      ? t('noCustomersYet')
+                      : t('noCustomersFilterMatch')}
                   </td>
                 </tr>
               }

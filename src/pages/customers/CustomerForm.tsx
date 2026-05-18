@@ -5,8 +5,10 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { createCustomer, getCustomer, updateCustomer } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function CustomerForm() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showToast } = useToast();
@@ -56,7 +58,7 @@ export function CustomerForm() {
     }
     setIsSubmitting(false);
     showToast(
-      isEdit ? 'Customer updated successfully' : 'Customer saved successfully',
+      isEdit ? t('customerUpdated') : t('customerSaved'),
       'success'
     );
     navigate(isEdit && id ? `/customers/${id}` : '/customers');
@@ -70,15 +72,15 @@ export function CustomerForm() {
           navigate(isEdit && id ? `/customers/${id}` : '/customers')
         }
         className="flex items-center text-sm font-medium text-neutral-500 hover:text-neutral-700 mb-6">
-        <ArrowLeftIcon className="mr-1 h-4 w-4" /> Back to Customers
+        <ArrowLeftIcon className="mr-1 h-4 w-4" /> {t('backToCustomers')}
       </button>
 
       <PageHeader
-        title={isEdit ? 'Edit Customer' : 'Add Customer'}
+        title={isEdit ? t('editCustomer') : t('addCustomer')}
         subtitle={
           isEdit
-            ? 'Update customer profile details.'
-            : 'Create a new customer profile.'
+            ? t('editCustomerSubtitle')
+            : t('addCustomerSubtitle')
         }
       />
 
@@ -91,7 +93,7 @@ export function CustomerForm() {
               <label
                 htmlFor="name"
                 className="block text-sm font-medium leading-6 text-neutral-900">
-                Full Name *
+                {t('fullName')} *
               </label>
               <div className="mt-2">
                 <input
@@ -110,7 +112,7 @@ export function CustomerForm() {
               <label
                 htmlFor="nic"
                 className="block text-sm font-medium leading-6 text-neutral-900">
-                NIC Number *
+                {t('nicNumber')} *
               </label>
               <div className="mt-2">
                 <input
@@ -129,7 +131,7 @@ export function CustomerForm() {
               <label
                 htmlFor="phone"
                 className="block text-sm font-medium leading-6 text-neutral-900">
-                Phone Number *
+                {t('phoneNumber')} *
               </label>
               <div className="mt-2">
                 <input
@@ -149,7 +151,7 @@ export function CustomerForm() {
               <label
                 htmlFor="address"
                 className="block text-sm font-medium leading-6 text-neutral-900">
-                Address *
+                {t('field.address')} *
               </label>
               <div className="mt-2">
                 <textarea
@@ -173,13 +175,13 @@ export function CustomerForm() {
               navigate(isEdit && id ? `/customers/${id}` : '/customers')
             }
             className="text-sm font-semibold leading-6 text-neutral-900 hover:text-neutral-700">
-            Cancel
+            {t('action.cancel')}
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="rounded-md bg-brand-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-70">
-            {isSubmitting ? 'Saving...' : isEdit ? 'Update Customer' : 'Save Customer'}
+            {isSubmitting ? t('savingGeneric') : isEdit ? t('updateCustomer') : t('saveCustomer')}
           </button>
         </div>
       </form>

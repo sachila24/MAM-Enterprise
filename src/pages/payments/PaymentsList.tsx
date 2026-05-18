@@ -6,6 +6,7 @@ import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { useT } from '../../i18n/I18nProvider';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   listCustomers,
@@ -14,6 +15,7 @@ import {
 } from '../../lib/local-db/repositories';
 
 export function PaymentsList() {
+  const { t } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
@@ -52,31 +54,31 @@ export function PaymentsList() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Payments"
+        title={t('payments')}
         actions={
         <button
           onClick={() => navigate('/payments/new')}
           className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            Record Payment
+            {t('recordPayment')}
           </button>
         } />
       
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
-        <KpiCard label="Collected Today" value={formatLKR(collectedToday)} />
+        <KpiCard label={t('collectedToday')} value={formatLKR(collectedToday)} />
         <KpiCard
-          label="Collected This Week"
+          label={t('collectedThisWeek')}
           value={formatLKR(collectedThisWeek)} />
         
         <KpiCard
-          label="Pending Confirmations"
+          label={t('pendingConfirmations')}
           value={pendingConfirmations}
           delta={
           pendingConfirmations > 0 ?
           {
-            value: 'Needs review',
+            value: t('needsReview'),
             trend: 'neutral'
           } :
           undefined
@@ -86,7 +88,7 @@ export function PaymentsList() {
 
       <FilterToolbar
         onSearchChange={setSearch}
-        searchPlaceholder="Search by Receipt, Customer, or Loan ID..." />
+        searchPlaceholder={t('searchPayments')} />
       
 
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg overflow-hidden">
@@ -95,28 +97,28 @@ export function PaymentsList() {
             <thead className="bg-neutral-50">
               <tr>
                 <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                  Date
+                  {t('colDate')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Receipt No
+                  {t('colReceiptNo')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Customer
+                  {t('field.customer')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Loan
+                  {t('field.loan')}
                 </th>
                 <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                  Cash
+                  {t('colCash')}
                 </th>
                 <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                  Discount
+                  {t('colDiscount')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Method
+                  {t('field.method')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Status
+                  {t('field.status')}
                 </th>
               </tr>
             </thead>
@@ -133,7 +135,7 @@ export function PaymentsList() {
                     {p.receiptNumber}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900">
-                    {p.customer?.name || 'Unknown'}
+                    {p.customer?.name || t('misc.unknown')}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm font-mono text-brand-700 tabular-nums">
                     {p.loan?.loanCode ?? '—'}
@@ -160,7 +162,7 @@ export function PaymentsList() {
                   colSpan={8}
                   className="px-3 py-8 text-center text-sm text-neutral-500">
                   
-                    No payments found matching your criteria.
+                    {t('noPaymentsFound')}
                   </td>
                 </tr>
               }

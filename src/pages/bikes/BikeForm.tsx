@@ -6,8 +6,10 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { createBike, getBike, updateBike } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function BikeForm() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { id } = useParams();
   const db = useDemoDb();
@@ -68,7 +70,7 @@ export function BikeForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model.trim() || !formData.chassisNo.trim()) {
-      showToast('Model and chassis number are required', 'error');
+      showToast(t('modelChassisRequired'), 'error');
       return;
     }
     if (isSubmittingRef.current) return;
@@ -100,9 +102,9 @@ export function BikeForm() {
           db
         );
         if (!updated) {
-          throw new Error('Bike not found');
+          throw new Error(t('bikeNotFound'));
         }
-        showToast('Bike updated successfully', 'success');
+        showToast(t('bikeSaved'), 'success');
         navigate(`/bikes/${id}`, { replace: true });
       } else {
         const bike = createBike(
@@ -122,12 +124,12 @@ export function BikeForm() {
           },
           db
         );
-        showToast(`Bike ${bike.bikeCode} added to stock`, 'success');
+        showToast(`${bike.bikeCode} ${t('bikeAdded')}`, 'success');
         navigate(`/bikes/${bike.id}`, { replace: true });
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not save bike';
+        err instanceof Error ? err.message : t('bikeSaveFailed');
       showToast(message, 'error');
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -137,25 +139,21 @@ export function BikeForm() {
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <PageHeader
-        title={isEdit ? 'Edit bike details' : 'Add bike to stock'}
-        subtitle={
-          isEdit
-            ? 'Update information for this inventory unit'
-            : 'Enter details for the new motorcycle'
-        }
+        title={isEdit ? t('editBike') : t('addBikeToStock')}
+        subtitle={isEdit ? t('editBikeSubtitle') : t('addBikeSubtitle')}
       />
 
       <form onSubmit={handleSubmit} className="space-y-10 divide-y divide-neutral-200">
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">
           <div className="sm:col-span-6">
             <h2 className="text-base font-semibold leading-7 text-neutral-900">
-              Identification
+              {t('identification')}
             </h2>
           </div>
 
           <div className="sm:col-span-6">
             <label htmlFor="model" className="block text-sm font-medium text-neutral-900">
-              Model *
+              {t('model')} *
             </label>
             <input
               type="text"
@@ -170,7 +168,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="registrationNo" className="block text-sm font-medium text-neutral-900">
-              Registration no.
+              {t('registrationNo')}
             </label>
             <input
               type="text"
@@ -184,7 +182,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="chassisNo" className="block text-sm font-medium text-neutral-900">
-              Chassis number *
+              {t('chassisNumber')} *
             </label>
             <input
               type="text"
@@ -199,7 +197,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="engineNo" className="block text-sm font-medium text-neutral-900">
-              Engine number
+              {t('engineNumber')}
             </label>
             <input
               type="text"
@@ -213,7 +211,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="year" className="block text-sm font-medium text-neutral-900">
-              Year
+              {t('yearLabel')}
             </label>
             <input
               type="number"
@@ -227,7 +225,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="color" className="block text-sm font-medium text-neutral-900">
-              Color
+              {t('colorLabel')}
             </label>
             <input
               type="text"
@@ -241,7 +239,7 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <DatePicker
-              label="Purchase date"
+              label={t('purchaseDate')}
               value={formData.purchaseDate}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -255,18 +253,18 @@ export function BikeForm() {
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8">
           <div className="sm:col-span-6">
-            <h2 className="text-base font-semibold text-neutral-900">Financials</h2>
+            <h2 className="text-base font-semibold text-neutral-900">{t('financials')}</h2>
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="Bought price (cost)"
+              label={t('boughtPrice')}
               value={formData.costPrice}
               onChange={(costPrice) => setFormData((p) => ({ ...p, costPrice }))}
             />
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="List selling price *"
+              label={`${t('listSellingPrice')} *`}
               value={formData.sellingPrice}
               onChange={(sellingPrice) =>
                 setFormData((p) => ({ ...p, sellingPrice }))
@@ -275,14 +273,14 @@ export function BikeForm() {
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="Repair cost (optional)"
+              label={t('repairCostOptional')}
               value={formData.repairCost}
               onChange={(repairCost) => setFormData((p) => ({ ...p, repairCost }))}
             />
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label="Other cost (optional)"
+              label={t('otherCostOptional')}
               value={formData.otherCost}
               onChange={(otherCost) => setFormData((p) => ({ ...p, otherCost }))}
             />
@@ -298,7 +296,7 @@ export function BikeForm() {
             disabled={isSubmitting}
             className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
           >
-            Cancel
+            {t('action.cancel')}
           </button>
           <button
             type="button"
@@ -307,10 +305,10 @@ export function BikeForm() {
             className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 min-w-[9rem]"
           >
             {isSubmitting
-              ? 'Saving bike…'
+              ? t('savingBike')
               : isEdit
-                ? 'Save changes'
-                : 'Add to stock'}
+                ? t('saveChanges')
+                : t('addToStock')}
           </button>
         </div>
       </div>

@@ -16,16 +16,18 @@ import {
   listLoans,
 } from '../../lib/local-db/repositories';
 import type { CreateGuaranteeInput } from '../../lib/local-db/repositories/guaranteesRepo';
-
-const steps = [
-  { id: 'customer', label: 'Customer' },
-  { label: 'Loan' },
-  { label: 'Item details' },
-  { label: 'Storage & Confirm' },
-];
+import { useT } from '../../i18n/I18nProvider';
 
 export function AddGuarantee() {
+  const { t } = useT();
   const navigate = useNavigate();
+
+  const steps = [
+    { id: 'customer', label: t('stepCustomer') },
+    { label: t('stepLoan') },
+    { label: t('stepItemDetails') },
+    { label: t('stepStorageConfirm') },
+  ];
   const [searchParams] = useSearchParams();
   const prefillLoanId = searchParams.get('loanId') ?? '';
   const { showToast } = useToast();
@@ -115,10 +117,10 @@ export function AddGuarantee() {
         },
         db
       );
-      showToast(`Guarantee ${g.guaranteeCode} saved successfully`, 'success');
+      showToast(`${g.guaranteeCode} ${t('guaranteeSaved')}`, 'success');
       navigate(`/guarantees/${g.id}`, { replace: true });
     } catch {
-      showToast('Could not save guarantee', 'error');
+      showToast(t('guaranteeSaveFailed'), 'error');
       submitLockRef.current = false;
     } finally {
       setIsSubmitting(false);
@@ -136,8 +138,8 @@ export function AddGuarantee() {
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <PageHeader
-        title="Add Guarantee"
-        subtitle="Record an item held as collateral"
+        title={t('addGuaranteeTitle')}
+        subtitle={t('addGuaranteeSubtitle')}
       />
 
       <div className="mb-8">
@@ -173,9 +175,9 @@ export function AddGuarantee() {
             {currentStep === 1 && (
               <div className="space-y-6">
                 <div>
-                  <label htmlFor="loanId" className="block text-sm font-medium leading-6 text-neutral-900">Select loan *</label>
+                  <label htmlFor="loanId" className="block text-sm font-medium leading-6 text-neutral-900">{t('selectLoan')} *</label>
                   <select id="loanId" value={formData.loanId} onChange={(e) => setFormData({ ...formData, loanId: e.target.value })} disabled={!formData.customerId} className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 disabled:bg-neutral-50">
-                    <option value="">{formData.customerId ? '-- Select an active loan --' : '-- Select a customer first --'}</option>
+                    <option value="">{formData.customerId ? t('selectActiveLoan') : t('selectCustomerFirst')}</option>
                     {customerLoans.map((loan) => (<option key={loan.id} value={loan.id}>{loan.loanCode} · {formatLKR(loan.balanceAmount)}</option>))}
                   </select>
                 </div>
@@ -195,7 +197,7 @@ export function AddGuarantee() {
                     htmlFor="type"
                     className="block text-sm font-medium leading-6 text-neutral-900"
                   >
-                    Guarantee type
+                    {t('guaranteeType')}
                   </label>
                   <select
                     id="type"
@@ -208,11 +210,11 @@ export function AddGuarantee() {
                     }
                     className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
                   >
-                    <option value="VEHICLE_BOOK">Vehicle book</option>
-                    <option value="BIKE">Bike</option>
-                    <option value="GOLD">Gold</option>
-                    <option value="ELECTRONICS">Electronics</option>
-                    <option value="OTHER">Other valuable item</option>
+                    <option value="VEHICLE_BOOK">{t('vehicleBook')}</option>
+                    <option value="BIKE">{t('typeBike')}</option>
+                    <option value="GOLD">{t('gold')}</option>
+                    <option value="ELECTRONICS">{t('electronics')}</option>
+                    <option value="OTHER">{t('otherValuable')}</option>
                   </select>
                 </div>
 
@@ -221,7 +223,7 @@ export function AddGuarantee() {
                     htmlFor="description"
                     className="block text-sm font-medium leading-6 text-neutral-900"
                   >
-                    Description *
+                    {t('field.description')} *
                   </label>
                   <textarea
                     id="description"
@@ -237,7 +239,7 @@ export function AddGuarantee() {
 
                 <div>
                   <CurrencyInput
-                    label="Estimated value (optional)"
+                    label={t('estimatedValue')}
                     value={formData.estimatedValue}
                     onChange={(val) =>
                       setFormData({ ...formData, estimatedValue: val })
@@ -368,7 +370,7 @@ export function AddGuarantee() {
             onClick={handleBack}
             className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
           >
-            {currentStep === 0 ? 'Cancel' : 'Back'}
+            {currentStep === 0 ? t('action.cancel') : t('action.back')}
           </button>
           <button
             type="button"
@@ -377,10 +379,10 @@ export function AddGuarantee() {
             className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50"
           >
             {isSubmitting
-              ? 'Saving...'
+              ? t('savingGeneric')
               : currentStep === steps.length - 1
-                ? 'Confirm & Save'
-                : 'Next'}
+                ? t('confirmAndSave')
+                : t('action.next')}
           </button>
         </div>
       </div>

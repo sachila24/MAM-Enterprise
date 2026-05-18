@@ -25,15 +25,7 @@ import {
   listInStockBikes,
 } from '../../lib/local-db/repositories';
 import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
-
-const steps = [
-  { id: 'customer', label: 'Customer' },
-  { label: 'Purpose' },
-  { label: 'Method' },
-  { label: 'Terms' },
-  { label: 'Bike / Guarantee' },
-  { label: 'Confirm' },
-];
+import { useT } from '../../i18n/I18nProvider';
 
 type LocalGuaranteeDraft = {
   key: string;
@@ -95,8 +87,18 @@ function mapCompleteGuarantees(
 }
 
 export function CreateLoan() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  const steps = [
+    { id: 'customer', label: t('stepCustomer') },
+    { label: t('stepPurpose') },
+    { label: t('stepMethod') },
+    { label: t('stepTerms') },
+    { label: t('stepBikeGuarantee') },
+    { label: t('stepConfirm') },
+  ];
   const db = useDemoDb();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -276,11 +278,11 @@ export function CreateLoan() {
         },
         db
       );
-      showToast(`Loan ${loan.loanCode} created`, 'success');
+      showToast(`${t('loanCreated')}: ${loan.loanCode}`, 'success');
       navigate(`/loans/${loan.id}`, { replace: true });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not create loan';
+        err instanceof Error ? err.message : t('loanCreateFailed');
       showToast(message, 'error');
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -295,7 +297,7 @@ export function CreateLoan() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <PageHeader title="Create Loan" subtitle="Set up a new loan agreement" />
+      <PageHeader title={t('createLoan')} subtitle={t('createLoanSubtitle')} />
 
       <div className="mb-8 w-full">
         <Stepper steps={steps} current={currentStep} />
@@ -308,7 +310,7 @@ export function CreateLoan() {
             {currentStep === 0 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Select Customer
+                  {t('selectCustomer')}
                 </h3>
                 <CustomerSearchSelect
                   customers={customers}
@@ -321,12 +323,12 @@ export function CreateLoan() {
             {currentStep === 1 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Loan Purpose
+                  {t('loanPurpose')}
                 </h3>
                 {(
                   [
-                    ['CASH_LOAN', 'Cash Loan'],
-                    ['BIKE_INSTALLMENT', 'Bike Installment'],
+                    ['CASH_LOAN', t('cashLoan')],
+                    ['BIKE_INSTALLMENT', t('bikeInstallment')],
                   ] as const
                 ).map(([value, label]) => (
                   <label
@@ -348,12 +350,12 @@ export function CreateLoan() {
             {currentStep === 2 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Repayment Method
+                  {t('repaymentMethod')}
                 </h3>
                 {isBike ? (
                   <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 space-y-2">
                     <p className="text-sm font-semibold text-brand-900">
-                      Fixed monthly installments
+                      {t('fixedMonthlyInstallments')}
                     </p>
                     <p className="text-sm text-brand-800">
                       Bike installment uses fixed-term leasing: equal monthly
@@ -366,9 +368,9 @@ export function CreateLoan() {
                     [
                       [
                         'INTEREST_ONLY_REDUCING_PRINCIPAL',
-                        'Monthly Interest / Reducing Principal',
+                        t('monthlyInterestReducing'),
                       ],
-                      ['FIXED_TERM_INSTALLMENT', 'Fixed Term Installment'],
+                      ['FIXED_TERM_INSTALLMENT', t('fixedTermInstallment')],
                     ] as const
                   ).map(([value, label]) => (
                     <label
@@ -823,7 +825,7 @@ export function CreateLoan() {
               disabled={isSubmitting}
               className="text-sm font-semibold text-neutral-900 disabled:opacity-50"
             >
-              {currentStep === 0 ? 'Cancel' : 'Back'}
+              {currentStep === 0 ? t('action.cancel') : t('action.back')}
             </button>
             <button
               type="button"
@@ -832,10 +834,10 @@ export function CreateLoan() {
               className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 min-w-[8rem]"
             >
               {isSubmitting
-                ? 'Creating loan…'
+                ? t('creatingLoan')
                 : currentStep === steps.length - 1
-                  ? 'Confirm Loan'
-                  : 'Next'}
+                  ? t('confirmLoan')
+                  : t('action.next')}
             </button>
           </div>
         </div>
@@ -844,7 +846,7 @@ export function CreateLoan() {
           <div className="lg:sticky lg:top-24 max-h-[calc(100vh-6rem)] overflow-y-auto lg:pr-1">
             <div className="bg-brand-800 rounded-xl shadow-lg text-white p-6">
             <h3 className="text-lg font-medium mb-4 text-brand-50">
-              Calculation
+              {t('calculation')}
             </h3>
             {isInterestOnly ? (
               <dl className="space-y-3 text-sm">

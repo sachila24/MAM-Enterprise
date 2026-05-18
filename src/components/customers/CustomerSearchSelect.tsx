@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { SearchIcon } from 'lucide-react';
 import type { Customer } from '../../types/entities';
+import { useT } from '../../i18n/I18nProvider';
 
 function matchesCustomerQuery(customer: Customer, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -25,9 +26,10 @@ export function CustomerSearchSelect({
   customers,
   selectedCustomerId,
   onSelect,
-  placeholder = 'Search customer by name, NIC, phone…',
+  placeholder,
   disabled = false,
 }: CustomerSearchSelectProps) {
+  const { t } = useT();
   const [search, setSearch] = useState('');
 
   const selected = selectedCustomerId
@@ -39,9 +41,11 @@ export function CustomerSearchSelect({
     [customers, search]
   );
 
+  const searchPlaceholder = placeholder ?? t('searchCustomerPlaceholder');
+
   if (disabled) {
     return (
-      <p className="text-sm text-neutral-500">Customer selection is disabled.</p>
+      <p className="text-sm text-neutral-500">{t('customerSelectionDisabled')}</p>
     );
   }
 
@@ -49,21 +53,21 @@ export function CustomerSearchSelect({
     return (
       <div className="rounded-lg border border-brand-200 bg-brand-50 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-          Selected customer
+          {t('selectedCustomerLabel')}
         </p>
         <p className="mt-1 text-lg font-semibold text-neutral-900">{selected.name}</p>
         <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
           <div>
-            <dt className="text-neutral-500">NIC</dt>
+            <dt className="text-neutral-500">{t('colNic')}</dt>
             <dd className="font-medium text-neutral-900 tabular-nums">{selected.nic}</dd>
           </div>
           <div>
-            <dt className="text-neutral-500">Phone</dt>
+            <dt className="text-neutral-500">{t('field.phone')}</dt>
             <dd className="font-medium text-neutral-900">{selected.phone}</dd>
           </div>
           {selected.customerCode && (
             <div>
-              <dt className="text-neutral-500">Customer code</dt>
+              <dt className="text-neutral-500">{t('customerCode')}</dt>
               <dd className="font-medium text-brand-700 tabular-nums">
                 {selected.customerCode}
               </dd>
@@ -78,7 +82,7 @@ export function CustomerSearchSelect({
           }}
           className="mt-4 text-sm font-semibold text-brand-700 hover:text-brand-600"
         >
-          Change customer
+          {t('changeCustomer')}
         </button>
       </div>
     );
@@ -92,7 +96,7 @@ export function CustomerSearchSelect({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={placeholder}
+          placeholder={searchPlaceholder}
           className="block w-full rounded-md border-0 py-2 pl-10 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm"
         />
       </div>
@@ -114,7 +118,7 @@ export function CustomerSearchSelect({
         ))}
         {filtered.length === 0 && (
           <li className="px-4 py-8 text-center text-sm text-neutral-500">
-            No customers match your search.
+            {t('noCustomersMatchSearch')}
           </li>
         )}
       </ul>

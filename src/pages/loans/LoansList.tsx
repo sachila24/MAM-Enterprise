@@ -50,42 +50,42 @@ export function LoansList() {
     <div className="max-w-7xl mx-auto">
       <PageHeader
         title={t('nav.loans')}
-        subtitle="All cash loans and bike installment loans"
+        subtitle={t('loansSubtitle')}
         actions={
         <button
           onClick={() => navigate('/loans/new')}
           className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            New loan
+            {t('newLoan')}
           </button>
         } />
       
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <KpiCard label="Total Active Loans" value={activeLoans} />
+        <KpiCard label={t('totalActiveLoans')} value={activeLoans} />
         <KpiCard
-          label="Outstanding Portfolio"
+          label={t('outstandingPortfolio')}
           value={formatLKR(outstandingPortfolio)} />
         
         <KpiCard
-          label="Overdue Loans"
+          label={t('overdueLoans')}
           value={overdueLoans}
           delta={
           overdueLoans > 0 ?
           {
-            value: 'Needs attention',
+            value: t('needsAttention'),
             trend: 'down'
           } :
           undefined
           } />
         
-        <KpiCard label="Completed This Month" value={completedThisMonth} />
+        <KpiCard label={t('completedThisMonth')} value={completedThisMonth} />
       </div>
 
       <FilterToolbar
         onSearchChange={setSearch}
-        searchPlaceholder="Search by ID or Customer..."
+        searchPlaceholder={t('searchLoans')}
         filters={
         <>
             <select
@@ -93,19 +93,19 @@ export function LoansList() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="block rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white">
             
-              <option value="all">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="overdue">Overdue</option>
-              <option value="completed">Completed</option>
+              <option value="all">{t('allStatuses')}</option>
+              <option value="active">{t('statusActive')}</option>
+              <option value="overdue">{t('statusOverdue')}</option>
+              <option value="completed">{t('statusCompleted')}</option>
             </select>
             <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="block rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white">
             
-              <option value="all">All Types</option>
-              <option value="cash">Cash</option>
-              <option value="bike">Bike</option>
+              <option value="all">{t('allTypes')}</option>
+              <option value="cash">{t('typeCash')}</option>
+              <option value="bike">{t('typeBike')}</option>
             </select>
           </>
         } />
@@ -120,43 +120,43 @@ export function LoansList() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                  Loan ID
+                  {t('loanId')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Customer
+                  {t('field.customer')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Type
+                  {t('field.type')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                  Amount
+                  {t('field.amount')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                  Balance
+                  {t('field.balance')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Status
+                  {t('field.status')}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                  Start Date
+                  {t('startDateCol')}
                 </th>
               </tr>
             </thead>
@@ -171,7 +171,7 @@ export function LoansList() {
                     {loan.loanCode}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900">
-                    {loan.customer?.name || 'Unknown'}
+                    {loan.customer?.name || t('misc.unknown')}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                     {formatEnum(loan.loanPurpose)}
@@ -196,7 +196,7 @@ export function LoansList() {
                   colSpan={7}
                   className="px-3 py-8 text-center text-sm text-neutral-500">
                   
-                    No loans found matching your criteria.
+                    {t('noLoansFound')}
                   </td>
                 </tr>
               }

@@ -8,8 +8,10 @@ import { StatusChip } from '../../components/ui/StatusChip';
 import { formatLKR } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listBikes } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function BikesList() {
+  const { t } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [view, setView] = useState<'table' | 'grid'>('table');
@@ -33,28 +35,28 @@ export function BikesList() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Bike Stock"
-        subtitle="Manage inventory and sold bikes"
+        title={t('bikeStock')}
+        subtitle={t('bikeStockSubtitle')}
         actions={
         <button
           onClick={() => navigate('/bikes/new')}
           className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            Add bike
+            {t('addBike')}
           </button>
         } />
       
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <KpiCard label="Total bikes" value={totalBikes} />
-        <KpiCard label="In stock" value={inStock} />
-        <KpiCard label="Sold" value={sold} />
-        <KpiCard label="Held as guarantee" value={held} />
+        <KpiCard label={t('totalBikes')} value={totalBikes} />
+        <KpiCard label={t('inStock')} value={inStock} />
+        <KpiCard label={t('sold')} value={sold} />
+        <KpiCard label={t('heldAsGuarantee')} value={held} />
       </div>
 
       <FilterToolbar
-        searchPlaceholder="Search model, chassis, engine..."
+        searchPlaceholder={t('searchBikes')}
         onSearchChange={setSearch}
         filters={
         <>
@@ -63,10 +65,10 @@ export function BikesList() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="block w-40 rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6">
             
-              <option value="All">All Statuses</option>
-              <option value="in_stock">In Stock</option>
-              <option value="sold">Sold</option>
-              <option value="held">Held</option>
+              <option value="All">{t('allStatuses')}</option>
+              <option value="in_stock">{t('statusInStock')}</option>
+              <option value="sold">{t('statusSold')}</option>
+              <option value="held">{t('statusHeld')}</option>
             </select>
             <div className="flex items-center rounded-md shadow-sm ring-1 ring-inset ring-neutral-300 bg-white ml-auto">
               <button
@@ -95,19 +97,19 @@ export function BikesList() {
               <thead className="bg-neutral-50">
                 <tr>
                   <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                    Code / model
+                    {t('colCodeModel')}
                   </th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Chassis / Engine
+                    {t('colChassisEngine')}
                   </th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Year / Color
+                    {t('colYearColor')}
                   </th>
                   <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                    Price
+                    {t('colPrice')}
                   </th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                    Status
+                    {t('field.status')}
                   </th>
                 </tr>
               </thead>
@@ -147,7 +149,7 @@ export function BikesList() {
                   colSpan={5}
                   className="py-10 text-center text-sm text-neutral-500">
                   
-                      No bikes found matching your criteria.
+                      {t('noBikesFound')}
                     </td>
                   </tr>
               }

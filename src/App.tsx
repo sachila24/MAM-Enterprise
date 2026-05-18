@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider } from './i18n/I18nProvider';
+import { FormatModeSync } from './components/layout/FormatModeSync';
 import { ToastProvider } from './components/ui/Toast';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -33,6 +34,7 @@ import { ActivityLog } from './pages/admin/ActivityLog';
 export function App() {
   return (
     <I18nProvider>
+      <FormatModeSync />
       <ToastProvider>
         <BrowserRouter>
           <Routes>
