@@ -3,9 +3,11 @@ import {
   allocateFixedInstallmentPayment,
   allocateInterestOnlyPaymentLines,
   summarizeFixedInstallmentDue,
+  summarizeFixedInstallmentPaid,
   type InstallmentForAllocation,
 } from '../../finance/paymentAllocation';
-import { calculateInstallmentLateFee } from '../../finance/fixedInstallmentStatus';
+import { runLateFeeEngine } from '../../finance/fixedInstallmentStatus';
+import { getLateFeeLineByInstallmentId } from '../../finance/lateFeeEngineV3';
 import { roundLKR } from '../../finance/money';
 import {
   splitAllocationsCashAndDiscount,
@@ -25,6 +27,7 @@ import type { MamDemoDb } from '../types';
 import type { LoanPayment } from '../../../types/entities';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
+import { getSystemTimestamp, isDateBefore } from '../../time/systemTime';
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -145,7 +148,7 @@ export function recordPayment(
     syncFixedInstallmentLateFees(db, input.loanId, input.paymentDate);
   }
 
-  const ts = new Date().toISOString();
+  const ts = getSystemTimestamp();
   const bundle = buildPaymentBundle(db);
   const isIO = loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const cashAmount = roundLKR(input.amount);
@@ -155,7 +158,9 @@ export function recordPayment(
     throw new Error(uiError('enterPaymentAmount'));
   }
 
-  const balanceBefore = loan.balance_amount;
+  const balanceBefore = isIO
+    ? loan.current_principal_balance
+    : loan.balance_amount;
 
   let allocation: PaymentAllocationResult;
   let installments: InstallmentForAllocation[] = [];
@@ -185,6 +190,7 @@ export function recordPayment(
         installments,
         paymentDate: input.paymentDate,
         lateFeeRatePercent: loan.late_fee_rate,
+        monthlyInstallmentAmount: loan.installment_amount,
         currentInstallmentNumber: currentNum,
       },
       input.paymentDate
@@ -194,6 +200,7 @@ export function recordPayment(
         installments,
         paymentDate: input.paymentDate,
         lateFeeRatePercent: loan.late_fee_rate,
+        monthlyInstallmentAmount: loan.installment_amount,
         currentInstallmentNumber: currentNum,
         loanBalanceAmount: loan.balance_amount,
       },
@@ -277,6 +284,7 @@ export function recordPayment(
     ? buildInterestOnlyReceipt(
         merged,
         loan.interest_rate,
+        balanceBefore,
         cashAmount,
         discountAmount
       )
@@ -285,7 +293,20 @@ export function recordPayment(
         balanceBefore,
         fixedDueBeforeTotal,
         cashAmount,
-        discountAmount
+        discountAmount,
+        {
+          monthlyInstallment: loan.installment_amount,
+          lateFeeRate: loan.late_fee_rate,
+          paymentDate: input.paymentDate,
+          schedule: installments.map((i) => ({
+            id: i.id,
+            installmentNumber: i.installmentNumber,
+            dueDate: i.dueDate,
+            installmentAmount: i.installmentAmount,
+            paidAmount: i.paidAmount,
+            lateFeePaid: i.lateFeePaid,
+          })),
+        }
       );
 
   db.receipts.push({
@@ -391,6 +412,27 @@ function applyFixedAllocation(
   const loan = db.loans.find((l) => l.id === loanId)!;
   const installments = db.loan_installments.filter((i) => i.loan_id === loanId);
 
+  const refreshLateFeeAmounts = () => {
+    const engine = runLateFeeEngine(
+      installments.map((inst) => ({
+        id: inst.id,
+        installmentNumber: inst.installment_number,
+        dueDate: inst.due_date,
+        installmentAmount: inst.installment_amount,
+        paidAmount: inst.paid_amount,
+        lateFeeAmount: inst.late_fee_amount,
+        lateFeePaid: inst.late_fee_paid,
+      })),
+      loan.installment_amount,
+      loan.late_fee_rate,
+      { paymentDate }
+    );
+    for (const inst of installments) {
+      const line = getLateFeeLineByInstallmentId(engine, inst.id);
+      inst.late_fee_amount = line?.lateFee ?? 0;
+    }
+  };
+
   for (const line of allocation.allocations) {
     if (!line.installmentId) continue;
     const inst = installments.find((i) => i.id === line.installmentId);
@@ -401,19 +443,7 @@ function applyFixedAllocation(
       line.allocationType === 'LATE_FEE_DISCOUNT'
     ) {
       inst.late_fee_paid = roundLKR(inst.late_fee_paid + line.amount);
-      const { lateFeeAmount } = calculateInstallmentLateFee(
-        {
-          installmentNumber: inst.installment_number,
-          dueDate: inst.due_date,
-          installmentAmount: inst.installment_amount,
-          paidAmount: inst.paid_amount,
-          lateFeeAmount: inst.late_fee_amount,
-          lateFeePaid: inst.late_fee_paid,
-        },
-        loan.late_fee_rate,
-        paymentDate
-      );
-      inst.late_fee_amount = lateFeeAmount;
+      refreshLateFeeAmounts();
     }
     if (
       line.allocationType === 'INSTALLMENT' ||
@@ -430,10 +460,8 @@ function applyFixedAllocation(
     inst.updated_at = ts;
   }
 
-  const appliedToBalance = roundLKR(
-    allocation.totalAllocated - (allocation.summary.advanceAmount ?? 0)
-  );
-  loan.paid_amount = roundLKR(loan.paid_amount + appliedToBalance);
+  const { installmentPaid } = summarizeFixedInstallmentPaid(allocation.summary);
+  loan.paid_amount = roundLKR(loan.paid_amount + installmentPaid);
   loan.balance_amount = roundLKR(
     Math.max(0, (loan.total_payable ?? loan.balance_amount) - loan.paid_amount)
   );
@@ -441,7 +469,7 @@ function applyFixedAllocation(
   const hasOverdue = installments.some(
     (i) =>
       i.paid_amount < i.installment_amount &&
-      new Date(i.due_date) < new Date(paymentDate)
+      isDateBefore(i.due_date, paymentDate)
   );
   loan.status = hasOverdue ? 'OVERDUE' : 'ACTIVE';
   if (loan.balance_amount <= 0) loan.status = 'COMPLETED';

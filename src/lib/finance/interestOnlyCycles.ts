@@ -8,6 +8,7 @@ import {
   totalPendingInterest,
   type InterestCycleForAllocation,
 } from './interestOnly';
+import { getSystemToday } from '../time/systemTime';
 
 export interface InterestOnlyLoanSummary {
   cyclesDueCount: number;
@@ -21,7 +22,7 @@ export function summarizeInterestOnlyLoan(
   monthlyRatePercent: number,
   currentPrincipal: number,
   cycles: InterestCycleForAllocation[],
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): InterestOnlyLoanSummary {
   return {
     cyclesDueCount: countInterestCyclesDueByDate(startDate, asOfDate),

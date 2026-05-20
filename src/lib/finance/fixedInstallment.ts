@@ -1,5 +1,8 @@
-import { addMonthsSameDay } from './dueDates';
 import { roundLKR } from './money';
+import {
+  calculateLateMonthsFromIndex,
+  resolveCurrentIndex,
+} from './lateFeeEngineV3';
 
 export interface FixedInstallmentTermsInput {
   financeAmount: number;
@@ -32,6 +35,15 @@ export interface LateFeeInput {
   monthsLate: number;
 }
 
+export {
+  calculateBaseLateFee,
+  computeLoanLateFeesV3 as computeLoanLateFees,
+  generateMonthlySchedule,
+  type LateFeeEngineLine,
+  type LateFeeEngineResult,
+  type LateFeeEngineInstallmentInput,
+} from './lateFeeEngineV3';
+
 /**
  * Flat monthly rate over full term:
  * totalInterest = finance × rate% × termMonths
@@ -60,66 +72,47 @@ export function calculateFixedInstallmentTotals(
   };
 }
 
-/** Per-month late fee × months late (compounded by month count, not compound interest). */
-export function calculateLateFee(input: LateFeeInput): number {
-  const { installmentAmount, lateFeeRatePercent, monthsLate } = input;
-  if (monthsLate <= 0) return 0;
-  const perMonth = roundLKR(installmentAmount * (lateFeeRatePercent / 100));
-  return roundLKR(perMonth * monthsLate);
-}
-
+/** @deprecated Use calculateBaseLateFeeUnit from ./lateFee */
 export function calculateLateFeePerMonth(
   installmentAmount: number,
   lateFeeRatePercent: number
 ): number {
-  return calculateLateFee({
-    installmentAmount,
-    lateFeeRatePercent,
-    monthsLate: 1,
-  });
+  return roundLKR(installmentAmount * (lateFeeRatePercent / 100));
 }
 
-function toDateOnly(iso: string): string {
-  return iso.split('T')[0];
+/** Per-month unit × months late (legacy helper). */
+export function calculateLateFeeAmount(input: LateFeeInput): number {
+  const { installmentAmount, lateFeeRatePercent, monthsLate } = input;
+  if (monthsLate <= 0) return 0;
+  const perMonth = calculateLateFeePerMonth(
+    installmentAmount,
+    lateFeeRatePercent
+  );
+  return roundLKR(perMonth * monthsLate);
 }
 
 /**
- * Count completed monthly anniversaries of the due date on or before today.
- * Uses the same calendar day each month (see addMonthsSameDay).
- *
- * Examples (due → today):
- * - 2026-02-02 → 2026-05-15 = 3 (Mar 2, Apr 2, May 2; Jun 2 not yet reached)
- * - 2026-03-02 → 2026-05-15 = 2
- * - 2026-05-02 → 2026-05-15 = 0 (next boundary Jun 2 is after today)
- *
- * Partial days in the current month do not add a late month.
+ * @deprecated Use computeLoanLateFeesV3 with the full installment schedule.
+ * Single-installment fallback (index 0 only).
  */
 export function calculateMonthsLate(dueDate: string, today: string): number {
-  const due = toDateOnly(dueDate);
-  const asOf = toDateOnly(today);
-  if (asOf <= due) return 0;
-
-  let months = 0;
-  let next = 1;
-  let boundary = addMonthsSameDay(due, next);
-  while (boundary <= asOf) {
-    months = next;
-    next += 1;
-    boundary = addMonthsSameDay(due, next);
-  }
-  return months;
+  return calculateLateMonthsFromIndex(
+    0,
+    resolveCurrentIndex([{ installmentIndex: 0, dueDate }], today),
+    today,
+    dueDate
+  );
 }
 
-/** Late fee = installment × rate% × months late (whole LKR). */
+/** Late fee = baseLateFeeUnit × overdue months (whole LKR). */
 export function calculateInstallmentLateFeeAmount(
-  installmentAmount: number,
+  monthlyInstallment: number,
   lateFeeRatePercent: number,
   monthsLateCount: number
 ): number {
   if (monthsLateCount <= 0) return 0;
-  return roundLKR(
-    installmentAmount * (lateFeeRatePercent / 100) * monthsLateCount
-  );
+  const base = calculateLateFeePerMonth(monthlyInstallment, lateFeeRatePercent);
+  return roundLKR(base * monthsLateCount);
 }
 
 /** Alias for payment allocation and legacy callers. */

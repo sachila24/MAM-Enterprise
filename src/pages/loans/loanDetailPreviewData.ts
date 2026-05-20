@@ -13,6 +13,7 @@ import {
   calculateFixedInstallmentTotals,
   buildFixedInstallmentSchedule,
 } from '../../lib/finance/fixedInstallment';
+import { isDateBefore } from '../../lib/time/systemTime';
 import { totalPendingInterest } from '../../lib/finance/interestOnly';
 import type { InterestCycleForAllocation } from '../../lib/finance/interestOnly';
 import {
@@ -196,7 +197,8 @@ function buildFixedDetail(): LoanDetailData {
     );
     const paidAmount = previewInst?.paidAmount ?? 0;
     const dueDate = line.dueDate;
-    const isOverdue = new Date(dueDate) < new Date(asOf) && paidAmount < line.installmentAmount;
+    const isOverdue =
+      isDateBefore(dueDate, asOf) && paidAmount < line.installmentAmount;
     let status: LoanInstallment['status'] = 'PENDING';
     if (paidAmount >= line.installmentAmount) status = 'PAID';
     else if (paidAmount > 0) status = 'PARTIAL';

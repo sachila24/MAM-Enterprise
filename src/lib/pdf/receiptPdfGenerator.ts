@@ -7,11 +7,6 @@ import {
   getReceiptLabels,
 } from '../i18n/receiptLabels';
 import type { DisplayMode } from '../i18n/simpleLabels';
-import {
-  buildReceiptPrintInsight,
-  formatReceiptInsightDate,
-  type ReceiptPrintInsightInput,
-} from '../receipt/receiptPrintInsight';
 import type {
   FixedInstallmentReceiptBreakdown,
   InterestOnlyReceiptBreakdown,
@@ -73,9 +68,9 @@ export interface PaymentReceiptData {
   allocation: ReceiptAllocationBreakdown;
   balance: ReceiptBalanceData;
   company?: ReceiptBusinessData;
-  /** Display-only fields from payment-time snapshot */
-  printInsight?: ReceiptPrintInsightInput;
   advancePayment?: number;
+  /** Pre-computed receipt breakdown (preferred over raw allocation fields). */
+  receiptBreakdown?: FixedInstallmentReceiptBreakdown | InterestOnlyReceiptBreakdown;
 }
 
 export interface ReceiptPdfOptions {
@@ -283,12 +278,18 @@ export const RECEIPT_PDF_TEST_CASES: Record<string, PaymentReceiptData> = {
       loanBalanceAfterPayment: 95_000,
       arrearsRemaining: 0,
     },
-    printInsight: {
-      balanceBefore: 125_000,
-      nextInstallmentDate: '2026-06-10',
-      currentMonthDue: 22_500,
-      currentMonthPaid: 22_500,
-      lateFeesDueBefore: 2_500,
+    advancePayment: 5_000,
+    receiptBreakdown: {
+      cashReceived: 30_000,
+      discountApplied: 0,
+      totalApplied: 30_000,
+      lateFeePaid: 2_500,
+      installmentPaid: 22_500,
+      advancePaid: 5_000,
+      remainingArrears: 0,
+      previousBalance: 117_500,
+      installmentApplied: 22_500,
+      loanBalance: 95_000,
     },
   },
 };
@@ -402,89 +403,50 @@ function renderReceipt(
   y = drawAmountRows(doc, cashRows, contentX, y, contentWidth, layout);
   y = drawRule(doc, contentX, y + 1, contentWidth, 0.3) + 4;
 
-  const inst = data.allocation.installments ?? 0;
-  const principal = data.allocation.principal ?? 0;
-  const lateFees = data.allocation.lateFees ?? 0;
-  const advance = data.advancePayment ?? 0;
-  const installmentAmount = inst > 0 ? inst : principal > 0 ? principal : 0;
-  const extraPayment = advance > 0 ? advance : 0;
-
-  y = drawSectionTitle(doc, labels.paymentBreakdown, contentX, y, layout);
-  const breakdownRows: Array<[string, number, boolean]> = [];
-  if (installmentAmount > 0) {
-    breakdownRows.push([labels.installmentAmount, installmentAmount, false]);
-  }
-  if (lateFees > 0) {
-    breakdownRows.push([labels.lateFees, lateFees, false]);
-  }
-  if (extraPayment > 0) {
-    breakdownRows.push([labels.extraPayment, extraPayment, false]);
-  }
-  breakdownRows.push([labels.totalPaid, totalApplied, true]);
-  y = drawAmountRows(doc, breakdownRows, contentX, y, contentWidth, layout);
-
   const repaymentMethod = (data.loan.repaymentMethod ??
     'FIXED_MONTHLY_INSTALLMENT') as RepaymentMethod;
-  const receiptForInsight = pdfDataToReceiptBreakdown(
-    data,
-    totalApplied,
-    discountGiven
-  );
-  const printInsight = buildReceiptPrintInsight(
-    repaymentMethod,
-    receiptForInsight,
-    {
-      ...data.printInsight,
-      balanceBefore:
-        data.printInsight?.balanceBefore ??
-        data.balance.loanBalanceAfterPayment +
-          totalApplied -
-          (data.advancePayment ?? 0),
-    }
-  );
+  const receipt =
+    data.receiptBreakdown ??
+    pdfDataToReceiptBreakdown(data, totalApplied, discountGiven);
+  const isFixed = repaymentMethod.includes('FIXED') && 'lateFeePaid' in receipt;
+  const isIo = repaymentMethod.includes('INTEREST') && 'interestPaid' in receipt;
 
-  const isFixed = repaymentMethod.includes('FIXED');
-  const coverageLabel =
-    printInsight.installmentCoverage === 'full'
-      ? labels.installmentFull
-      : printInsight.installmentCoverage === 'partial'
-        ? labels.installmentPartial
-        : null;
-  const nextDueFormatted = formatReceiptInsightDate(
-    printInsight.nextInstallmentDate
-  );
-
-  if (
-    (isFixed && coverageLabel) ||
-    printInsight.showLateFeeSettled ||
-    nextDueFormatted
-  ) {
-    y = drawRule(doc, contentX, y + 0.5, contentWidth, 0.3) + 4;
-    y = drawSectionTitle(doc, labels.loanImpact, contentX, y, layout);
-    const impactRows: Array<[string, string]> = [];
-    if (isFixed && coverageLabel) {
-      impactRows.push([labels.installmentCoverage, coverageLabel]);
-    }
-    if (printInsight.showLateFeeSettled) {
-      impactRows.push([
-        labels.lateFeeSettled,
-        printInsight.lateFeeSettled ? labels.yes : labels.no,
-      ]);
-    }
-    if (nextDueFormatted) {
-      impactRows.push([labels.nextInstallmentDate, nextDueFormatted]);
-    }
-    y = drawDetailRows(doc, impactRows, contentX, y, contentWidth, layout);
+  y = drawSectionTitle(doc, labels.paymentAllocation, contentX, y, layout);
+  const allocationRows: Array<[string, number, boolean]> = [];
+  if (isFixed) {
+    allocationRows.push([labels.lateFeePaid, receipt.lateFeePaid, false]);
+    allocationRows.push([labels.paidInstallment, receipt.installmentPaid, false]);
   }
+  if (isIo && 'interestPaid' in receipt && receipt.interestPaid > 0) {
+    allocationRows.push([labels.paidInterest, receipt.interestPaid, false]);
+  }
+  if (isIo && 'principalPaid' in receipt && receipt.principalPaid > 0) {
+    allocationRows.push([labels.paidPrincipal, receipt.principalPaid, false]);
+  }
+  if (isFixed && receipt.advancePaid > 0) {
+    allocationRows.push([labels.extraPayment, receipt.advancePaid, false]);
+  }
+  allocationRows.push([labels.totalPaid, totalApplied, true]);
+  y = drawAmountRows(doc, allocationRows, contentX, y, contentWidth, layout);
+
+  const previousBalance =
+    'previousBalance' in receipt ? receipt.previousBalance : 0;
+  const installmentApplied =
+    'installmentApplied' in receipt ? receipt.installmentApplied : 0;
+  const newBalance = isFixed
+    ? receipt.loanBalance
+    : isIo && 'remainingPrincipal' in receipt
+      ? receipt.remainingPrincipal
+      : data.balance.loanBalanceAfterPayment;
 
   y = drawRule(doc, contentX, y + 0.5, contentWidth, 0.3) + 4;
-  y = drawSectionTitle(doc, labels.balanceMovement, contentX, y, layout);
+  y = drawSectionTitle(doc, labels.balanceUpdate, contentX, y, layout);
   y = drawAmountRows(
     doc,
     [
-      [labels.previousBalance, printInsight.balanceBefore, false],
-      [labels.paidToday, totalApplied, false],
-      [labels.newBalance, data.balance.loanBalanceAfterPayment, true],
+      [labels.previousBalance, previousBalance, false],
+      [labels.installmentApplied, installmentApplied, false],
+      [labels.newBalance, newBalance, true],
     ],
     contentX,
     y,
@@ -502,27 +464,39 @@ function pdfDataToReceiptBreakdown(
 ): FixedInstallmentReceiptBreakdown | InterestOnlyReceiptBreakdown {
   const method = data.loan.repaymentMethod ?? '';
   if (method.includes('INTEREST')) {
+    const principalPaid = data.allocation.principal ?? 0;
+    const remainingPrincipal = data.balance.loanBalanceAfterPayment;
     return {
       cashReceived: data.payment.cashReceived,
       discountApplied,
       totalApplied,
       interestPaid: data.allocation.installments ?? 0,
-      principalPaid: data.allocation.principal ?? 0,
-      remainingPrincipal: data.balance.loanBalanceAfterPayment,
+      principalPaid,
+      remainingPrincipal,
       pendingInterestRemaining: 0,
       nextEstimatedInterest: 0,
+      previousBalance: roundLKR(remainingPrincipal + principalPaid),
+      installmentApplied: principalPaid,
     };
   }
+  const installmentPaid = data.allocation.installments ?? 0;
+  const loanBalance = data.balance.loanBalanceAfterPayment;
   return {
     cashReceived: data.payment.cashReceived,
     discountApplied,
     totalApplied,
     lateFeePaid: data.allocation.lateFees ?? 0,
-    installmentPaid: data.allocation.installments ?? 0,
+    installmentPaid,
     advancePaid: data.advancePayment ?? 0,
     remainingArrears: data.balance.arrearsRemaining ?? 0,
-    loanBalance: data.balance.loanBalanceAfterPayment,
+    previousBalance: roundLKR(loanBalance + installmentPaid),
+    installmentApplied: installmentPaid,
+    loanBalance,
   };
+}
+
+function roundLKR(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 function drawFooter(

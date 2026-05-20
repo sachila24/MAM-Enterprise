@@ -18,6 +18,7 @@ import { confirmEarlySettlement } from '../../lib/local-db/repositories/earlySet
 import { isFixedInstallmentLoan } from '../../types/loan';
 import { useT } from '../../i18n/I18nProvider';
 import { formatMessage } from '../../lib/i18n/messages';
+import { getSystemToday } from '../../lib/time/systemTime';
 
 export function EarlySettlement() {
   const { id: loanId } = useParams<{ id: string }>();
@@ -28,7 +29,7 @@ export function EarlySettlement() {
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [includeCurrentMonth, setIncludeCurrentMonth] = useState(true);
   const [settlementDate, setSettlementDate] = useState(
-    new Date().toISOString().split('T')[0]
+    getSystemToday()
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,6 +64,7 @@ export function EarlySettlement() {
       installments: instAlloc,
       paymentDate: settlementDate,
       lateFeeRatePercent: loan.lateFeeRate,
+      monthlyInstallmentAmount: loan.installmentAmount,
       currentInstallmentNumber: currentNum,
     });
     return {

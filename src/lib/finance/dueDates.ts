@@ -1,24 +1,26 @@
+import { normalizeDate } from '../time/systemTime';
+
 /**
  * Same calendar day each month (e.g. start May 15 → due June 15, July 15).
  * Clamps to last day of month when target month is shorter (e.g. Jan 31 → Feb 28).
  */
-
 export function addMonthsSameDay(isoDate: string, monthsToAdd: number): string {
-  const source = new Date(isoDate + 'T12:00:00');
-  const targetDay = source.getDate();
+  const base = normalizeDate(isoDate);
+  const source = new Date(`${base}T12:00:00Z`);
+  const targetDay = source.getUTCDate();
   const result = new Date(source);
-  result.setMonth(result.getMonth() + monthsToAdd);
+  result.setUTCMonth(result.getUTCMonth() + monthsToAdd);
 
-  if (result.getDate() !== targetDay) {
-    result.setDate(0);
+  if (result.getUTCDate() !== targetDay) {
+    result.setUTCDate(0);
   }
 
-  return result.toISOString().split('T')[0];
+  return normalizeDate(result);
 }
 
 /** Day-of-month (1–28) taken from start date when not explicitly set. */
 export function deriveDueDay(startDate: string): number {
-  return new Date(startDate + 'T12:00:00').getDate();
+  return new Date(`${normalizeDate(startDate)}T12:00:00Z`).getUTCDate();
 }
 
 /**

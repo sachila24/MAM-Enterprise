@@ -12,8 +12,9 @@ import {
   formatActivitySummary,
 } from '../../i18n/messages';
 import { getLabel, type DisplayMode } from '../../i18n/simpleLabels';
+import { getSystemToday } from '../../time/systemTime';
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => getSystemToday();
 
 function loanHasArrears(loanId: string, db: MamDemoDb, asOf: string): boolean {
   const loan = db.loans.find((l) => l.id === loanId);
@@ -32,8 +33,12 @@ function loanHasArrears(loanId: string, db: MamDemoDb, asOf: string): boolean {
       lateFeePaid: i.late_fee_paid,
     }));
 
-  return getFixedLoanArrearsSummary(installments, asOf, loan.late_fee_rate)
-    .hasArrears;
+  return getFixedLoanArrearsSummary(
+    installments,
+    asOf,
+    loan.late_fee_rate,
+    loan.installment_amount
+  ).hasArrears;
 }
 
 export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {

@@ -108,6 +108,7 @@ export function usePaymentComputation(
         installments,
         paymentDate: form.paymentDate,
         lateFeeRatePercent: loan.lateFeeRate,
+        monthlyInstallmentAmount: loan.installmentAmount,
         currentInstallmentNumber,
       },
       form.paymentDate
@@ -139,6 +140,7 @@ export function usePaymentComputation(
           installments,
           paymentDate: form.paymentDate,
           lateFeeRatePercent: loan.lateFeeRate,
+          monthlyInstallmentAmount: loan.installmentAmount,
           currentInstallmentNumber,
           loanBalanceAmount: loan.balanceAmount,
         },
@@ -191,7 +193,8 @@ export function usePaymentComputation(
         installments,
         allocation,
         form.paymentDate,
-        loan.lateFeeRate
+        loan.lateFeeRate,
+        loan.installmentAmount
       );
     }
     return [];
@@ -203,6 +206,7 @@ export function usePaymentComputation(
       return buildInterestOnlyReceipt(
         allocation,
         loan.interestRate,
+        loan.currentPrincipalBalance,
         cash,
         disc
       );
@@ -213,7 +217,20 @@ export function usePaymentComputation(
         loan.balanceAmount,
         fixedDueSummary.totalDue,
         cash,
-        disc
+        disc,
+        {
+          monthlyInstallment: loan.installmentAmount ?? 0,
+          lateFeeRate: loan.lateFeeRate,
+          paymentDate: form.paymentDate,
+          schedule: installments.map((i) => ({
+            id: i.id,
+            installmentNumber: i.installmentNumber,
+            dueDate: i.dueDate,
+            installmentAmount: i.installmentAmount,
+            paidAmount: i.paidAmount,
+            lateFeePaid: i.lateFeePaid,
+          })),
+        }
       );
     }
     return null;
@@ -226,7 +243,8 @@ export function usePaymentComputation(
     return getFixedLoanArrearsSummary(
       installments as InstallmentArrearsInput[],
       form.paymentDate,
-      loan.lateFeeRate
+      loan.lateFeeRate,
+      loan.installmentAmount
     );
   }, [loan, installments, form.paymentDate]);
 

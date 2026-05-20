@@ -19,6 +19,7 @@ import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
 import { recordPayment } from '../../lib/local-db/repositories';
 import { RecordPaymentReview } from '../../components/payments/RecordPaymentReview';
 import { useT } from '../../i18n/I18nProvider';
+import { getSystemToday } from '../../lib/time/systemTime';
 
 export function RecordPayment() {
   const { t } = useT();
@@ -54,7 +55,7 @@ export function RecordPayment() {
     amount: 0,
     discountAmount: 0,
     paymentMethod: 'CASH',
-    paymentDate: new Date().toISOString().split('T')[0],
+    paymentDate: getSystemToday(),
     notes: '',
     chequeNumber: '',
     bankReference: '',
@@ -167,15 +168,6 @@ export function RecordPayment() {
       paymentDate: form.paymentDate,
       repaymentMethod: selectedLoan.repaymentMethod,
       receipt: computation.receipt,
-      receiptInsight: {
-        balanceBefore: isInterestOnlyLoan(selectedLoan)
-          ? selectedLoan.currentPrincipalBalance
-          : selectedLoan.balanceAmount,
-        nextInstallmentDate: computation.paymentNextDue?.dueDate,
-        currentMonthDue: computation.fixedDueSummary?.currentMonthDue,
-        currentMonthPaid: computation.allocation.summary.currentMonthPaid,
-        lateFeesDueBefore: computation.fixedDueSummary?.totalLateFeesDue,
-      },
       allocationRows: receiptRows,
       supabasePending: false,
     };

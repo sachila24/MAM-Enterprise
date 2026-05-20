@@ -10,6 +10,7 @@ import {
 } from './mappers';
 import type { MamDemoDb } from './types';
 import { getDb } from './localDb';
+import { getSystemToday } from '../time/systemTime';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -84,7 +85,7 @@ export function getLoanDetailFromDb(
     interestPaid: c.interestPaid,
     principalPaid: c.principalPaid,
   }));
-  const asOf = new Date().toISOString().split('T')[0];
+  const asOf = getSystemToday();
   const ioSummary =
     dbLoan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL'
       ? summarizeInterestOnlyLoan(

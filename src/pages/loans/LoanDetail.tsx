@@ -13,8 +13,9 @@ import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
-  enrichFixedInstallment,
-  getFixedLoanArrearsSummary,
+  arrearsSummaryFromEngine,
+  enrichInstallmentsFromEngine,
+  runLateFeeEngine,
   getFixedLoanDisplayStatus,
   type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
@@ -40,7 +41,7 @@ import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
 import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
 import { roundLKR } from '../../lib/finance/money';
 
-const AS_OF_DATE = new Date().toISOString().split('T')[0];
+import { getSystemToday } from '../../lib/time/systemTime';
 
 export function LoanDetail() {
   const { t } = useT();
@@ -116,7 +117,7 @@ function InterestOnlyLoanDetail({
   const { loan, customer, interestCycles, guarantees, principalPayments } =
     detail;
 
-  const asOf = AS_OF_DATE;
+  const asOf = useMemo(() => getSystemToday(), []);
   const cycleAlloc = useMemo(
     () =>
       interestCycles.map((c) => ({
@@ -145,12 +146,8 @@ function InterestOnlyLoanDetail({
 
   const nextDueIo = useMemo(
     () =>
-      getNextDueDateForInterestOnly(
-        loan.startDate,
-        cycleAlloc,
-        AS_OF_DATE
-      ),
-    [loan.startDate, cycleAlloc]
+      getNextDueDateForInterestOnly(loan.startDate, cycleAlloc, asOf),
+    [loan.startDate, cycleAlloc, asOf]
   );
 
   const pendingInterest =
@@ -261,32 +258,50 @@ function FixedInstallmentLoanDetail({
   navigate: ReturnType<typeof useNavigate>;
 }) {
   const { loan, customer, installments, guarantees, bike } = detail;
-  const enriched = useMemo(
+  const asOfDate = useMemo(() => getSystemToday(), []);
+
+  const lateFeeEngine = useMemo(
     () =>
-      installments.map((inst) =>
-        enrichFixedInstallment(inst, AS_OF_DATE, loan.lateFeeRate)
+      runLateFeeEngine(
+        installments,
+        loan.installmentAmount ?? 0,
+        loan.lateFeeRate,
+        { asOfDate }
       ),
-    [installments, loan.lateFeeRate]
+    [installments, loan.lateFeeRate, loan.installmentAmount, asOfDate]
+  );
+
+  const enriched = useMemo(
+    () => enrichInstallmentsFromEngine(installments, lateFeeEngine),
+    [installments, lateFeeEngine]
   );
 
   const arrears = useMemo(
-    () => getFixedLoanArrearsSummary(enriched, AS_OF_DATE, loan.lateFeeRate),
-    [enriched, loan.lateFeeRate]
+    () => arrearsSummaryFromEngine(lateFeeEngine, installments, asOfDate),
+    [lateFeeEngine, installments, asOfDate]
   );
 
   const displayLoanStatus = useMemo(
-    () => getFixedLoanDisplayStatus(loan.status, enriched, AS_OF_DATE),
-    [loan.status, enriched]
+    () =>
+      getFixedLoanDisplayStatus(
+        loan.status,
+        installments,
+        asOfDate,
+        loan.lateFeeRate,
+        loan.installmentAmount
+      ),
+    [loan.status, installments, loan.lateFeeRate, loan.installmentAmount, asOfDate]
   );
 
   const nextFixed = useMemo(
     () =>
       getNextDueDateForFixedInstallments(
-        enriched as InstallmentArrearsInput[],
+        installments as InstallmentArrearsInput[],
         loan.lateFeeRate,
-        AS_OF_DATE
+        asOfDate,
+        loan.installmentAmount
       ),
-    [enriched, loan.lateFeeRate]
+    [installments, loan.lateFeeRate, loan.installmentAmount, asOfDate]
   );
 
   const nextDueLabel =
@@ -429,6 +444,7 @@ function FixedInstallmentLoanDetail({
             'Due date',
             'Installment',
             'Paid',
+            'Months late',
             'Late fee',
             'Remaining',
             'Status',
@@ -438,6 +454,7 @@ function FixedInstallmentLoanDetail({
             formatDate(i.dueDate),
             formatLKR(i.installmentAmount),
             formatLKR(i.paidAmount),
+            String(i.overdueMonths),
             formatLKR(i.lateFeeAccrued),
             formatLKR(i.remaining),
             <StatusChip key={i.id} status={i.displayStatus} />,

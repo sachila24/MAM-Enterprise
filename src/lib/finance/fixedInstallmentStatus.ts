@@ -1,11 +1,21 @@
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
 import {
-  calculateInstallmentLateFeeAmount,
-  calculateMonthsLate,
-} from './fixedInstallment';
+  computeLoanLateFeesV3,
+  getLateFeeLineByInstallmentId,
+  type LateFeeEngineInput,
+  type LateFeeEngineResult,
+  type LateFeeInstallmentStatus,
+} from './lateFeeEngineV3';
 import { roundLKR } from './money';
+import {
+  getAsOfDate,
+  getSystemToday,
+  isDateBefore,
+  isDateOnOrBefore,
+  normalizeDate,
+} from '../time/systemTime';
 
-export type InstallmentDisplayStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING';
+export type InstallmentDisplayStatus = LateFeeInstallmentStatus;
 
 export interface InstallmentArrearsInput {
   installmentNumber: number;
@@ -18,9 +28,8 @@ export interface InstallmentArrearsInput {
 
 export interface CalculatedInstallmentLateFee {
   monthsLate: number;
-  /** Total late fee accrued (installment × rate × months late). */
+  isOverdue: boolean;
   lateFeeAmount: number;
-  /** Outstanding late fee after payments. */
   lateFeeOutstanding: number;
 }
 
@@ -36,79 +45,158 @@ export interface EnrichedFixedInstallment extends InstallmentArrearsInput {
   id: string;
   displayStatus: InstallmentDisplayStatus;
   installmentRemaining: number;
-  /** Total late fee accrued for display. */
+  isOverdue: boolean;
+  overdueMonths: number;
   lateFeeAccrued: number;
-  /** Outstanding late fee still owed. */
   lateFeeOutstanding: number;
   remaining: number;
 }
 
-function toDateOnly(iso: string): string {
-  return iso.split('T')[0];
+export function toLateFeeEngineInstallments<
+  T extends InstallmentArrearsInput & { id: string },
+>(installments: T[]): LateFeeEngineInput['installments'] {
+  return installments.map((inst) => ({
+    installmentId: inst.id,
+    installmentNumber: inst.installmentNumber,
+    dueDate: inst.dueDate,
+    installmentAmount: inst.installmentAmount,
+    paidAmount: inst.paidAmount,
+    lateFeePaid: inst.lateFeePaid,
+  }));
 }
 
-/**
- * Shared late-fee calculation for fixed installment loans.
- * Formula: installment_amount × (late_fee_rate / 100) × months_late
- * Uses full installment amount (not remaining principal).
- */
+/** Run the unified late-fee engine for a loan's installments. */
+export function runLateFeeEngine(
+  installments: (InstallmentArrearsInput & { id: string })[],
+  monthlyInstallment: number,
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  options?: { paymentDate?: string | null; asOfDate?: string | null }
+): LateFeeEngineResult {
+  const asOf = getAsOfDate(options?.paymentDate ?? options?.asOfDate ?? undefined);
+  return computeLoanLateFeesV3({
+    monthlyInstallment,
+    lateFeeRatePercent,
+    installments: toLateFeeEngineInstallments(installments),
+    paymentDate: asOf,
+  });
+}
+
+export function arrearsSummaryFromEngine(
+  engine: LateFeeEngineResult,
+  installments: InstallmentArrearsInput[],
+  asOfDate: string
+): FixedLoanArrearsSummary {
+  const asOf = normalizeDate(asOfDate);
+  let arrearsInstallmentCount = 0;
+  let arrearsInstallmentAmount = 0;
+
+  for (const inst of installments) {
+    const principalOwed = roundLKR(
+      Math.max(0, inst.installmentAmount - inst.paidAmount)
+    );
+    if (principalOwed > 0 && isDateBefore(inst.dueDate, asOf)) {
+      arrearsInstallmentCount += 1;
+      arrearsInstallmentAmount = roundLKR(
+        arrearsInstallmentAmount + principalOwed
+      );
+    }
+  }
+
+  const lateFeesDue = engine.totalLateFeeOutstanding;
+  const hasPrincipalArrears = arrearsInstallmentCount > 0;
+  const hasLateFeeArrears = lateFeesDue > 0;
+
+  return {
+    arrearsInstallmentCount,
+    arrearsInstallmentAmount,
+    lateFeesDue,
+    totalArrearsDue: roundLKR(arrearsInstallmentAmount + lateFeesDue),
+    hasArrears: hasPrincipalArrears || hasLateFeeArrears,
+  };
+}
+
+export function enrichInstallmentsFromEngine<
+  T extends InstallmentArrearsInput & { id: string },
+>(installments: T[], engine: LateFeeEngineResult): Array<T & EnrichedFixedInstallment> {
+  return installments.map((inst) => {
+    const line = getLateFeeLineByInstallmentId(engine, inst.id);
+    const monthsLate = line?.lateMonths ?? 0;
+    const lateFeeAccrued = line?.lateFee ?? 0;
+    const lateFeeOutstanding = line?.lateFeeOutstanding ?? 0;
+    const displayStatus = line?.status ?? 'PENDING';
+    const installmentRemaining = roundLKR(
+      Math.max(0, inst.installmentAmount - inst.paidAmount)
+    );
+    const remaining = roundLKR(installmentRemaining + lateFeeOutstanding);
+
+    return {
+      ...inst,
+      displayStatus,
+      installmentRemaining,
+      isOverdue: displayStatus === 'OVERDUE' || displayStatus === 'PARTIAL',
+      overdueMonths: monthsLate,
+      lateFeeAccrued,
+      lateFeeOutstanding,
+      remaining,
+    };
+  });
+}
+
+/** @deprecated Prefer runLateFeeEngine + enrichInstallmentsFromEngine */
 export function calculateInstallmentLateFee(
   inst: InstallmentArrearsInput,
   lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
-  today: string = new Date().toISOString().split('T')[0]
+  today: string = getSystemToday(),
+  monthlyInstallment?: number
 ): CalculatedInstallmentLateFee {
-  const due = toDateOnly(inst.dueDate);
-  const asOf = toDateOnly(today);
-
-  if (due >= asOf) {
-    return { monthsLate: 0, lateFeeAmount: 0, lateFeeOutstanding: 0 };
-  }
-
-  if (inst.paidAmount >= inst.installmentAmount) {
-    const lateFeeOutstanding = roundLKR(
-      Math.max(0, inst.lateFeeAmount - inst.lateFeePaid)
-    );
-    return {
-      monthsLate: 0,
-      lateFeeAmount: inst.lateFeeAmount,
-      lateFeeOutstanding,
-    };
-  }
-
-  const monthsLate = calculateMonthsLate(due, asOf);
-  const lateFeeAmount = calculateInstallmentLateFeeAmount(
-    inst.installmentAmount,
+  const baseInstallment = monthlyInstallment ?? inst.installmentAmount;
+  const engine = computeLoanLateFeesV3({
+    monthlyInstallment: baseInstallment,
     lateFeeRatePercent,
-    monthsLate
-  );
-  const lateFeeOutstanding = roundLKR(
-    Math.max(0, lateFeeAmount - inst.lateFeePaid)
-  );
-
-  return { monthsLate, lateFeeAmount, lateFeeOutstanding };
+    asOfDate: today,
+    installments: [
+      {
+        installmentId: `calc-${inst.installmentNumber}`,
+        installmentNumber: inst.installmentNumber,
+        dueDate: inst.dueDate,
+        installmentAmount: inst.installmentAmount,
+        paidAmount: inst.paidAmount,
+        lateFeePaid: inst.lateFeePaid,
+      },
+    ],
+  });
+  const line = engine.lines[0];
+  return {
+    monthsLate: line?.lateMonths ?? 0,
+    isOverdue: line?.status === 'OVERDUE' || line?.status === 'PARTIAL',
+    lateFeeAmount: line?.lateFee ?? 0,
+    lateFeeOutstanding: line?.lateFeeOutstanding ?? 0,
+  };
 }
 
 export function isInstallmentFullyPaid(
   inst: InstallmentArrearsInput,
   today: string,
-  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  monthlyInstallment?: number
 ): boolean {
-  if (inst.paidAmount < inst.installmentAmount) return false;
   const { lateFeeOutstanding } = calculateInstallmentLateFee(
     inst,
     lateFeeRatePercent,
-    today
+    today,
+    monthlyInstallment
   );
-  return lateFeeOutstanding <= 0;
+  return (
+    inst.paidAmount >= inst.installmentAmount && lateFeeOutstanding <= 0
+  );
 }
 
-/** Due before today and installment principal not fully paid. */
 export function isInstallmentInArrears(
   inst: InstallmentArrearsInput,
   today: string
 ): boolean {
   return (
-    toDateOnly(inst.dueDate) < toDateOnly(today) &&
+    isDateBefore(inst.dueDate, today) &&
     inst.paidAmount < inst.installmentAmount
   );
 }
@@ -116,56 +204,68 @@ export function isInstallmentInArrears(
 export function getInstallmentDisplayStatus(
   inst: InstallmentArrearsInput,
   today: string,
-  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  monthlyInstallment?: number
 ): InstallmentDisplayStatus {
-  if (isInstallmentFullyPaid(inst, today, lateFeeRatePercent)) return 'PAID';
-
-  const pastDue = toDateOnly(inst.dueDate) < toDateOnly(today);
-  const hasPartialPayment =
-    inst.paidAmount > 0 ||
-    (inst.lateFeePaid > 0 &&
-      calculateInstallmentLateFee(inst, lateFeeRatePercent, today)
-        .lateFeeOutstanding > 0);
-
-  if (pastDue && hasPartialPayment) return 'PARTIAL';
-  if (pastDue) return 'OVERDUE';
-  if (hasPartialPayment) return 'PARTIAL';
-  return 'PENDING';
+  const engine = computeLoanLateFeesV3({
+    monthlyInstallment: monthlyInstallment ?? inst.installmentAmount,
+    lateFeeRatePercent,
+    asOfDate: today,
+    installments: [
+      {
+        installmentId: `status-${inst.installmentNumber}`,
+        installmentNumber: inst.installmentNumber,
+        dueDate: inst.dueDate,
+        installmentAmount: inst.installmentAmount,
+        paidAmount: inst.paidAmount,
+        lateFeePaid: inst.lateFeePaid,
+      },
+    ],
+  });
+  return engine.lines[0]?.status ?? 'PENDING';
 }
 
 export function getFixedLoanArrearsSummary(
   installments: InstallmentArrearsInput[],
   today: string,
-  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  monthlyInstallment?: number
 ): FixedLoanArrearsSummary {
-  let arrearsInstallmentCount = 0;
-  let arrearsInstallmentAmount = 0;
-  let lateFeesDue = 0;
-
-  for (const inst of installments) {
-    if (!isInstallmentInArrears(inst, today)) continue;
-    arrearsInstallmentCount += 1;
-    arrearsInstallmentAmount = roundLKR(
-      arrearsInstallmentAmount +
-        Math.max(0, inst.installmentAmount - inst.paidAmount)
-    );
-    lateFeesDue = roundLKR(
-      lateFeesDue +
-        calculateInstallmentLateFee(inst, lateFeeRatePercent, today)
-          .lateFeeOutstanding
-    );
-  }
-
-  return {
-    arrearsInstallmentCount,
-    arrearsInstallmentAmount,
-    lateFeesDue,
-    totalArrearsDue: roundLKR(arrearsInstallmentAmount + lateFeesDue),
-    hasArrears: arrearsInstallmentCount > 0,
-  };
+  const withIds = installments.map((inst, index) => ({
+    ...inst,
+    id: `arrears-${inst.installmentNumber}-${index}`,
+  }));
+  const base =
+    monthlyInstallment ??
+    withIds[0]?.installmentAmount ??
+    0;
+  const engine = runLateFeeEngine(
+    withIds,
+    base,
+    lateFeeRatePercent,
+    { asOfDate: today }
+  );
+  return arrearsSummaryFromEngine(engine, installments, today);
 }
 
-/** Latest due installment on or before as-of that still owes principal. */
+/** @deprecated Prefer runLateFeeEngine + enrichInstallmentsFromEngine */
+export function enrichFixedInstallment<
+  T extends InstallmentArrearsInput & { id: string },
+>(
+  inst: T,
+  today: string,
+  lateFeeRatePercent: number,
+  monthlyInstallment?: number
+): T & EnrichedFixedInstallment {
+  const engine = runLateFeeEngine(
+    [inst],
+    monthlyInstallment ?? inst.installmentAmount,
+    lateFeeRatePercent,
+    { asOfDate: today }
+  );
+  return enrichInstallmentsFromEngine([inst], engine)[0];
+}
+
 export function resolveCurrentInstallmentNumber(
   installments: InstallmentArrearsInput[],
   asOfDate: string
@@ -173,15 +273,15 @@ export function resolveCurrentInstallmentNumber(
   const sorted = [...installments].sort(
     (a, b) => a.installmentNumber - b.installmentNumber
   );
-  const asOf = toDateOnly(asOfDate);
+  const asOf = normalizeDate(asOfDate);
   const dueUnpaid = sorted.filter(
     (i) =>
-      toDateOnly(i.dueDate) <= asOf && i.paidAmount < i.installmentAmount
+      isDateOnOrBefore(i.dueDate, asOf) && i.paidAmount < i.installmentAmount
   );
   if (dueUnpaid.length > 0) {
     return dueUnpaid[dueUnpaid.length - 1].installmentNumber;
   }
-  const next = sorted.find((i) => toDateOnly(i.dueDate) > asOf);
+  const next = sorted.find((i) => !isDateOnOrBefore(i.dueDate, asOf));
   return next?.installmentNumber ?? sorted[sorted.length - 1]?.installmentNumber ?? 1;
 }
 
@@ -189,40 +289,22 @@ export function getFixedLoanDisplayStatus(
   storedStatus: string,
   installments: InstallmentArrearsInput[],
   today: string,
-  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  monthlyInstallment?: number
 ): string {
-  if (getFixedLoanArrearsSummary(installments, today, lateFeeRatePercent).hasArrears) {
+  if (
+    getFixedLoanArrearsSummary(
+      installments,
+      today,
+      lateFeeRatePercent,
+      monthlyInstallment
+    ).hasArrears
+  ) {
     return 'OVERDUE';
   }
   return storedStatus;
 }
 
-export function enrichFixedInstallment<T extends InstallmentArrearsInput & { id: string }>(
-  inst: T,
-  today: string,
-  lateFeeRatePercent: number
-): T & EnrichedFixedInstallment {
-  const { lateFeeAmount, lateFeeOutstanding } = calculateInstallmentLateFee(
-    inst,
-    lateFeeRatePercent,
-    today
-  );
-  const installmentRemaining = roundLKR(
-    Math.max(0, inst.installmentAmount - inst.paidAmount)
-  );
-  const remaining = roundLKR(installmentRemaining + lateFeeOutstanding);
-
-  return {
-    ...inst,
-    displayStatus: getInstallmentDisplayStatus(inst, today, lateFeeRatePercent),
-    installmentRemaining,
-    lateFeeAccrued: lateFeeAmount,
-    lateFeeOutstanding,
-    remaining,
-  };
-}
-
-/** Oldest overdue installment due date (for dashboard days overdue). */
 export function oldestArrearsDueDate(
   installments: InstallmentArrearsInput[],
   today: string
@@ -234,8 +316,8 @@ export function oldestArrearsDueDate(
 }
 
 export function daysBetweenDates(fromDate: string, toDate: string): number {
-  const from = new Date(toDateOnly(fromDate) + 'T12:00:00');
-  const to = new Date(toDateOnly(toDate) + 'T12:00:00');
+  const from = new Date(`${normalizeDate(fromDate)}T12:00:00Z`);
+  const to = new Date(`${normalizeDate(toDate)}T12:00:00Z`);
   return Math.max(
     0,
     Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))

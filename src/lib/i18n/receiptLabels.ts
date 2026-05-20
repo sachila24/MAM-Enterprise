@@ -13,8 +13,12 @@ export interface ReceiptLabelSet {
   totalPaid: string;
   balanceAfter: string;
   paymentBreakdown: string;
+  paymentAllocation: string;
   installmentAmount: string;
   lateFees: string;
+  lateFeePaid: string;
+  lateFeeBreakdown: string;
+  lateFeeInstallmentLine: string;
   extraPayment: string;
   loanImpact: string;
   installmentCoverage: string;
@@ -25,8 +29,10 @@ export interface ReceiptLabelSet {
   no: string;
   nextInstallmentDate: string;
   balanceMovement: string;
+  balanceUpdate: string;
   previousBalance: string;
   paidToday: string;
+  installmentApplied: string;
   newBalance: string;
   loanSummary: string;
   paidInterest: string;
@@ -49,8 +55,12 @@ const RECEIPT_EN: ReceiptLabelSet = {
   totalPaid: 'Total Paid',
   balanceAfter: 'Balance After Payment',
   paymentBreakdown: 'Payment Breakdown',
+  paymentAllocation: 'Payment Allocation',
   installmentAmount: 'Installment Amount',
   lateFees: 'Late Fees',
+  lateFeePaid: 'Late Fee Paid',
+  lateFeeBreakdown: 'Late fee by installment',
+  lateFeeInstallmentLine: 'Inst. #{n} ({months} mo.)',
   extraPayment: 'Extra Payment',
   loanImpact: 'Loan Impact',
   installmentCoverage: 'This Installment',
@@ -61,8 +71,10 @@ const RECEIPT_EN: ReceiptLabelSet = {
   no: 'No',
   nextInstallmentDate: 'Next Installment Date',
   balanceMovement: 'Balance Movement',
+  balanceUpdate: 'Balance Update',
   previousBalance: 'Previous Balance',
   paidToday: 'Paid Today',
+  installmentApplied: 'Installment Applied',
   newBalance: 'New Balance',
   loanSummary: 'Loan Summary',
   paidInterest: 'Interest Paid',
@@ -85,8 +97,12 @@ const RECEIPT_SI: ReceiptLabelSet = {
   totalPaid: 'මුළු ගෙවූ මුදල',
   balanceAfter: 'ගෙවීමෙන් පසු ඉතිරිය',
   paymentBreakdown: 'ගෙවීම් විස්තරය',
+  paymentAllocation: 'ගෙවීම් වෙන්වීම',
   installmentAmount: 'වාරික මුදල',
   lateFees: 'ප්‍රමාද ගාස්තු',
+  lateFeePaid: 'ගෙවූ ප්‍රමාද ගාස්තු',
+  lateFeeBreakdown: 'වාරික අනුව ප්‍රමාද ගාස්තු',
+  lateFeeInstallmentLine: 'වාරික #{n} ({months} මාස)',
   extraPayment: 'අමතර ගෙවීම',
   loanImpact: 'ණය බලපෑම',
   installmentCoverage: 'මෙම වාරිකය',
@@ -97,8 +113,10 @@ const RECEIPT_SI: ReceiptLabelSet = {
   no: 'නැත',
   nextInstallmentDate: 'ඊළඟ වාරික දිනය',
   balanceMovement: 'ශේෂ වෙනස්වීම',
+  balanceUpdate: 'ණය ශේෂය වෙනස්වීම',
   previousBalance: 'පෙර ශේෂය',
   paidToday: 'අද ගෙවූ මුදල',
+  installmentApplied: 'වාරිකයට යොදන ලදී',
   newBalance: 'නව ශේෂය',
   loanSummary: 'ණය පිලිබඳ සාරාංශය',
   paidInterest: 'ගෙවූ පොලී',

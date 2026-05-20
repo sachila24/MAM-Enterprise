@@ -9,6 +9,7 @@ import {
   type InterestCycleForAllocation,
 } from '../finance/interestOnly';
 import { generateId, saveDb } from './localDb';
+import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { DbLoan, DbLoanInterestCycle, MamDemoDb } from './types';
 
 function toAllocationCycle(c: DbLoanInterestCycle): InterestCycleForAllocation {
@@ -70,7 +71,7 @@ function mutateInterestOnlyCycles(
     return false;
   }
 
-  const ts = new Date().toISOString();
+  const ts = getSystemTimestamp();
   const dueCount = countInterestCyclesDueByDate(loan.start_date, asOfDate);
   let changed = false;
 
@@ -154,7 +155,7 @@ function mutateInterestOnlyCycles(
 export function persistInterestOnlyCycles(
   db: MamDemoDb,
   loanId: string,
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): boolean {
   const changed = mutateInterestOnlyCycles(db, loanId, asOfDate);
   if (changed) {
@@ -166,7 +167,7 @@ export function persistInterestOnlyCycles(
 /** Sync every interest-only loan once (app init). */
 export function syncAllInterestOnlyLoans(
   db: MamDemoDb,
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): void {
   let changed = false;
   for (const loan of db.loans) {

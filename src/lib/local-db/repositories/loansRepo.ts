@@ -11,6 +11,7 @@ import { mapLoan } from '../mappers';
 import { getLoanDetailFromDb } from '../loanDetail';
 import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
+import { getSystemToday } from '../../time/systemTime';
 
 export { getLoanDetailFromDb };
 
@@ -245,7 +246,7 @@ export function createLoan(
   db.loans.push(dbLoan);
 
   if (isInterestOnly) {
-    persistInterestOnlyCycles(db, id, new Date().toISOString().split('T')[0]);
+    persistInterestOnlyCycles(db, id, getSystemToday());
   }
 
   pushGuaranteesForNewLoan(db, id, input.customerId, input.guarantees, ts);
