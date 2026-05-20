@@ -6,7 +6,7 @@ import {
   resolveLabel,
   t as labels,
 } from '../lib/i18n/simpleLabels';
-import { formatMessage } from '../lib/i18n/messages';
+import { formatMessage, setMessageDisplayMode } from '../lib/i18n/messages';
 
 export type Language = DisplayMode;
 export type DictionaryKey = LabelKey;
@@ -43,6 +43,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('language', language);
     document.documentElement.lang = language === 'si' ? 'si' : 'en';
+    setMessageDisplayMode(language);
   }, [language]);
 
   const resolve = (text: string): string => resolveLabel(text, language);

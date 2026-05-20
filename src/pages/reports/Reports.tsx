@@ -263,7 +263,7 @@ export function Reports() {
                   </p>
                   <div className="mt-4 max-w-xs">
                     <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                      Select Month
+                      {t('selectMonth')}
                     </label>
                     <input
                     type="month"

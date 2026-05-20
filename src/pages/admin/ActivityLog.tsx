@@ -14,7 +14,10 @@ export function ActivityLog() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [userFilter, setUserFilter] = useState('All');
-  const activityLog = useMemo(() => getRecentActivity(db, 200), [db]);
+  const activityLog = useMemo(
+    () => getRecentActivity(db, 200, language),
+    [db, language]
+  );
   const staff: Staff[] = [];
   const filteredLog = activityLog.filter((log) => {
     const matchesSearch =

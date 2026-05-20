@@ -24,11 +24,14 @@ import {
 import { useT } from '../i18n/I18nProvider';
 
 export function Dashboard() {
-  const { t } = useT();
+  const { t, language } = useT();
   const db = useDemoDb();
   const kpis = useMemo(() => getDashboardKpis(db), [db]);
   const overdueLoans = useMemo(() => getOverdueLoans(db), [db]);
-  const recentActivity = useMemo(() => getRecentActivity(db), [db]);
+  const recentActivity = useMemo(
+    () => getRecentActivity(db, 10, language),
+    [db, language]
+  );
   const today = new Date();
   const greeting = `${t('goodMorning')}, Sachila`;
   const dateStr = formatDate(today, 'long');

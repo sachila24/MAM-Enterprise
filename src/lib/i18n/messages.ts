@@ -5,6 +5,12 @@ import {
   type LabelKey,
 } from './simpleLabels';
 
+let messageDisplayMode: DisplayMode = 'both';
+
+export function setMessageDisplayMode(mode: DisplayMode): void {
+  messageDisplayMode = mode;
+}
+
 /** Interpolate `{key}` placeholders in a label string. */
 export function formatMessage(
   key: LabelKey,
@@ -24,7 +30,7 @@ export function formatMessage(
 export function uiError(
   key: LabelKey,
   params?: Record<string, string | number>,
-  mode: DisplayMode = 'both'
+  mode: DisplayMode = messageDisplayMode
 ): string {
   return formatMessage(key, params, mode);
 }

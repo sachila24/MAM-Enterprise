@@ -53,7 +53,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-900"
+      className="no-print sticky top-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-900"
     >
       <span className="font-medium">{t('misc.localDemo')}</span>
       <span className="hidden sm:inline"> — {t('misc.localDemoHint')}.</span>
@@ -66,7 +66,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         {t('misc.resetDemo')}
       </button>
     </motion.div>
-    <header className="sticky top-16 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-neutral-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <header className="no-print sticky top-16 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-neutral-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
       <button
         type="button"
         className="-m-2.5 p-2.5 text-neutral-700 lg:hidden"

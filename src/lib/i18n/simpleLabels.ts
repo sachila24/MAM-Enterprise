@@ -1,3 +1,5 @@
+import { getNaturalSinhala } from './sinhalaNaturalizer';
+
 /** Bilingual UI labels: English first, Sinhala in brackets. */
 
 export type DisplayMode = 'both' | 'en' | 'si';
@@ -128,6 +130,20 @@ export const t = {
   viewFullSchedule: bi('View full schedule', 'සම්පූර්ණ කාලසටහන බලන්න'),
   viewFullLoanSchedule: bi('View full loan schedule', 'සම්පූර්ණ ණය කාලසටහන බලන්න'),
   printReceipt: bi('Print receipt', 'රිසිට්පත් මුද්‍රණය'),
+  receiptDocumentTitle: bi('Payment Receipt', 'ගෙවීම් ලදුපත'),
+  receiptTime: bi('Time', 'වේලාව'),
+  receiptThankYouFooter: bi(
+    'Thank you for your payment',
+    'ඔබගේ ගෙවීමට ස්තූතියි'
+  ),
+  receiptKeepFooter: bi(
+    'Keep this receipt for future reference',
+    'මෙය අනාගතය සඳහා සුරකින්න'
+  ),
+  receiptGeneratedNote: bi(
+    'System generated receipt',
+    'පද්ධතියෙන් සකස් කළ ලදුපත'
+  ),
   recordAnotherPayment: bi('Record another payment', 'තව ගෙවීමක් සිදුකරන්න'),
   backToPayments: bi('Back to payments', 'ගෙවීම් වෙත ආපසු'),
   noPaymentDetails: bi('No payment details available.', 'ගෙවීම් විස්තර නැත.'),
@@ -851,19 +867,46 @@ export const t = {
 
 export type LabelKey = keyof typeof t;
 
-const BILINGUAL_RE = /^(.+?)\s*\(([^)]+)\)\s*$/;
+function parseBilingualLabel(text: string): { en: string; si: string } | null {
+  if (!text.endsWith(')')) return null;
+
+  let depth = 0;
+  for (let i = text.length - 1; i >= 0; i--) {
+    const char = text[i];
+    if (char === ')') depth++;
+    if (char === '(') {
+      depth--;
+      if (depth === 0) {
+        const en = text.slice(0, i).trim();
+        const si = text.slice(i + 1, -1).trim();
+        if (!en || !si) return null;
+        return { en, si };
+      }
+    }
+  }
+
+  return null;
+}
 
 /** Resolve a bilingual string for the current display mode. */
 export function resolveLabel(text: string, mode: DisplayMode): string {
-  const match = text.match(BILINGUAL_RE);
-  if (!match) return text;
-  if (mode === 'both') return text;
-  if (mode === 'en') return match[1].trim();
-  return match[2].trim();
+  const parsed = parseBilingualLabel(text);
+  if (!parsed) return text;
+
+  const naturalSinhala = getNaturalSinhala(parsed.si);
+  if (mode === 'both') return bi(parsed.en, naturalSinhala);
+  if (mode === 'en') return parsed.en;
+  return naturalSinhala;
 }
 
 export function getLabel(key: LabelKey, mode: DisplayMode = 'both'): string {
-  return resolveLabel(t[key], mode);
+  const parsed = parseBilingualLabel(t[key]);
+  if (!parsed) return t[key];
+
+  const naturalSinhala = getNaturalSinhala(key, parsed.si);
+  if (mode === 'both') return bi(parsed.en, naturalSinhala);
+  if (mode === 'en') return parsed.en;
+  return naturalSinhala;
 }
 
 /** Map internal allocation row type (English) to bilingual display label. */

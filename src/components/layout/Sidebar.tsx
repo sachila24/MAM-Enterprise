@@ -18,7 +18,7 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       animate={{
         width: collapsed ? 80 : 256,
       }}
-      className="hidden lg:flex lg:flex-col lg:border-r lg:border-neutral-200 lg:bg-white overflow-y-auto">
+      className="no-print hidden lg:flex lg:flex-col lg:border-r lg:border-neutral-200 lg:bg-white overflow-y-auto">
       <div className="flex h-16 shrink-0 items-center justify-center border-b border-neutral-200 px-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-800 text-white font-bold tracking-wider shrink-0">
           MAM

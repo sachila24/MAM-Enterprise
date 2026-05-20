@@ -11,7 +11,7 @@ import {
   formatActivityAction,
   formatActivitySummary,
 } from '../../i18n/messages';
-import { getLabel } from '../../i18n/simpleLabels';
+import { getLabel, type DisplayMode } from '../../i18n/simpleLabels';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -116,7 +116,8 @@ export function getOverdueLoans(
 
 export function getRecentActivity(
   db: MamDemoDb = getDb(),
-  limit = 10
+  limit = 10,
+  mode: DisplayMode = 'both'
 ): ActivityLog[] {
   return [...db.audit_logs]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -125,10 +126,10 @@ export function getRecentActivity(
       id: log.id,
       when: log.created_at,
       userId: log.user_id,
-      user: db.profiles.find((p) => p.id === log.user_id)?.full_name ?? getLabel('systemUser'),
-      action: formatActivityAction(log.action),
+      user: db.profiles.find((p) => p.id === log.user_id)?.full_name ?? getLabel('systemUser', mode),
+      action: formatActivityAction(log.action, mode),
       type: mapEntityType(log.entity_type),
-      summary: formatActivitySummary(log.summary),
+      summary: formatActivitySummary(log.summary, mode),
       referenceId: log.entity_id,
     }));
 }
