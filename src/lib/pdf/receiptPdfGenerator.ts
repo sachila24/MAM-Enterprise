@@ -7,6 +7,16 @@ import {
   getReceiptLabels,
 } from '../i18n/receiptLabels';
 import type { DisplayMode } from '../i18n/simpleLabels';
+import {
+  buildReceiptPrintInsight,
+  formatReceiptInsightDate,
+  type ReceiptPrintInsightInput,
+} from '../receipt/receiptPrintInsight';
+import type {
+  FixedInstallmentReceiptBreakdown,
+  InterestOnlyReceiptBreakdown,
+} from '../finance/receipt';
+import type { RepaymentMethod } from '../../types/loan';
 
 type JsPdfInstance = InstanceType<typeof jsPDF>;
 
@@ -63,6 +73,9 @@ export interface PaymentReceiptData {
   allocation: ReceiptAllocationBreakdown;
   balance: ReceiptBalanceData;
   company?: ReceiptBusinessData;
+  /** Display-only fields from payment-time snapshot */
+  printInsight?: ReceiptPrintInsightInput;
+  advancePayment?: number;
 }
 
 export interface ReceiptPdfOptions {
@@ -270,6 +283,13 @@ export const RECEIPT_PDF_TEST_CASES: Record<string, PaymentReceiptData> = {
       loanBalanceAfterPayment: 95_000,
       arrearsRemaining: 0,
     },
+    printInsight: {
+      balanceBefore: 125_000,
+      nextInstallmentDate: '2026-06-10',
+      currentMonthDue: 22_500,
+      currentMonthPaid: 22_500,
+      lateFeesDueBefore: 2_500,
+    },
   },
 };
 
@@ -371,13 +391,100 @@ function renderReceipt(
   const totalApplied =
     data.payment.totalApplied ?? data.payment.cashReceived + discountGiven;
 
+  const cashRows: Array<[string, number, boolean]> = [
+    [labels.cashReceived, data.payment.cashReceived, false],
+  ];
+  if (discountGiven > 0) {
+    cashRows.push([labels.discount, discountGiven, false]);
+  }
+  cashRows.push([labels.totalPaid, totalApplied, true]);
+
+  y = drawAmountRows(doc, cashRows, contentX, y, contentWidth, layout);
+  y = drawRule(doc, contentX, y + 1, contentWidth, 0.3) + 4;
+
+  const inst = data.allocation.installments ?? 0;
+  const principal = data.allocation.principal ?? 0;
+  const lateFees = data.allocation.lateFees ?? 0;
+  const advance = data.advancePayment ?? 0;
+  const installmentAmount = inst > 0 ? inst : principal > 0 ? principal : 0;
+  const extraPayment = advance > 0 ? advance : 0;
+
+  y = drawSectionTitle(doc, labels.paymentBreakdown, contentX, y, layout);
+  const breakdownRows: Array<[string, number, boolean]> = [];
+  if (installmentAmount > 0) {
+    breakdownRows.push([labels.installmentAmount, installmentAmount, false]);
+  }
+  if (lateFees > 0) {
+    breakdownRows.push([labels.lateFees, lateFees, false]);
+  }
+  if (extraPayment > 0) {
+    breakdownRows.push([labels.extraPayment, extraPayment, false]);
+  }
+  breakdownRows.push([labels.totalPaid, totalApplied, true]);
+  y = drawAmountRows(doc, breakdownRows, contentX, y, contentWidth, layout);
+
+  const repaymentMethod = (data.loan.repaymentMethod ??
+    'FIXED_MONTHLY_INSTALLMENT') as RepaymentMethod;
+  const receiptForInsight = pdfDataToReceiptBreakdown(
+    data,
+    totalApplied,
+    discountGiven
+  );
+  const printInsight = buildReceiptPrintInsight(
+    repaymentMethod,
+    receiptForInsight,
+    {
+      ...data.printInsight,
+      balanceBefore:
+        data.printInsight?.balanceBefore ??
+        data.balance.loanBalanceAfterPayment +
+          totalApplied -
+          (data.advancePayment ?? 0),
+    }
+  );
+
+  const isFixed = repaymentMethod.includes('FIXED');
+  const coverageLabel =
+    printInsight.installmentCoverage === 'full'
+      ? labels.installmentFull
+      : printInsight.installmentCoverage === 'partial'
+        ? labels.installmentPartial
+        : null;
+  const nextDueFormatted = formatReceiptInsightDate(
+    printInsight.nextInstallmentDate
+  );
+
+  if (
+    (isFixed && coverageLabel) ||
+    printInsight.showLateFeeSettled ||
+    nextDueFormatted
+  ) {
+    y = drawRule(doc, contentX, y + 0.5, contentWidth, 0.3) + 4;
+    y = drawSectionTitle(doc, labels.loanImpact, contentX, y, layout);
+    const impactRows: Array<[string, string]> = [];
+    if (isFixed && coverageLabel) {
+      impactRows.push([labels.installmentCoverage, coverageLabel]);
+    }
+    if (printInsight.showLateFeeSettled) {
+      impactRows.push([
+        labels.lateFeeSettled,
+        printInsight.lateFeeSettled ? labels.yes : labels.no,
+      ]);
+    }
+    if (nextDueFormatted) {
+      impactRows.push([labels.nextInstallmentDate, nextDueFormatted]);
+    }
+    y = drawDetailRows(doc, impactRows, contentX, y, contentWidth, layout);
+  }
+
+  y = drawRule(doc, contentX, y + 0.5, contentWidth, 0.3) + 4;
+  y = drawSectionTitle(doc, labels.balanceMovement, contentX, y, layout);
   y = drawAmountRows(
     doc,
     [
-      [labels.cashReceived, data.payment.cashReceived, true],
-      [labels.discount, discountGiven, false],
-      [labels.totalPaid, totalApplied, true],
-      [labels.balanceAfter, data.balance.loanBalanceAfterPayment, true],
+      [labels.previousBalance, printInsight.balanceBefore, false],
+      [labels.paidToday, totalApplied, false],
+      [labels.newBalance, data.balance.loanBalanceAfterPayment, true],
     ],
     contentX,
     y,
@@ -385,36 +492,37 @@ function renderReceipt(
     layout
   );
 
-  y = drawRule(doc, contentX, y + 1, contentWidth, 0.3) + 5;
-  y = drawSectionTitle(doc, labels.loanSummary, contentX, y, layout);
-
-  const summaryAmounts: Array<[string, number]> = [];
-  const inst = data.allocation.installments ?? 0;
-  const principal = data.allocation.principal ?? 0;
-  if (inst > 0) summaryAmounts.push([labels.paidInstallment, inst]);
-  if (principal > 0) summaryAmounts.push([labels.paidPrincipal, principal]);
-
-  if (summaryAmounts.length > 0) {
-    y = drawAmountRows(
-      doc,
-      summaryAmounts.map(([label, amount]) => [label, amount, false]),
-      contentX,
-      y,
-      contentWidth,
-      layout
-    );
-  }
-
-  y = drawAmountRows(
-    doc,
-    [[labels.remainingBalance, data.balance.loanBalanceAfterPayment, true]],
-    contentX,
-    y,
-    contentWidth,
-    layout
-  );
-
   drawFooter(doc, labels, layout, footerY);
+}
+
+function pdfDataToReceiptBreakdown(
+  data: PaymentReceiptData,
+  totalApplied: number,
+  discountApplied: number
+): FixedInstallmentReceiptBreakdown | InterestOnlyReceiptBreakdown {
+  const method = data.loan.repaymentMethod ?? '';
+  if (method.includes('INTEREST')) {
+    return {
+      cashReceived: data.payment.cashReceived,
+      discountApplied,
+      totalApplied,
+      interestPaid: data.allocation.installments ?? 0,
+      principalPaid: data.allocation.principal ?? 0,
+      remainingPrincipal: data.balance.loanBalanceAfterPayment,
+      pendingInterestRemaining: 0,
+      nextEstimatedInterest: 0,
+    };
+  }
+  return {
+    cashReceived: data.payment.cashReceived,
+    discountApplied,
+    totalApplied,
+    lateFeePaid: data.allocation.lateFees ?? 0,
+    installmentPaid: data.allocation.installments ?? 0,
+    advancePaid: data.advancePayment ?? 0,
+    remainingArrears: data.balance.arrearsRemaining ?? 0,
+    loanBalance: data.balance.loanBalanceAfterPayment,
+  };
 }
 
 function drawFooter(

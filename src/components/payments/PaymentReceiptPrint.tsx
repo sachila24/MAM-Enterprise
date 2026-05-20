@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type {
   FixedInstallmentReceiptBreakdown,
   InterestOnlyReceiptBreakdown,
@@ -11,6 +12,12 @@ import {
   type ReceiptLabelSet,
 } from '../../lib/i18n/receiptLabels';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import {
+  buildReceiptPrintInsight,
+  formatReceiptInsightDate,
+  type ReceiptPrintInsight,
+  type ReceiptPrintInsightInput,
+} from '../../lib/receipt/receiptPrintInsight';
 
 export interface PaymentReceiptPrintProps {
   receiptNumber: string;
@@ -19,6 +26,7 @@ export interface PaymentReceiptPrintProps {
   paymentMethod: string;
   repaymentMethod: RepaymentMethod;
   receipt: InterestOnlyReceiptBreakdown | FixedInstallmentReceiptBreakdown;
+  insight?: ReceiptPrintInsightInput;
   language?: DisplayMode;
   labels?: ReceiptLabelSet;
 }
@@ -60,6 +68,21 @@ function ReceiptRow({
   );
 }
 
+function ReceiptSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="receipt-section receipt-insight-section">
+      <h3 className="receipt-section-title">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 /** Bank-style A4 receipt; print via #receipt-print-area + receipt-print.css */
 export function PaymentReceiptPrint({
   receiptNumber,
@@ -68,43 +91,56 @@ export function PaymentReceiptPrint({
   paymentMethod,
   repaymentMethod,
   receipt,
+  insight: insightInput,
   language = 'si',
   labels: labelsProp,
 }: PaymentReceiptPrintProps) {
   const labels = labelsProp ?? getReceiptLabels(language);
   const { date, time } = formatReceiptDateTime(paymentDate);
   const loanStub = { repaymentMethod } as Pick<Loan, 'repaymentMethod'>;
+  const printInsight: ReceiptPrintInsight = buildReceiptPrintInsight(
+    repaymentMethod,
+    receipt,
+    insightInput
+  );
 
-  const balanceAfter =
+  const discount = receipt.discountApplied ?? 0;
+  const methodLabel = formatReceiptPaymentMethod(paymentMethod, language);
+
+  const newBalance =
     isFixedInstallmentLoan(loanStub) && 'loanBalance' in receipt
       ? receipt.loanBalance
       : isInterestOnlyLoan(loanStub) && 'remainingPrincipal' in receipt
         ? receipt.remainingPrincipal
         : 0;
 
-  const discount = receipt.discountApplied ?? 0;
-  const methodLabel = formatReceiptPaymentMethod(paymentMethod, language);
+  const isFixed = isFixedInstallmentLoan(loanStub) && 'installmentPaid' in receipt;
+  const isIo = isInterestOnlyLoan(loanStub) && 'interestPaid' in receipt;
 
-  const showInterest =
-    isInterestOnlyLoan(loanStub) &&
-    'interestPaid' in receipt &&
-    receipt.interestPaid > 0;
-  const showInstallment =
-    isFixedInstallmentLoan(loanStub) &&
-    'installmentPaid' in receipt &&
-    receipt.installmentPaid > 0;
-  const showPrincipal =
-    isInterestOnlyLoan(loanStub) &&
-    'principalPaid' in receipt &&
-    receipt.principalPaid > 0;
+  const installmentAmount = isFixed
+    ? receipt.installmentPaid
+    : isIo
+      ? receipt.interestPaid
+      : 0;
+  const lateFees = isFixed ? receipt.lateFeePaid : 0;
+  const extraPayment = isFixed ? receipt.advancePaid : isIo ? receipt.principalPaid : 0;
+
+  const coverageLabel =
+    printInsight.installmentCoverage === 'full'
+      ? labels.installmentFull
+      : printInsight.installmentCoverage === 'partial'
+        ? labels.installmentPartial
+        : null;
+
+  const nextDueFormatted = formatReceiptInsightDate(printInsight.nextInstallmentDate);
 
   return (
     <div id="receipt-print-area" className="receipt-document">
       <div className="receipt-sheet">
         <header className="receipt-section receipt-header">
           <h1 className="receipt-company-name">M A M TRADING</h1>
-          <p className="receipt-company-meta">කොළඹ</p>
-          <p className="receipt-company-meta">ඇමතුම්: 011 234 5678</p>
+          <p className="receipt-company-meta">No.47, Galmaduwa, Mahailuppallama</p>
+          <p className="receipt-company-meta">Call: 071 593 1681 | 071 209 9416</p>
           <h2 className="receipt-title">{labels.receiptTitle}</h2>
 
           <div className="receipt-meta-block">
@@ -134,49 +170,84 @@ export function PaymentReceiptPrint({
             <ReceiptRow
               label={labels.cashReceived}
               value={formatLKR(receipt.cashReceived)}
-              bold
             />
-            <ReceiptRow label={labels.discount} value={formatLKR(discount)} bold />
+            {discount > 0 && (
+              <ReceiptRow label={labels.discount} value={formatLKR(discount)} />
+            )}
             <ReceiptRow
               label={labels.totalPaid}
               value={formatLKR(receipt.totalApplied)}
-              bold
-            />
-            <ReceiptRow
-              label={labels.balanceAfter}
-              value={formatLKR(balanceAfter)}
               bold
             />
           </section>
 
           <hr className="receipt-rule" />
 
-          <section className="receipt-section">
-            <h3 className="receipt-section-title">{labels.loanSummary}</h3>
-            {showInterest && 'interestPaid' in receipt && (
+          <ReceiptSection title={labels.paymentBreakdown}>
+            {installmentAmount > 0 && (
               <ReceiptRow
-                label={labels.paidInterest}
-                value={formatLKR(receipt.interestPaid)}
+                label={labels.installmentAmount}
+                value={formatLKR(installmentAmount)}
               />
             )}
-            {showInstallment && 'installmentPaid' in receipt && (
-              <ReceiptRow
-                label={labels.paidInstallment}
-                value={formatLKR(receipt.installmentPaid)}
-              />
+            {lateFees > 0 && (
+              <ReceiptRow label={labels.lateFees} value={formatLKR(lateFees)} />
             )}
-            {showPrincipal && 'principalPaid' in receipt && (
-              <ReceiptRow
-                label={labels.paidPrincipal}
-                value={formatLKR(receipt.principalPaid)}
-              />
+            {extraPayment > 0 && (
+              <ReceiptRow label={labels.extraPayment} value={formatLKR(extraPayment)} />
             )}
             <ReceiptRow
-              label={labels.remainingBalance}
-              value={formatLKR(balanceAfter)}
+              label={labels.totalPaid}
+              value={formatLKR(receipt.totalApplied)}
               bold
             />
-          </section>
+          </ReceiptSection>
+
+          {(isFixed && coverageLabel) ||
+          printInsight.showLateFeeSettled ||
+          nextDueFormatted ? (
+            <>
+              <hr className="receipt-rule receipt-rule-tight" />
+              <ReceiptSection title={labels.loanImpact}>
+                {isFixed && coverageLabel && (
+                  <ReceiptRow
+                    label={labels.installmentCoverage}
+                    value={coverageLabel}
+                  />
+                )}
+                {printInsight.showLateFeeSettled && (
+                  <ReceiptRow
+                    label={labels.lateFeeSettled}
+                    value={printInsight.lateFeeSettled ? labels.yes : labels.no}
+                  />
+                )}
+                {nextDueFormatted && (
+                  <ReceiptRow
+                    label={labels.nextInstallmentDate}
+                    value={nextDueFormatted}
+                  />
+                )}
+              </ReceiptSection>
+            </>
+          ) : null}
+
+          <hr className="receipt-rule receipt-rule-tight" />
+
+          <ReceiptSection title={labels.balanceMovement}>
+            <ReceiptRow
+              label={labels.previousBalance}
+              value={formatLKR(printInsight.balanceBefore)}
+            />
+            <ReceiptRow
+              label={labels.paidToday}
+              value={formatLKR(receipt.totalApplied)}
+            />
+            <ReceiptRow
+              label={labels.newBalance}
+              value={formatLKR(newBalance)}
+              bold
+            />
+          </ReceiptSection>
         </div>
 
         <footer className="receipt-footer receipt-section">

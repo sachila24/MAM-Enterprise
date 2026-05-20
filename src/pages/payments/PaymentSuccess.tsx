@@ -12,6 +12,7 @@ import type {
 import type { AllocationDisplayRow } from '../../lib/finance/allocationDisplay';
 import type { RepaymentMethod } from '../../types/loan';
 import { PaymentReceiptPrint } from '../../components/payments/PaymentReceiptPrint';
+import type { ReceiptPrintInsightInput } from '../../lib/receipt/receiptPrintInsight';
 import { useT } from '../../i18n/I18nProvider';
 
 export interface PaymentSuccessState {
@@ -25,6 +26,7 @@ export interface PaymentSuccessState {
   paymentDate: string;
   repaymentMethod: RepaymentMethod;
   receipt: InterestOnlyReceiptBreakdown | FixedInstallmentReceiptBreakdown;
+  receiptInsight?: ReceiptPrintInsightInput;
   allocationRows?: AllocationDisplayRow[];
   supabasePending?: boolean;
   receiptNumber?: string;
@@ -97,6 +99,7 @@ export function PaymentSuccess() {
         paymentMethod={state.paymentMethod}
         repaymentMethod={state.repaymentMethod}
         receipt={state.receipt}
+        insight={state.receiptInsight}
         language={language}
       />
 

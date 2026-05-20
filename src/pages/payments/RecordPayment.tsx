@@ -167,6 +167,15 @@ export function RecordPayment() {
       paymentDate: form.paymentDate,
       repaymentMethod: selectedLoan.repaymentMethod,
       receipt: computation.receipt,
+      receiptInsight: {
+        balanceBefore: isInterestOnlyLoan(selectedLoan)
+          ? selectedLoan.currentPrincipalBalance
+          : selectedLoan.balanceAmount,
+        nextInstallmentDate: computation.paymentNextDue?.dueDate,
+        currentMonthDue: computation.fixedDueSummary?.currentMonthDue,
+        currentMonthPaid: computation.allocation.summary.currentMonthPaid,
+        lateFeesDueBefore: computation.fixedDueSummary?.totalLateFeesDue,
+      },
       allocationRows: receiptRows,
       supabasePending: false,
     };

@@ -12,6 +12,22 @@ export interface ReceiptLabelSet {
   discount: string;
   totalPaid: string;
   balanceAfter: string;
+  paymentBreakdown: string;
+  installmentAmount: string;
+  lateFees: string;
+  extraPayment: string;
+  loanImpact: string;
+  installmentCoverage: string;
+  installmentFull: string;
+  installmentPartial: string;
+  lateFeeSettled: string;
+  yes: string;
+  no: string;
+  nextInstallmentDate: string;
+  balanceMovement: string;
+  previousBalance: string;
+  paidToday: string;
+  newBalance: string;
   loanSummary: string;
   paidInterest: string;
   paidInstallment: string;
@@ -32,6 +48,22 @@ const RECEIPT_EN: ReceiptLabelSet = {
   discount: 'Discount',
   totalPaid: 'Total Paid',
   balanceAfter: 'Balance After Payment',
+  paymentBreakdown: 'Payment Breakdown',
+  installmentAmount: 'Installment Amount',
+  lateFees: 'Late Fees',
+  extraPayment: 'Extra Payment',
+  loanImpact: 'Loan Impact',
+  installmentCoverage: 'This Installment',
+  installmentFull: 'Full',
+  installmentPartial: 'Partial',
+  lateFeeSettled: 'Late Fees Settled',
+  yes: 'Yes',
+  no: 'No',
+  nextInstallmentDate: 'Next Installment Date',
+  balanceMovement: 'Balance Movement',
+  previousBalance: 'Previous Balance',
+  paidToday: 'Paid Today',
+  newBalance: 'New Balance',
   loanSummary: 'Loan Summary',
   paidInterest: 'Interest Paid',
   paidInstallment: 'Installment Paid',
@@ -46,19 +78,35 @@ const RECEIPT_SI: ReceiptLabelSet = {
   receiptNo: 'ලදුපත් අංකය',
   date: 'දිනය',
   time: 'වේලාව',
-  customerName: 'පාරිභෝගික නම',
+  customerName: 'පාරිභෝගිකයාගේ නම',
   paymentMethod: 'ගෙවූ ක්‍රමය',
   cashReceived: 'ලැබුණු මුදල',
   discount: 'වට්ටම',
   totalPaid: 'මුළු ගෙවූ මුදල',
   balanceAfter: 'ගෙවීමෙන් පසු ඉතිරිය',
-  loanSummary: 'ණය සාරාංශය',
+  paymentBreakdown: 'ගෙවීම් විස්තරය',
+  installmentAmount: 'වාරික මුදල',
+  lateFees: 'ප්‍රමාද ගාස්තු',
+  extraPayment: 'අමතර ගෙවීම',
+  loanImpact: 'ණය බලපෑම',
+  installmentCoverage: 'මෙම වාරිකය',
+  installmentFull: 'සම්පූර්ණ',
+  installmentPartial: 'අර්ධ',
+  lateFeeSettled: 'ප්‍රමාද ගාස්තු ගෙවීද',
+  yes: 'ඔව්',
+  no: 'නැත',
+  nextInstallmentDate: 'ඊළඟ වාරික දිනය',
+  balanceMovement: 'ශේෂ වෙනස්වීම',
+  previousBalance: 'පෙර ශේෂය',
+  paidToday: 'අද ගෙවූ මුදල',
+  newBalance: 'නව ශේෂය',
+  loanSummary: 'ණය පිලිබඳ සාරාංශය',
   paidInterest: 'ගෙවූ පොලී',
   paidInstallment: 'ගෙවූ වාරිකය',
   paidPrincipal: 'ගෙවූ මුල් මුදල',
   remainingBalance: 'ඉතිරි ශේෂය',
-  thankYou: 'ස්තූතියි — ඔබගේ ගෙවීමට',
-  keepReceipt: 'මෙය ආරක්ෂා කර තබාගන්න',
+  thankYou: 'ඔබගේ ගෙවීමට ස්තූතියි',
+  keepReceipt: 'මෙය සුරක්ෂිතව තබාගන්න',
 };
 
 export function getReceiptLabels(mode: DisplayMode): ReceiptLabelSet {
