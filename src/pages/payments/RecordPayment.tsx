@@ -854,7 +854,7 @@ function SummaryPanel({
                   value={formatLKR(computation.receipt.remainingPrincipal)}
                 />
                 <SummaryLine
-                  label="Next est. interest"
+                  label={t('nextEstInterest')}
                   value={formatLKR(computation.receipt.nextEstimatedInterest)}
                 />
                 {computation.receipt.pendingInterestRemaining > 0 && (
@@ -891,7 +891,7 @@ function SummaryPanel({
                     value={formatLKR(computation.receipt.remainingArrears)}
                   />
                   <SummaryLine
-                    label="Balance after"
+                    label={t('balanceAfterShort')}
                     value={formatLKR(computation.receipt.loanBalance)}
                     highlight
                   />

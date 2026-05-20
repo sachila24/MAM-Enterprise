@@ -23,6 +23,7 @@ import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLegacyPayment, mapLoanPayment } from '../mappers';
 import type { MamDemoDb } from '../types';
 import type { LoanPayment } from '../../../types/entities';
+import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
 
 export interface RecordPaymentInput {
@@ -128,14 +129,14 @@ export function recordPayment(
       };
     }
     if (inFlightPaymentSubmits.has(input.clientSubmitId)) {
-      throw new Error('Payment save already in progress. Please wait.');
+      throw new Error(uiError('paymentSaveInProgress'));
     }
     inFlightPaymentSubmits.add(input.clientSubmitId);
   }
 
   try {
   const loan = db.loans.find((l) => l.id === input.loanId);
-  if (!loan) throw new Error('Loan not found');
+  if (!loan) throw new Error(uiError('loanNotFound'));
 
   if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
     persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
@@ -151,7 +152,7 @@ export function recordPayment(
   const discountAmount = roundLKR(input.discountAmount ?? 0);
   const totalApply = roundLKR(cashAmount + discountAmount);
   if (totalApply <= 0) {
-    throw new Error('Enter a payment amount and/or discount to apply.');
+    throw new Error(uiError('enterPaymentAmount'));
   }
 
   const balanceBefore = loan.balance_amount;
@@ -220,7 +221,9 @@ export function recordPayment(
 
   if (merged.unallocated > 0) {
     throw new Error(
-      `Could not apply ${merged.unallocated.toLocaleString()} LKR of this payment. Adjust cash or discount.`
+      uiError('paymentUnallocated', {
+        amount: merged.unallocated.toLocaleString(),
+      })
     );
   }
 
@@ -303,7 +306,11 @@ export function recordPayment(
     action: 'PAYMENT',
     entity_type: 'payment',
     entity_id: paymentId,
-    summary: `Payment ${paymentCode} · ${receiptNumber} for ${updatedLoan.loan_code}`,
+    summary: buildAuditSummary('paymentAuditSummary', {
+      code: paymentCode,
+      receipt: receiptNumber,
+      loanCode: updatedLoan.loan_code,
+    }),
     created_at: ts,
   });
 

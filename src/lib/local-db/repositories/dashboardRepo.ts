@@ -7,6 +7,11 @@ import {
   getFixedLoanArrearsSummary,
   oldestArrearsDueDate,
 } from '../../finance/fixedInstallmentStatus';
+import {
+  formatActivityAction,
+  formatActivitySummary,
+} from '../../i18n/messages';
+import { getLabel } from '../../i18n/simpleLabels';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -109,17 +114,21 @@ export function getOverdueLoans(
     });
 }
 
-export function getRecentActivity(db: MamDemoDb = getDb()): ActivityLog[] {
+export function getRecentActivity(
+  db: MamDemoDb = getDb(),
+  limit = 10
+): ActivityLog[] {
   return [...db.audit_logs]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 10)
+    .slice(0, limit)
     .map((log) => ({
       id: log.id,
-      timestamp: log.created_at,
-      user: db.profiles.find((p) => p.id === log.user_id)?.full_name ?? 'System',
-      action: log.action,
+      when: log.created_at,
+      userId: log.user_id,
+      user: db.profiles.find((p) => p.id === log.user_id)?.full_name ?? getLabel('systemUser'),
+      action: formatActivityAction(log.action),
       type: mapEntityType(log.entity_type),
-      summary: log.summary,
+      summary: formatActivitySummary(log.summary),
       referenceId: log.entity_id,
     }));
 }

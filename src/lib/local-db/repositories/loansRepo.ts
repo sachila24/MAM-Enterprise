@@ -10,6 +10,7 @@ import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLoan } from '../mappers';
 import { getLoanDetailFromDb } from '../loanDetail';
 import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
+import { buildAuditSummary, uiError } from '../../i18n/messages';
 
 export { getLoanDetailFromDb };
 
@@ -102,23 +103,23 @@ export function createLoan(
   const id = generateId();
   const isBike = input.loanPurpose === 'BIKE_INSTALLMENT';
   if (isBike && input.repaymentMethod !== 'FIXED_TERM_INSTALLMENT') {
-    throw new Error('Bike installment loans must use fixed-term installments.');
+    throw new Error(uiError('bikeInstallmentMustFixedTerm'));
   }
   if (isBike && !input.bikeId) {
-    throw new Error('Select an in-stock bike for this installment loan.');
+    throw new Error(uiError('selectInStockBikeInstallment'));
   }
   if (isBike && input.bikeId) {
     const bike = db.bikes.find((b) => b.id === input.bikeId);
-    if (!bike) throw new Error('Selected bike not found.');
+    if (!bike) throw new Error(uiError('selectedBikeNotFound'));
     if (bike.status !== 'IN_STOCK') {
-      throw new Error('Selected bike is no longer in stock.');
+      throw new Error(uiError('selectedBikeNotInStock'));
     }
   }
   if (!input.customerId) {
-    throw new Error('Customer is required.');
+    throw new Error(uiError('customerRequired'));
   }
   if (input.principalAmount <= 0) {
-    throw new Error('Finance amount must be greater than zero.');
+    throw new Error(uiError('financeAmountGreaterThanZero'));
   }
   const isInterestOnly =
     input.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
@@ -255,7 +256,7 @@ export function createLoan(
     action: 'CREATE',
     entity_type: 'loan',
     entity_id: id,
-    summary: `Loan ${loanCode} created`,
+    summary: buildAuditSummary('loanCreatedSummary', { code: loanCode }),
     created_at: ts,
   });
   saveDb(db);

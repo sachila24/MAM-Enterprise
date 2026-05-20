@@ -128,6 +128,8 @@ export interface ActivityLog {
   id: string;
   when: string;
   userId: string;
+  /** Display name when staff list is unavailable */
+  user?: string;
   action: string;
   type: 'loan' | 'payment' | 'bike' | 'customer' | 'guarantee' | 'system';
   summary: string;

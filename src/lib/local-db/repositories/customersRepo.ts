@@ -2,6 +2,7 @@ import type { Customer } from '../../../types/entities';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapCustomer } from '../mappers';
 import type { DbCustomer, MamDemoDb } from '../types';
+import { buildAuditSummary } from '../../i18n/messages';
 
 export function listCustomers(db: MamDemoDb = getDb()): Customer[] {
   return db.customers.map((c) => mapCustomer(c, db));
@@ -38,7 +39,9 @@ export function createCustomer(
     action: 'CREATE',
     entity_type: 'customer',
     entity_id: row.id,
-    summary: `Customer ${row.customer_code} created`,
+    summary: buildAuditSummary('customerCreatedSummary', {
+      code: row.customer_code,
+    }),
     created_at: ts,
   });
   saveDb(db);

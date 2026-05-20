@@ -15,6 +15,7 @@ import { isFixedInstallmentLoan, isInterestOnlyLoan } from '../../types/loan';
 import type { Loan, RepaymentMethod } from '../../types/loan';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
+import { displayAllocationType } from '../../lib/i18n/simpleLabels';
 
 export interface PaymentSuccessState {
   loanCode: string;
@@ -34,7 +35,7 @@ export interface PaymentSuccessState {
 }
 
 export function PaymentSuccess() {
-  const { t } = useT();
+  const { t, language } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as PaymentSuccessState | null;
@@ -88,31 +89,31 @@ export function PaymentSuccess() {
 
         <div className="p-6 space-y-5">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            <ReceiptField label="Customer" value={state.customerName} wide />
-            <ReceiptField label="Loan" value={state.loanCode} mono />
+            <ReceiptField label={t('field.customer')} value={state.customerName} wide />
+            <ReceiptField label={t('field.loan')} value={state.loanCode} mono />
             <ReceiptField
-              label="Payment method"
+              label={t('paymentMethodLabel')}
               value={formatEnum(state.paymentMethod)}
             />
             <ReceiptField
-              label="Cash received"
+              label={t('cashReceived')}
               value={formatLKR(state.receipt.cashReceived)}
               bold
             />
             {state.receipt.discountApplied > 0 && (
               <ReceiptField
-                label="Discount given"
+                label={t('discountGivenLabel')}
                 value={formatLKR(state.receipt.discountApplied)}
               />
             )}
             <ReceiptField
-              label="Total applied"
+              label={t('totalApplied')}
               value={formatLKR(state.receipt.totalApplied)}
               bold
               accent
             />
             <ReceiptField
-              label="Balance after"
+              label={t('balanceAfterShort')}
               value={formatLKR(balanceAfter)}
               bold
               wide
@@ -121,24 +122,24 @@ export function PaymentSuccess() {
 
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">
-              Allocation summary
+              {t('allocationSummary')}
             </h2>
             {isFixedInstallmentLoan(loanStub) && 'lateFeePaid' in state.receipt && (
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <SummaryChip label="Late fee paid" value={formatLKR(state.receipt.lateFeePaid)} />
-                <SummaryChip label="Installment paid" value={formatLKR(state.receipt.installmentPaid)} />
+                <SummaryChip label={t('lateFeePaid')} value={formatLKR(state.receipt.lateFeePaid)} />
+                <SummaryChip label={t('installmentPaid')} value={formatLKR(state.receipt.installmentPaid)} />
                 {state.receipt.advancePaid > 0 && (
-                  <SummaryChip label="Advance paid" value={formatLKR(state.receipt.advancePaid)} />
+                  <SummaryChip label={t('advancePaid')} value={formatLKR(state.receipt.advancePaid)} />
                 )}
-                <SummaryChip label="Arrears remaining" value={formatLKR(state.receipt.remainingArrears)} />
+                <SummaryChip label={t('arrearsRemaining')} value={formatLKR(state.receipt.remainingArrears)} />
               </dl>
             )}
             {isInterestOnlyLoan(loanStub) && 'interestPaid' in state.receipt && (
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <SummaryChip label="Interest paid" value={formatLKR(state.receipt.interestPaid)} />
-                <SummaryChip label="Principal paid" value={formatLKR(state.receipt.principalPaid)} />
-                <SummaryChip label="Pending interest" value={formatLKR(state.receipt.pendingInterestRemaining)} />
-                <SummaryChip label="Principal balance after" value={formatLKR(state.receipt.remainingPrincipal)} />
+                <SummaryChip label={t('interestPaid')} value={formatLKR(state.receipt.interestPaid)} />
+                <SummaryChip label={t('principalPaid')} value={formatLKR(state.receipt.principalPaid)} />
+                <SummaryChip label={t('pendingInterestLabel')} value={formatLKR(state.receipt.pendingInterestRemaining)} />
+                <SummaryChip label={t('principalBalanceAfter')} value={formatLKR(state.receipt.remainingPrincipal)} />
               </dl>
             )}
           </div>
@@ -146,20 +147,20 @@ export function PaymentSuccess() {
           {state.allocationRows && state.allocationRows.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2">
-                Affected by this payment
+                {t('affectedByPayment')}
               </h3>
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="text-left text-neutral-500 border-b border-neutral-200">
-                    <th className="py-1.5 pr-2">Type</th>
-                    <th className="py-1.5 pr-2">Period</th>
-                    <th className="py-1.5 text-right">Paid</th>
+                    <th className="py-1.5 pr-2">{t('field.type')}</th>
+                    <th className="py-1.5 pr-2">{t('period')}</th>
+                    <th className="py-1.5 text-right">{t('paid')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {state.allocationRows.map((row, i) => (
                     <tr key={i}>
-                      <td className="py-1.5 pr-2 font-medium">{row.type}</td>
+                      <td className="py-1.5 pr-2 font-medium">{displayAllocationType(row.type, language)}</td>
                       <td className="py-1.5 pr-2 text-neutral-600">{row.period}</td>
                       <td className="py-1.5 text-right tabular-nums text-brand-600 font-medium">
                         {formatLKR(row.paidByPayment)}
@@ -172,14 +173,14 @@ export function PaymentSuccess() {
                 to={`/loans/${state.loanId}`}
                 className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:text-brand-500 print:hidden"
               >
-                View full loan schedule
+                {t('viewFullLoanSchedule')}
               </Link>
             </div>
           )}
 
           {!state.supabasePending && (
             <p className="text-xs text-success-700 bg-success-50 rounded-lg px-3 py-2 text-center">
-              Saved to local demo storage
+              {t('misc.savedToLocalDemo')}
             </p>
           )}
         </div>
@@ -191,14 +192,14 @@ export function PaymentSuccess() {
             className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-300 hover:bg-neutral-50"
           >
             <PrinterIcon className="h-4 w-4" />
-            Print receipt
+            {t('printReceipt')}
           </button>
           <button
             type="button"
             onClick={() => navigate(`/loans/${state.loanId}`)}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-300 hover:bg-neutral-50"
           >
-            View loan
+            {t('viewLoan')}
           </button>
           <button
             type="button"
@@ -206,7 +207,7 @@ export function PaymentSuccess() {
             className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
           >
             <PlusIcon className="h-4 w-4" />
-            Record another payment
+            {t('recordAnotherPayment')}
           </button>
         </div>
       </div>

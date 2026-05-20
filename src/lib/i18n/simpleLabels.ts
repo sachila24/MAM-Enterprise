@@ -125,19 +125,19 @@ export const t = {
   ),
   allocationSummary: bi('Allocation summary', 'බෙදා හැරීමේ සාරාංශය'),
   scheduleImpact: bi('Schedule impact', 'කාලසටහනට බලපෑම'),
-  viewFullSchedule: bi('View full schedule', 'සම්පූර්ණ කාලසටහන'),
-  viewFullLoanSchedule: bi('View full loan schedule', 'සම්පූර්ණ ණය කාලසටහන'),
+  viewFullSchedule: bi('View full schedule', 'සම්පූර්ණ කාලසටහන බලන්න'),
+  viewFullLoanSchedule: bi('View full loan schedule', 'සම්පූර්ණ ණය කාලසටහන බලන්න'),
   printReceipt: bi('Print receipt', 'රිසිට්පත් මුද්‍රණය'),
-  recordAnotherPayment: bi('Record another payment', 'තව ගෙවීමක්'),
+  recordAnotherPayment: bi('Record another payment', 'තව ගෙවීමක් සිදුකරන්න'),
   backToPayments: bi('Back to payments', 'ගෙවීම් වෙත ආපසු'),
   noPaymentDetails: bi('No payment details available.', 'ගෙවීම් විස්තර නැත.'),
   collectedToday: bi('Collected Today', 'අද එකතු වූ'),
-  collectedThisWeek: bi('Collected This Week', 'මෙම සතිය'),
+  collectedThisWeek: bi('Collected This Week', 'මෙම සතිය තුල එකතු වූ'),
   pendingConfirmations: bi('Pending Confirmations', 'තහවුරු කිරීම් බලාපොරොත්තු'),
-  needsReview: bi('Needs review', 'සමාලෝචනය අවශ්‍ය'),
+  needsReview: bi('Needs review', 'සමාලෝචනය අවශ්‍යයි'),
   searchPayments: bi(
     'Search by Receipt, Customer, or Loan ID...',
-    'රිසිට්, ගනුදෙනුකරු, ණය ID...'
+    'සොයන්න රිසිට්පත්, ගනුදෙනුකරු, ණය ID...'
   ),
   noPaymentsFound: bi(
     'No payments found matching your criteria.',
@@ -172,14 +172,14 @@ export const t = {
 
   // Allocation / receipt lines
   interestPaid: bi('Interest paid', 'ගෙවූ පොලිය'),
-  principalPaid: bi('Principal paid', 'ගෙවූ මුල්‍ය'),
-  remainingPrincipal: bi('Remaining principal', 'ඉතිරි මුල්‍ය'),
+  principalPaid: bi('Principal paid', 'ගෙවූ මුල්‍ය මුදල'),
+  remainingPrincipal: bi('Remaining principal', 'ඉතිරි මුල්‍ය මුදල'),
   pendingInterest: bi('Pending interest', 'බැඳි පොලිය'),
   lateFeePaid: bi('Late fee paid', 'ගෙවූ ප්‍රමාද ගාස්තු'),
   installmentPaid: bi('Installment paid', 'ගෙවූ වාරිකය'),
-  advancePaid: bi('Advance paid', 'අග්‍රිම ගෙවීම'),
-  remainingArrears: bi('Remaining arrears', 'ඉතිරි ප්‍රමාද'),
-  arrearsRemaining: bi('Arrears remaining', 'ඉතිරි ප්‍රමාද'),
+  advancePaid: bi('Advance paid', 'අත්තිකාරම ගෙවීම'),
+  remainingArrears: bi('Remaining arrears', 'ඉතිරි ප්‍රමාද ගාස්තු'),
+  arrearsRemaining: bi('Arrears remaining', 'ඉතිරි ප්‍රමාද ගාස්තු'),
   principalBalanceAfter: bi('Principal balance after', 'පසු මුල්‍ය ශේෂය'),
   totalAllocated: bi('Total allocated', 'මුළු බෙදා හැරීම'),
   period: bi('Period', 'කාලය'),
@@ -199,7 +199,7 @@ export const t = {
   allocPrincipal: bi('Principal', 'මුල්‍ය'),
   allocLateFee: bi('Late fee', 'ප්‍රමාද ගාස්තු'),
   allocInstallment: bi('Installment', 'වාරිකය'),
-  allocAdvance: bi('Advance', 'අග්‍රිම'),
+  allocAdvance: bi('Advance', 'අත්තිකාරම'),
   allocPartial: bi('Partial', 'අර්ධ'),
   allocPaid: bi('Paid', 'ගෙවූ'),
   allocRemaining: bi('Remaining', 'ඉතිරි'),
@@ -234,7 +234,7 @@ export const t = {
   firstDueDate: bi('First due date', 'පළමු ගෙවීම් දිනය'),
   bikeInstallmentTerms: bi('Bike & installment terms', 'බයික් සහ වාරික කොන්දේසි'),
   fixedInstallmentTerms: bi('Fixed Installment Terms', 'ස්ථිර වාරික කොන්දේසි'),
-  selectInStockBike: bi('-- Select in-stock bike --', '-- තොග බයික් තෝරන්න --'),
+  selectInStockBike: bi('-- Select in-stock bike --', '-- තොග ඇති බයික් තෝරන්න --'),
   bikeSellingPrice: bi('Bike selling price', 'බයික් විකිණීම් මිල'),
   downPayment: bi('Down payment', 'මුදල් තැන්පතු'),
   termMonths: bi('Term (months)', 'කාලය (මාස)'),
@@ -588,6 +588,265 @@ export const t = {
   vsLastMonth: bi('vs last month', 'පසුගිය මාසයට වඩා'),
   daysOverdue: bi('days overdue', 'දින ප්‍රමාද'),
   addBikeLink: bi('Add Bike', 'බයික් එකතු'),
+
+  // Errors & validation
+  requiredField: bi('Required field missing', 'අවශ්‍ය ක්ෂේත්‍රය හිඟයි'),
+  saveFailed: bi('Save failed', 'සුරැකීම අසාර්ථකයි'),
+  success: bi('Success', 'සාර්ථකයි'),
+  errorOccurred: bi('An error occurred', 'දෝෂයක් සිදු විය'),
+  invalidInput: bi('Invalid input', 'වලංගු නොවන ඇතුළත් කිරීම'),
+  firstDueDateRequired: bi(
+    'First due date is required',
+    'පළමු ගෙවීම් දිනය අවශ්‍යයි'
+  ),
+  selectCustomerRequired: bi('Select a customer', 'ගනුදෙනුකරු තෝරන්න'),
+  enterLoanAmount: bi('Enter a loan amount', 'ණය මුදල ඇතුළත් කරන්න'),
+  setFirstDueDate: bi('Set a first due date', 'පළමු ගෙවීම් දිනය සකසන්න'),
+  enterFinanceAmount: bi('Enter a finance amount', 'මුල්‍ය මුදල ඇතුළත් කරන්න'),
+  enterValidTerm: bi('Enter a valid term', 'වලංගු කාලය ඇතුළත් කරන්න'),
+  selectInStockBikeInstallment: bi(
+    'Select an in-stock bike for this installment',
+    'මෙම වාරිකයට තොග බයික් තෝරන්න'
+  ),
+  enterBikeSellingPrice: bi(
+    'Enter the bike selling price',
+    'බයික් විකිණීම් මිල ඇතුළත් කරන්න'
+  ),
+  selectBikeBeforeConfirm: bi(
+    'Select a bike before confirming',
+    'තහවුරු කිරීමට පෙර බයික් තෝරන්න'
+  ),
+  financeAmountGreaterThanZero: bi(
+    'Finance amount must be greater than zero',
+    'මුල්‍ය මුදල ශුන්‍යයට වඩා වැඩි විය යුතුයි'
+  ),
+  guaranteeDescRequired: bi(
+    'Guarantee item {n}: description is required',
+    'ඇපකර අයිතම {n}: විස්තරය අවශ්‍යයි'
+  ),
+  guaranteeStorageRequired: bi(
+    'Guarantee item {n}: storage location is required',
+    'ඇපකර අයිතම {n}: ගබඩා ස්ථානය අවශ්‍යයි'
+  ),
+  guaranteeDateRequired: bi(
+    'Guarantee item {n}: received date is required',
+    'ඇපකර අයිතම {n}: ලැබුණු දිනය අවශ්‍යයි'
+  ),
+  paymentSaveInProgress: bi(
+    'Payment save already in progress. Please wait.',
+    'ගෙවීම සුරකිමින්. කරුණාකර රැඳී සිටින්න.'
+  ),
+  enterPaymentAmount: bi(
+    'Enter a payment amount and/or discount to apply',
+    'ගෙවීම් මුදල හෝ වට්ටම ඇතුළත් කරන්න'
+  ),
+  paymentUnallocated: bi(
+    'Could not apply {amount} LKR of this payment. Adjust cash or discount.',
+    'මෙම ගෙවීමේ {amount} LKR යොදා ගත නොහැක. මුදල හෝ වට්ටම සකසන්න.'
+  ),
+  bikeSaveInProgress: bi(
+    'Bike save already in progress. Please wait.',
+    'බයික් සුරකිමින්. කරුණාකර රැඳී සිටින්න.'
+  ),
+  chassisExists: bi(
+    'A bike with this chassis number already exists',
+    'මෙම රථ අංකය සහිත බයික් දැනටමත් ඇත'
+  ),
+  bikeInstallmentMustFixedTerm: bi(
+    'Bike installment loans must use fixed-term installments',
+    'බයික් වාරික සඳහා ස්ථිර කාල වාරික අවශ්‍යයි'
+  ),
+  selectedBikeNotFound: bi('Selected bike not found', 'තෝරාගත් බයික් හමු නොවීය'),
+  selectedBikeNotInStock: bi(
+    'Selected bike is no longer in stock',
+    'තෝරාගත් බයික් තවදුරටත් තොගයේ නැත'
+  ),
+  customerRequired: bi('Customer is required', 'ගනුදෙනුකරු අවශ්‍යයි'),
+  earlySettlementFixedOnly: bi(
+    'Early settlement applies to fixed installment loans only',
+    'පූර්ව නිරාකරණය ස්ථිර වාරික ණය සඳහා පමණි'
+  ),
+  expenseAddedSuccess: bi('Expense added successfully', 'වියදම සාර්ථකව එකතු විය'),
+  settingsSavedSuccess: bi('Settings saved successfully', 'සැකසුම් සාර්ථකව සුරකින ලදී'),
+  invitationSentSuccess: bi('Invitation sent successfully', 'ආරාධනාව සාර්ථකයි'),
+  earlySettlementRecorded: bi(
+    'Early settlement {code} recorded',
+    'පූර්ව නිරාකරණය {code} සටහන් විය'
+  ),
+  couldNotConfirmSettlement: bi(
+    'Could not confirm settlement',
+    'නිරාකරණය තහවුරු කළ නොහැක'
+  ),
+  earlySettlementMonthsRequired: bi(
+    'Early settlement requires {months} completed months',
+    'පූර්ව නිරාකරණයට {months} මාස සම්පූර්ණ විය යුතුයි'
+  ),
+  voidReceiptNotImplemented: bi(
+    'Voiding receipts is not implemented in local demo mode yet',
+    'දේශීය ඩෙමෝහි රිසිට් අවලංගු කිරීම තවම නැත'
+  ),
+  cancelLoanSupabaseSoon: bi(
+    'Cancel loan will be available when Supabase is connected',
+    'Supabase සම්බන්ධ වූ පසු ණය අවලංගු කළ හැක'
+  ),
+  invalidDemoDb: bi('Invalid demo database', 'වලංගු නොවන ඩෙමෝ දත්ත ගබඩාව'),
+  guaranteeRequiredHint: bi(
+    'Guarantee required. No late fees. Unpaid interest stays pending.',
+    'ඇපකර අවශ්‍යයි. ප්‍රමාද ගාස්තු නැත. නොගෙවූ පොලිය බැඳී තබයි.'
+  ),
+  nextEstInterest: bi('Next est. interest', 'ඊළඟ අනුමාන පොලිය'),
+  balanceAfterShort: bi('Balance after', 'පසු ශේෂය'),
+  receiptGenerated: bi('Receipt generated', 'රිසිට්පත් සාදන ලදී'),
+  viewLoan: bi('View loan', 'ණය බලන්න'),
+  paymentMethodLabel: bi('Payment method', 'ගෙවීම් ක්‍රමය'),
+  discountGivenLabel: bi('Discount given', 'දුන් වට්ටම'),
+  pendingInterestLabel: bi('Pending interest', 'බැඳි පොලිය'),
+  lateFeesPaidLabel: bi('Late fees paid', 'ගෙවූ ප්‍රමාද ගාස්තු'),
+  installmentsPaidLabel: bi('Installments paid', 'ගෙවූ වාරික'),
+
+  // Receipts list
+  receiptsSubtitle: bi(
+    'View and manage payment receipts',
+    'ගෙවීම් රිසිට්පත් බලන්න සහ කළමනාකරණය'
+  ),
+  searchReceipts: bi(
+    'Search by Receipt No or Customer...',
+    'රිසිට් අංකය හෝ ගනුදෙනුකරු...'
+  ),
+  noReceiptsFound: bi(
+    'No receipts found matching your criteria',
+    'රිසිට්පත් හමු නොවීය'
+  ),
+  printReceiptTitle: bi('Print Receipt', 'රිසිට්පත් මුද්‍රණය'),
+  voidReceiptTitle: bi('Void Receipt', 'රිසිට්පත් අවලංගු'),
+  colAmount: bi('Amount', 'මුදල'),
+  colActions: bi('Actions', 'ක්‍රියා'),
+  systemUser: bi('System', 'පද්ධතිය'),
+
+  // Reports
+  reportsSubtitle: bi(
+    'Download CSV summaries for day-to-day office work',
+    'දිනපතා කාර්යාල කටයුතු සඳහා CSV සාරාංශ බාගත කරන්න'
+  ),
+  reportCategoryCollections: bi('Collections', 'එකතු කිරීම්'),
+  reportCategoryLoans: bi('Loans & Risk', 'ණය සහ අවදානම'),
+  reportCategoryBikes: bi('Bike Stock', 'යතුරුපැදි තොග'),
+  reportCategoryGuarantees: bi('Guarantees', 'ඇපකර'),
+  reportCategoryExpenses: bi('Expenses', 'වියදම්'),
+  dailyReport: bi('Daily Collection Report', 'දිනපතා එකතු වාර්තාව'),
+  dailyReportHint: bi(
+    'Payments received on the selected date',
+    'තෝරාගත් දිනයේ ලැබුණු ගෙවීම්'
+  ),
+  monthlyReport: bi('Monthly Collection Report', 'මාසික එකතු වාර්තාව'),
+  monthlyReportHint: bi(
+    'Totals for the selected month',
+    'තෝරාගත් මාසයේ මුළු එකතුව'
+  ),
+  downloadCSV: bi('Download CSV', 'CSV බාගත කරන්න'),
+  generating: bi('Generating...', 'සාදමින්...'),
+  selectDate: bi('Select Date', 'දිනය තෝරන්න'),
+  selectMonth: bi('Select Month', 'මාසය තෝරන්න'),
+  noDataAvailable: bi('No data available', 'දත්ත නැත'),
+  generatedOn: bi('Generated on {date}', 'සාදන ලද්දේ {date}'),
+  reportType: bi('Report type', 'වාර්තා වර්ගය'),
+  activeLoansReport: bi('Active Loans', 'සක්‍රිය ණය'),
+  activeLoansReportHint: bi(
+    'All loans that are still running',
+    'තවමත් ක්‍රියාත්මක ණය'
+  ),
+  overdueLoansReport: bi('Overdue Loans', 'ප්‍රමාද ණය'),
+  overdueLoansReportHint: bi(
+    'Loans past due that still have a balance',
+    'ඉතිරි ශේෂය සහිත ප්‍රමාද ණය'
+  ),
+  completedLoansReport: bi('Completed Loans', 'අවසන් ණය'),
+  completedLoansReportHint: bi(
+    'Loans fully paid or closed as completed',
+    'සම්පූර්ණයෙන් ගෙවූ හෝ අවසන් ණය'
+  ),
+  bikeStockReport: bi('Bike Stock', 'යතුරුපැදි තොග'),
+  bikeStockReportHint: bi(
+    'Current inventory and key numbers',
+    'වර්තමාන තොග සහ ප්‍රධාන අංක'
+  ),
+  guaranteeReports: bi('Guarantee Reports', 'ඇපකර වාර්තා'),
+  guaranteeReportsHint: bi(
+    'Guarantees held: items you are still holding for loans',
+    'තබාගත් ඇපකර: ණය සඳහා තවම තබාගන්නා අයිතම'
+  ),
+  expenseReports: bi('Expense Reports', 'වියදම් වාර්තා'),
+  expenseReportsHint: bi(
+    'Expenses: spending by date and category',
+    'වියදම්: දිනය සහ වර්ගය අනුව'
+  ),
+  recentDownloads: bi('Recent Downloads', 'මෑත බාගත කිරීම්'),
+  noDownloadsYet: bi(
+    'No downloads yet. Generate a report to see it here.',
+    'තවම බාගත කිරීම් නැත. වාර්තාවක් සාදන්න.'
+  ),
+
+  // Activity log
+  activityLogSubtitle: bi(
+    'Important actions are recorded for accountability',
+    'වැදගත් ක්‍රියා වගකීම සඳහා සටහන් වේ'
+  ),
+  searchActivity: bi(
+    'Search summary or reference...',
+    'සාරාංශය හෝ යොමුව සොයන්න...'
+  ),
+  colWhen: bi('When', 'කවදා'),
+  colUser: bi('User', 'පරිශීලක'),
+  colAction: bi('Action', 'ක්‍රියාව'),
+  colSummary: bi('Summary', 'සාරාංශය'),
+  colReference: bi('Reference', 'යොමුව'),
+  allUsers: bi('All Users', 'සියලු පරිශීලක'),
+  noActivityYet: bi('No activity recorded yet', 'තවම ක්‍රියාකාරකම් සටහන් නැත'),
+  noActivityMatch: bi(
+    'No activity found matching your criteria',
+    'ක්‍රියාකාරකම් හමු නොවීය'
+  ),
+  activityActionCreate: bi('Created', 'සාදන ලදී'),
+  activityActionPayment: bi('Payment', 'ගෙවීම'),
+  activityActionEarlySettlement: bi('Early settlement', 'පූර්ව නිරාකරණය'),
+  activityActionSeed: bi('System seed', 'පද්ධති ආරම්භය'),
+  activityTypeLoan: bi('Loan', 'ණය'),
+  activityTypePayment: bi('Payment', 'ගෙවීම'),
+  activityTypeBike: bi('Bike', 'බයික්'),
+  activityTypeCustomer: bi('Customer', 'ගනුදෙනුකරු'),
+  activityTypeGuarantee: bi('Guarantee', 'ඇපකර'),
+  activityTypeSystem: bi('System', 'පද්ධති'),
+  loanCreatedSummary: bi('Loan {code} created', 'ණය {code} සාදන ලදී'),
+  paymentAuditSummary: bi(
+    'Payment {code} · {receipt} for {loanCode}',
+    'ගෙවීම {code} · {receipt} · ණය {loanCode}'
+  ),
+  customerCreatedSummary: bi(
+    'Customer {code} created',
+    'ගනුදෙනුකරු {code} සාදන ලදී'
+  ),
+  earlySettlementAuditSummary: bi(
+    'Early settlement {code} for {loanCode}',
+    'පූර්ව නිරාකරණය {code} · ණය {loanCode}'
+  ),
+  paymentAdded: bi('Payment added', 'ගෙවීම එකතු විය'),
+  guaranteeAdded: bi('Guarantee added', 'ඇපකර එකතු විය'),
+  expenseAdded: bi('Expense added', 'වියදම එකතු විය'),
+  statusChanged: bi('Status changed', 'තත්ත්වය වෙනස් විය'),
+  systemAction: bi('System action', 'පද්ධති ක්‍රියාව'),
+
+  // CSV column headers (reports export)
+  csvDate: bi('Date', 'දිනය'),
+  csvAmount: bi('Amount', 'මුදල'),
+  csvCustomer: bi('Customer', 'ගනුදෙනුකරු'),
+  csvLoan: bi('Loan', 'ණය'),
+  csvReceipt: bi('Receipt', 'රිසිට්පත්'),
+  csvMethod: bi('Method', 'ක්‍රමය'),
+  csvStatus: bi('Status', 'තත්ත්වය'),
+  csvDiscount: bi('Discount', 'වට්ටම'),
+  csvBalance: bi('Balance', 'ශේෂය'),
+  csvType: bi('Type', 'වර්ගය'),
+  csvDescription: bi('Description', 'විස්තරය'),
 } as const;
 
 export type LabelKey = keyof typeof t;

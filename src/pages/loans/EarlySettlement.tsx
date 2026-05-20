@@ -16,10 +16,13 @@ import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { getLoanDetailFromDb } from '../../lib/local-db/loanDetail';
 import { confirmEarlySettlement } from '../../lib/local-db/repositories/earlySettlementRepo';
 import { isFixedInstallmentLoan } from '../../types/loan';
+import { useT } from '../../i18n/I18nProvider';
+import { formatMessage } from '../../lib/i18n/messages';
 
 export function EarlySettlement() {
   const { id: loanId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t, language } = useT();
   const { showToast } = useToast();
   const db = useDemoDb();
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
@@ -131,11 +134,14 @@ export function EarlySettlement() {
         },
         db
       );
-      showToast(`Early settlement ${settlementCode} recorded`, 'success');
+      showToast(
+        formatMessage('earlySettlementRecorded', { code: settlementCode }, language),
+        'success'
+      );
       navigate(`/loans/${loanId}`, { replace: true });
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Could not confirm settlement',
+        err instanceof Error ? err.message : t('couldNotConfirmSettlement'),
         'error'
       );
       setIsSubmitting(false);

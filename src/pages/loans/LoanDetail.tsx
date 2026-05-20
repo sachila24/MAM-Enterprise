@@ -19,6 +19,7 @@ import {
   type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { useT } from '../../i18n/I18nProvider';
 import {
   getNextDueDateForFixedInstallments,
   getNextDueDateForInterestOnly,
@@ -42,6 +43,7 @@ import { roundLKR } from '../../lib/finance/money';
 const AS_OF_DATE = new Date().toISOString().split('T')[0];
 
 export function LoanDetail() {
+  const { t } = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
@@ -528,7 +530,7 @@ function LoanActionBar({
         )}
         <ActionButton
           variant="danger"
-          onClick={() => window.alert('Cancel loan will be available when Supabase is connected.')}
+          onClick={() => window.alert(t('cancelLoanSupabaseSoon'))}
         >
           Cancel Loan
         </ActionButton>

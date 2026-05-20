@@ -3,6 +3,7 @@ import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapBike } from '../mappers';
 import type { DbBike, MamDemoDb } from '../types';
+import { uiError } from '../../i18n/messages';
 
 const inFlightBikeCreates = new Set<string>();
 
@@ -51,20 +52,20 @@ export function createBike(
     );
     if (existing) return mapBike(existing);
     if (inFlightBikeCreates.has(input.clientSubmitId)) {
-      throw new Error('Bike save already in progress. Please wait.');
+      throw new Error(uiError('bikeSaveInProgress'));
     }
     inFlightBikeCreates.add(input.clientSubmitId);
   }
 
   if (!input.model.trim() || !input.chassisNo.trim()) {
-    throw new Error('Model and chassis number are required.');
+    throw new Error(uiError('modelChassisRequired'));
   }
 
   const duplicateChassis = db.bikes.some(
     (b) => b.chassis_no.toLowerCase() === input.chassisNo.trim().toLowerCase()
   );
   if (duplicateChassis) {
-    throw new Error('A bike with this chassis number already exists.');
+    throw new Error(uiError('chassisExists'));
   }
 
   try {

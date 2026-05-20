@@ -34,7 +34,7 @@ export function AddExpense() {
       db
     );
     setIsSubmitting(false);
-    showToast('Expense added successfully', 'success');
+    showToast(t('expenseAddedSuccess'), 'success');
     navigate('/expenses');
   };
   const isValid = formData.amount > 0 && formData.notes.trim() !== '';

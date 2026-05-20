@@ -6,8 +6,10 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { PrinterIcon, XCircleIcon } from 'lucide-react';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listReceipts } from '../../lib/local-db/repositories';
+import { useT } from '../../i18n/I18nProvider';
 
 export function ReceiptsList() {
+  const { t } = useT();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
   const receipts = listReceipts(db);
@@ -19,9 +21,7 @@ export function ReceiptsList() {
   });
   const handleVoid = (id: string) => {
     if (
-      window.confirm(
-        'Voiding receipts is not implemented in local demo mode yet.'
-      )
+      window.confirm(t('voidReceiptNotImplemented'))
     ) {
       void id;
     }
@@ -29,13 +29,13 @@ export function ReceiptsList() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Receipts"
-        subtitle="View and manage payment receipts" />
+        title={t('nav.receipts')}
+        subtitle={t('receiptsSubtitle')} />
       
 
       <FilterToolbar
         onSearchChange={setSearch}
-        searchPlaceholder="Search by Receipt No or Customer..." />
+        searchPlaceholder={t('searchReceipts')} />
       
 
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg overflow-hidden">
@@ -44,22 +44,22 @@ export function ReceiptsList() {
             <thead className="bg-neutral-50">
               <tr>
                 <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                  Receipt No
+                  {t('colReceiptNo')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Date
+                  {t('colDate')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Customer
+                  {t('field.customer')}
                 </th>
                 <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                  Amount
+                  {t('colAmount')}
                 </th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  Status
+                  {t('field.status')}
                 </th>
                 <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('colActions')}</span>
                 </th>
               </tr>
             </thead>
@@ -76,7 +76,7 @@ export function ReceiptsList() {
                     {formatDate(r.paidAt)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900">
-                    {r.customer?.name || 'Unknown'}
+                    {r.customer?.name || t('misc.unknown')}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums font-medium">
                     {formatLKR(r.amount)}
@@ -89,7 +89,7 @@ export function ReceiptsList() {
                       <button
                       onClick={() => window.print()}
                       className="text-neutral-400 hover:text-brand-600"
-                      title="Print Receipt">
+                      title={t('printReceiptTitle')}>
                       
                         <PrinterIcon className="h-5 w-5" />
                       </button>
@@ -97,7 +97,7 @@ export function ReceiptsList() {
                     <button
                       onClick={() => handleVoid(r.id)}
                       className="text-neutral-400 hover:text-danger-600"
-                      title="Void Receipt">
+                      title={t('voidReceiptTitle')}>
                       
                           <XCircleIcon className="h-5 w-5" />
                         </button>
@@ -112,7 +112,7 @@ export function ReceiptsList() {
                   colSpan={6}
                   className="px-3 py-8 text-center text-sm text-neutral-500">
                   
-                    No receipts found matching your criteria.
+                    {t('noReceiptsFound')}
                   </td>
                 </tr>
               }

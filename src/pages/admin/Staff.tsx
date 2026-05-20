@@ -18,7 +18,7 @@ export function Staff() {
     setTimeout(() => {
       setIsSubmitting(false);
       setIsInviteModalOpen(false);
-      showToast('Invitation sent successfully', 'success');
+      showToast(t('invitationSentSuccess'), 'success');
     }, 800);
   };
   return (

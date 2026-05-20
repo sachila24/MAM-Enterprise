@@ -2,6 +2,7 @@ import { calculateEarlySettlementQuote } from '../../finance/earlySettlement';
 import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import type { MamDemoDb } from '../types';
+import { buildAuditSummary, uiError } from '../../i18n/messages';
 
 export interface ConfirmEarlySettlementInput {
   loanId: string;
@@ -15,9 +16,9 @@ export function confirmEarlySettlement(
   db: MamDemoDb = getDb()
 ): { settlementCode: string } {
   const loan = db.loans.find((l) => l.id === input.loanId);
-  if (!loan) throw new Error('Loan not found');
+  if (!loan) throw new Error(uiError('loanNotFound'));
   if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') {
-    throw new Error('Early settlement applies to fixed installment loans only.');
+    throw new Error(uiError('earlySettlementFixedOnly'));
   }
 
   const installments = db.loan_installments.filter((i) => i.loan_id === loan.id);
@@ -49,7 +50,9 @@ export function confirmEarlySettlement(
 
   if (!quote.eligible) {
     throw new Error(
-      `Early settlement requires ${loan.minimum_months_before_settlement} completed months.`
+      uiError('earlySettlementMonthsRequired', {
+        months: String(loan.minimum_months_before_settlement),
+      })
     );
   }
 
@@ -94,7 +97,10 @@ export function confirmEarlySettlement(
     action: 'EARLY_SETTLEMENT',
     entity_type: 'loan',
     entity_id: loan.id,
-    summary: `Early settlement ${settlementCode} for ${loan.loan_code}`,
+    summary: buildAuditSummary('earlySettlementAuditSummary', {
+      code: settlementCode,
+      loanCode: loan.loan_code,
+    }),
     created_at: ts,
   });
 

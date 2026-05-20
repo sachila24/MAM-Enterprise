@@ -26,6 +26,7 @@ import {
 } from '../../lib/local-db/repositories';
 import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
 import { useT } from '../../i18n/I18nProvider';
+import { uiError } from '../../lib/i18n/messages';
 
 type LocalGuaranteeDraft = {
   key: string;
@@ -53,13 +54,13 @@ function validateGuaranteeDrafts(drafts: LocalGuaranteeDraft[]): string | null {
     const g = drafts[i];
     if (!isGuaranteeDraftStarted(g)) continue;
     if (!g.description.trim()) {
-      return `Guarantee item ${i + 1}: description is required.`;
+      return uiError('guaranteeDescRequired', { n: String(i + 1) });
     }
     if (!g.storageLocation.trim()) {
-      return `Guarantee item ${i + 1}: storage location is required.`;
+      return uiError('guaranteeStorageRequired', { n: String(i + 1) });
     }
     if (!g.receivedDate) {
-      return `Guarantee item ${i + 1}: received date is required.`;
+      return uiError('guaranteeDateRequired', { n: String(i + 1) });
     }
   }
   return null;
@@ -210,35 +211,35 @@ export function CreateLoan() {
 
   const handleNext = () => {
     const err = ((): string | null => {
-      if (currentStep === 0 && !customerId) return 'Select a customer.';
+      if (currentStep === 0 && !customerId) return t('selectCustomerRequired');
       if (currentStep === 3 && isInterestOnly) {
         if (!isBike && (!loanAmount || loanAmount <= 0))
-          return 'Enter a loan amount.';
-        if (!firstDueDate) return 'Set a first due date.';
+          return t('enterLoanAmount');
+        if (!firstDueDate) return t('setFirstDueDate');
       }
       if (currentStep === 3 && !isInterestOnly) {
         if (!isBike && (!financeAmount || financeAmount <= 0))
-          return 'Enter a finance amount.';
-        if (!termMonths || termMonths < 1) return 'Enter a valid term.';
-        if (!firstDueDate) return 'Set a first due date.';
+          return t('enterFinanceAmount');
+        if (!termMonths || termMonths < 1) return t('enterValidTerm');
+        if (!firstDueDate) return t('setFirstDueDate');
       }
       if (currentStep === 3 && isBike && !bikeId) {
-        return 'Select an in-stock bike for this installment.';
+        return t('selectInStockBikeInstallment');
       }
       if (currentStep === 3 && isBike && sellingPrice <= 0) {
-        return 'Enter the bike selling price.';
+        return t('enterBikeSellingPrice');
       }
       if (currentStep >= 4) {
         const gErr = validateGuaranteeDrafts(guaranteeDrafts);
         if (gErr) return gErr;
       }
       if (currentStep === 4 && isBike && !bikeId)
-        return 'Select an in-stock bike for this installment.';
+        return t('selectInStockBikeInstallment');
       if (currentStep === steps.length - 1) {
-        if (!customerId) return 'Select a customer.';
-        if (isBike && !bikeId) return 'Select a bike before confirming.';
+        if (!customerId) return t('selectCustomerRequired');
+        if (isBike && !bikeId) return t('selectBikeBeforeConfirm');
         if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
-          return 'Finance amount must be greater than zero.';
+          return t('financeAmountGreaterThanZero');
         const gErr = validateGuaranteeDrafts(guaranteeDrafts);
         if (gErr) return gErr;
       }
@@ -443,7 +444,7 @@ export function CreateLoan() {
                   Same day each month (e.g. start May 15 → first due June 15).
                 </p>
                 <p className="text-sm text-info-700 bg-info-50 rounded-md p-3">
-                  Guarantee required. No late fees. Unpaid interest stays pending.
+                  {t('guaranteeRequiredHint')}
                 </p>
               </div>
             )}

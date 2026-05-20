@@ -13,7 +13,7 @@ export function Settings() {
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
-      showToast('Settings saved successfully', 'success');
+      showToast(t('settingsSavedSuccess'), 'success');
     }, 800);
   };
   return (
