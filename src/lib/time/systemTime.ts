@@ -64,6 +64,21 @@ export function isDateOnOrBefore(a: string, b: string): boolean {
   return compareDateOnly(a, b) <= 0;
 }
 
+/** Live clock for UI greetings and timestamps (local timezone). */
+export function getSystemTime(): Date {
+  return new Date();
+}
+
+export type GreetingPeriod = 'morning' | 'afternoon' | 'evening';
+
+/** Morning 05:00–11:59, afternoon 12:00–17:59, evening 18:00–04:59. */
+export function getGreetingPeriod(date: Date = getSystemTime()): GreetingPeriod {
+  const hour = date.getHours();
+  if (hour >= 5 && hour <= 11) return 'morning';
+  if (hour >= 12 && hour <= 17) return 'afternoon';
+  return 'evening';
+}
+
 /** ISO timestamp for audit rows (not used for late-fee as-of). */
 export function getSystemTimestamp(): string {
   return new Date().toISOString();

@@ -137,25 +137,17 @@ export interface ActivityLog {
 }
 
 export interface DashboardKpis {
-  todayCollections: number;
-  todayTarget: number;
+  todayExpectedCollections: number;
   todayPaymentsCount: number;
   overdueCount: number;
-  cashOnHand: number;
-  outstandingPortfolio: number;
-  monthNet: number;
   inStockCount: number;
   soldThisMonth: number;
 }
 
 export const EMPTY_DASHBOARD_KPIS: DashboardKpis = {
-  todayCollections: 0,
-  todayTarget: 0,
+  todayExpectedCollections: 0,
   todayPaymentsCount: 0,
   overdueCount: 0,
-  cashOnHand: 0,
-  outstandingPortfolio: 0,
-  monthNet: 0,
   inStockCount: 0,
   soldThisMonth: 0,
 };
