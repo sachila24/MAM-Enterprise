@@ -21,15 +21,17 @@ export interface LedgerPaymentRecord {
   principalPaid: number;
 }
 
-/** Installment snapshot for ledger (persisted DB fields — not live engine totals). */
+/** Installment snapshot for ledger (persisted + optional live engine totals). */
 export interface InstallmentLedgerSource {
   installmentNumber: number;
   dueDate: string;
   installmentAmount: number;
   paidAmount: number;
-  /** Historical late fee charged — never reduced after payment */
+  /** Historical late fee charged snapshot — never reduced after payment */
   lateFeeAmount: number;
   lateFeePaid: number;
+  /** Live accrued late fee at ledger as-of (from engine; overrides display when set). */
+  liveLateFeeAccrued?: number;
 }
 
 /** Display-only ledger row status. */
@@ -87,12 +89,19 @@ function ledgerStatusFromPaidAndDue(
   return 'PARTIAL';
 }
 
+function liveLateFeeAccrued(inst: InstallmentLedgerSource): number {
+  if (inst.liveLateFeeAccrued != null) {
+    return roundLKR(inst.liveLateFeeAccrued);
+  }
+  return historicalLateFeeCharged(inst);
+}
+
 function installmentLedgerStatus(
   inst: InstallmentLedgerSource,
   asOf: string
 ): LedgerRowStatus {
-  const lateCharged = historicalLateFeeCharged(inst);
-  const totalDue = roundLKR(inst.installmentAmount + lateCharged);
+  const accrued = liveLateFeeAccrued(inst);
+  const totalDue = roundLKR(inst.installmentAmount + accrued);
   const totalPaid = roundLKR(inst.paidAmount + inst.lateFeePaid);
   return ledgerStatusFromPaidAndDue(totalPaid, totalDue, inst.dueDate, asOf);
 }
@@ -100,14 +109,22 @@ function installmentLedgerStatus(
 function lateFeeDescriptionLines(
   inst: InstallmentLedgerSource
 ): LedgerDescriptionLine[] {
-  const lateCharged = historicalLateFeeCharged(inst);
+  const accrued = liveLateFeeAccrued(inst);
+  const historical = historicalLateFeeCharged(inst);
   const latePaid = roundLKR(inst.lateFeePaid);
-  const lateRemaining = roundLKR(Math.max(0, lateCharged - latePaid));
-  return [
-    { label: 'Late fee charged', amount: lateCharged },
+  const lateRemaining = roundLKR(Math.max(0, accrued - latePaid));
+  const lines: LedgerDescriptionLine[] = [
+    { label: 'Late fee accrued (current)', amount: accrued },
     { label: 'Late fee paid', amount: latePaid },
     { label: 'Late fee remaining', amount: lateRemaining },
   ];
+  if (historical > accrued) {
+    lines.splice(1, 0, {
+      label: 'Late fee charged (historical)',
+      amount: historical,
+    });
+  }
+  return lines;
 }
 
 function buildInstallmentChargedDraft(
@@ -128,35 +145,16 @@ function buildInstallmentChargedDraft(
     ...lateFeeDescriptionLines(inst),
   ];
 
+  const accrued = liveLateFeeAccrued(inst);
+
   return {
     date: inst.dueDate,
     title: `Installment charged #${inst.installmentNumber}`,
     descriptionLines,
     installmentAmount: installment,
-    lateFeeAmount: null,
+    lateFeeAmount: accrued > 0 ? accrued : null,
     paymentAmount: null,
     entryType: 'INSTALLMENT',
-    status: installmentLedgerStatus(inst, asOf),
-    sortOrder: order,
-  };
-}
-
-function buildLateFeeChargedDraft(
-  inst: InstallmentLedgerSource,
-  asOf: string,
-  order: number
-): LedgerDraft | null {
-  const lateCharged = historicalLateFeeCharged(inst);
-  if (lateCharged <= 0) return null;
-
-  return {
-    date: inst.dueDate,
-    title: `Late fee charged #${inst.installmentNumber}`,
-    descriptionLines: lateFeeDescriptionLines(inst),
-    installmentAmount: null,
-    lateFeeAmount: lateCharged,
-    paymentAmount: null,
-    entryType: 'LATE_FEE',
     status: installmentLedgerStatus(inst, asOf),
     sortOrder: order,
   };
@@ -259,8 +257,6 @@ function appendInstallmentEvents(
   order: { value: number }
 ): void {
   events.push(buildInstallmentChargedDraft(inst, asOf, order.value++));
-  const lateFeeEvent = buildLateFeeChargedDraft(inst, asOf, order.value++);
-  if (lateFeeEvent) events.push(lateFeeEvent);
 }
 
 /** Fixed-term loan ledger from persisted installment + payment records. */
@@ -449,6 +445,7 @@ export function mapInstallmentsToLedgerSource(
     paidAmount: number;
     lateFeeAmount: number;
     lateFeePaid: number;
+    liveLateFeeAccrued?: number;
   }>
 ): InstallmentLedgerSource[] {
   return installments.map((i) => ({
@@ -458,6 +455,19 @@ export function mapInstallmentsToLedgerSource(
     paidAmount: i.paidAmount,
     lateFeeAmount: roundLKR(Math.max(i.lateFeeAmount, i.lateFeePaid)),
     lateFeePaid: i.lateFeePaid,
+    liveLateFeeAccrued: i.liveLateFeeAccrued,
+  }));
+}
+
+/** Merge live engine accrued amounts into ledger installment rows. */
+export function enrichLedgerInstallmentsWithLiveLateFees(
+  installments: InstallmentLedgerSource[],
+  liveByNumber: Map<number, number>
+): InstallmentLedgerSource[] {
+  return installments.map((inst) => ({
+    ...inst,
+    liveLateFeeAccrued:
+      liveByNumber.get(inst.installmentNumber) ?? inst.liveLateFeeAccrued,
   }));
 }
 

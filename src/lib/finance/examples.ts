@@ -274,12 +274,12 @@ export const EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20 = (() => {
     result,
     apr: byId.apr,
     may: byId.may,
-    expected: { totalLateFee: 1_500, aprMonths: 2, mayMonths: 1 },
+    expected: { totalLateFee: 500, aprMonths: 1, mayMonths: 0 },
   };
 })();
 
-/** Index V3: Feb–May dues, pay 2026-05-20 → 4,3,2,1 late months */
-export const EXAMPLE_INDEX_LATE_FEE_MAY20 = (() => {
+/** Date-based: Feb–May dues, pay 2026-05-20 → 3,2,1,0 late months */
+export const EXAMPLE_DATE_LATE_FEE_MAY20 = (() => {
   const monthlyInstallment = 15_834;
   const paymentDate = '2026-05-20';
   const result = computeLoanLateFeesV3({
@@ -300,9 +300,12 @@ export const EXAMPLE_INDEX_LATE_FEE_MAY20 = (() => {
     mar: byId.mar,
     apr: byId.apr,
     may: byId.may,
-    expected: { febMonths: 4, marMonths: 3, aprMonths: 2, mayMonths: 1 },
+    expected: { febMonths: 3, marMonths: 2, aprMonths: 1, mayMonths: 0 },
   };
 })();
+
+/** @deprecated Use EXAMPLE_DATE_LATE_FEE_MAY20 */
+export const EXAMPLE_INDEX_LATE_FEE_MAY20 = EXAMPLE_DATE_LATE_FEE_MAY20;
 
 /** 10k @ 5%, pay 2026-05-20: Mar(0) 2mo + Apr(1) 1mo = 1,500 late fee */
 export const EXAMPLE_BANK_LATE_FEE_MAY20 = (() => {
@@ -938,40 +941,40 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       actual: calculateMonthsLate('2026-04-11', '2026-04-11'),
     },
     {
-      name: 'Index May-20: Feb → 4 late months',
-      pass: EXAMPLE_INDEX_LATE_FEE_MAY20.feb?.lateMonths === 4,
-      expected: 4,
-      actual: EXAMPLE_INDEX_LATE_FEE_MAY20.feb?.lateMonths,
-    },
-    {
-      name: 'Index May-20: Mar → 3 late months',
-      pass: EXAMPLE_INDEX_LATE_FEE_MAY20.mar?.lateMonths === 3,
+      name: 'Date May-20: Feb → 3 late months',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.feb?.lateMonths === 3,
       expected: 3,
-      actual: EXAMPLE_INDEX_LATE_FEE_MAY20.mar?.lateMonths,
+      actual: EXAMPLE_DATE_LATE_FEE_MAY20.feb?.lateMonths,
     },
     {
-      name: 'Index May-20: Apr → 2 late months',
-      pass: EXAMPLE_INDEX_LATE_FEE_MAY20.apr?.lateMonths === 2,
+      name: 'Date May-20: Mar → 2 late months',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.mar?.lateMonths === 2,
       expected: 2,
-      actual: EXAMPLE_INDEX_LATE_FEE_MAY20.apr?.lateMonths,
+      actual: EXAMPLE_DATE_LATE_FEE_MAY20.mar?.lateMonths,
     },
     {
-      name: 'Index May-20: May → 1 late month',
-      pass: EXAMPLE_INDEX_LATE_FEE_MAY20.may?.lateMonths === 1,
+      name: 'Date May-20: Apr → 1 late month',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.apr?.lateMonths === 1,
       expected: 1,
-      actual: EXAMPLE_INDEX_LATE_FEE_MAY20.may?.lateMonths,
+      actual: EXAMPLE_DATE_LATE_FEE_MAY20.apr?.lateMonths,
     },
     {
-      name: 'Bank schedule Apr+May: 1,500 on May-20 (index 2 & 1)',
+      name: 'Date May-20: May → 0 late months',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.may?.lateMonths === 0,
+      expected: 0,
+      actual: EXAMPLE_DATE_LATE_FEE_MAY20.may?.lateMonths,
+    },
+    {
+      name: 'Bank schedule Apr+May: 500 on May-20 (date 1 & 0)',
       pass:
-        EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee === 1_500,
-      expected: 1_500,
+        EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee === 500,
+      expected: 500,
       actual: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee,
     },
     {
-      name: 'Bank schedule: May index 1 → 1 late month',
-      pass: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths === 1,
-      expected: 1,
+      name: 'Bank schedule: May → 0 late months',
+      pass: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths === 0,
+      expected: 0,
       actual: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths,
     },
     {

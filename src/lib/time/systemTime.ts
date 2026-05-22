@@ -64,6 +64,28 @@ export function isDateOnOrBefore(a: string, b: string): boolean {
   return compareDateOnly(a, b) <= 0;
 }
 
+/** Whole calendar days between two YYYY-MM-DD dates (inclusive of progression, non-negative). */
+export function daysBetweenDates(fromDate: string, toDate: string): number {
+  const from = new Date(`${normalizeDate(fromDate)}T12:00:00Z`);
+  const to = new Date(`${normalizeDate(toDate)}T12:00:00Z`);
+  return Math.max(
+    0,
+    Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
+  );
+}
+
+/**
+ * Late months for one installment: floor((asOf − dueDate) / 30).
+ * Zero when asOf is on or before the due date.
+ */
+export function calculateLateMonthsFromDueDate(
+  dueDate: string,
+  asOfDate: string
+): number {
+  if (compareDateOnly(asOfDate, dueDate) <= 0) return 0;
+  return Math.floor(daysBetweenDates(dueDate, asOfDate) / 30);
+}
+
 /** Live clock for UI greetings and timestamps (local timezone). */
 export function getSystemTime(): Date {
   return new Date();

@@ -1,6 +1,7 @@
 import { computeDueDateForCycle } from './dueDates';
 import { roundLKR } from './money';
 import {
+  calculateLateMonthsFromDueDate,
   compareDateOnly,
   getAsOfDate,
   normalizeDate,
@@ -15,6 +16,8 @@ export interface LateFeeEngineInstallmentInput {
   installmentAmount: number;
   paidAmount: number;
   lateFeePaid?: number;
+  /** Historical charged snapshot from DB — used when principal is settled. */
+  lateFeeCharged?: number;
 }
 
 export interface LateFeeEngineInput {
@@ -38,6 +41,7 @@ export interface LateFeeEngineLine {
   dueDate: string;
   lateMonths: number;
   baseLateFee: number;
+  /** Live accrued late fee at asOf (display + allocation). */
   lateFee: number;
   lateFeeOutstanding: number;
   remainingInstallment: number;
@@ -54,8 +58,6 @@ export interface LateFeeEngineTotals {
 export interface LateFeeEngineResult extends LateFeeEngineTotals {
   asOfDate: string;
   baseLateFee: number;
-  /** Index of the active payment period (count of installments strictly past due). */
-  currentIndex: number;
   lines: LateFeeEngineLine[];
 }
 
@@ -87,8 +89,7 @@ export interface IndexedInstallment {
 }
 
 /**
- * Payment-period index at paymentDate: count of installments whose due date
- * is strictly before the payment date (same due day → not counted).
+ * @deprecated Index-based late months — use calculateLateMonthsFromDueDate per installment.
  */
 export function resolveCurrentIndex(
   installments: IndexedInstallment[],
@@ -105,8 +106,7 @@ export function resolveCurrentIndex(
 }
 
 /**
- * Index-based late months: currentIndex − installmentIndex.
- * No calendar-month or date-diff aging.
+ * @deprecated Use calculateLateMonthsFromDueDate from ../time/systemTime.
  */
 export function calculateLateMonthsFromIndex(
   installmentIndex: number,
@@ -131,15 +131,15 @@ function isPrincipalPaid(inst: LateFeeEngineInstallmentInput): boolean {
 function deriveStatus(
   inst: LateFeeEngineInstallmentInput,
   asOf: string,
-  lateMonths: number
+  lateFeeOutstanding: number,
+  remainingInstallment: number
 ): LateFeeInstallmentStatus {
-  if (isPrincipalPaid(inst)) return 'PAID';
+  const totalRemaining = roundLKR(lateFeeOutstanding + remainingInstallment);
+  if (totalRemaining <= 0) return 'PAID';
   const due = normalizeDate(inst.dueDate);
   if (compareDateOnly(due, asOf) > 0) return 'PENDING';
-  if (lateMonths > 0 && inst.paidAmount > 0) return 'PARTIAL';
-  if (lateMonths > 0) return 'OVERDUE';
-  if (inst.paidAmount > 0) return 'PARTIAL';
-  return 'PENDING';
+  if (inst.paidAmount > 0 || (inst.lateFeePaid ?? 0) > 0) return 'PARTIAL';
+  return 'OVERDUE';
 }
 
 interface SortedWithIndex extends LateFeeEngineInstallmentInput {
@@ -155,11 +155,31 @@ function sortWithIndices(
   return sorted.map((inst, installmentIndex) => ({ ...inst, installmentIndex }));
 }
 
+function computeAccruedLateFee(
+  inst: SortedWithIndex,
+  baseLateFee: number,
+  asOf: string
+): { lateMonths: number; lateFee: number } {
+  const due = normalizeDate(inst.dueDate);
+  const lateMonths = calculateLateMonthsFromDueDate(due, asOf);
+  const timeBased = roundLKR(baseLateFee * lateMonths);
+
+  if (!isPrincipalPaid(inst)) {
+    return { lateMonths, lateFee: timeBased };
+  }
+
+  const lateFeePaid = inst.lateFeePaid ?? 0;
+  const charged = inst.lateFeeCharged ?? 0;
+  return {
+    lateMonths: 0,
+    lateFee: roundLKR(Math.max(lateFeePaid, charged)),
+  };
+}
+
 function computeLine(
   inst: SortedWithIndex,
   baseLateFee: number,
-  asOf: string,
-  currentIndex: number
+  asOf: string
 ): LateFeeEngineLine {
   const due = normalizeDate(inst.dueDate);
   const lateFeePaid = inst.lateFeePaid ?? 0;
@@ -167,19 +187,7 @@ function computeLine(
     Math.max(0, inst.installmentAmount - inst.paidAmount)
   );
 
-  let lateMonths = 0;
-  let lateFee = 0;
-
-  if (!isPrincipalPaid(inst)) {
-    lateMonths = calculateLateMonthsFromIndex(
-      inst.installmentIndex,
-      currentIndex,
-      asOf,
-      due
-    );
-    lateFee = roundLKR(baseLateFee * lateMonths);
-  }
-
+  const { lateMonths, lateFee } = computeAccruedLateFee(inst, baseLateFee, asOf);
   const lateFeeOutstanding = roundLKR(Math.max(0, lateFee - lateFeePaid));
 
   return {
@@ -192,12 +200,12 @@ function computeLine(
     lateFee,
     lateFeeOutstanding,
     remainingInstallment,
-    status: deriveStatus(inst, asOf, lateMonths),
+    status: deriveStatus(inst, asOf, lateFeeOutstanding, remainingInstallment),
   };
 }
 
 /**
- * Installment-index late-fee engine — single source of truth for all screens.
+ * Per-installment late-fee engine — live accrual from due date + as-of date.
  */
 export function computeLoanLateFeesV3(
   input: LateFeeEngineInput
@@ -209,11 +217,7 @@ export function computeLoanLateFeesV3(
   );
 
   const indexed = sortWithIndices(input.installments);
-  const currentIndex = resolveCurrentIndex(indexed, asOfDate);
-
-  const lines = indexed.map((inst) =>
-    computeLine(inst, baseLateFee, asOfDate, currentIndex)
-  );
+  const lines = indexed.map((inst) => computeLine(inst, baseLateFee, asOfDate));
 
   let totalLateFee = 0;
   let totalLateFeeOutstanding = 0;
@@ -241,7 +245,6 @@ export function computeLoanLateFeesV3(
   return {
     asOfDate,
     baseLateFee,
-    currentIndex,
     lines,
     totalLateFee,
     totalLateFeeOutstanding,
