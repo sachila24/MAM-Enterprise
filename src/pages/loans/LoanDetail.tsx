@@ -13,8 +13,6 @@ import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
-  enrichInstallmentsFromEngine,
-  runLateFeeEngine,
   getFixedLoanDisplayStatus,
   oldestArrearsDueDate,
   daysBetweenDates,
@@ -174,9 +172,17 @@ function InterestOnlyLoanDetail({
         loan.originalPrincipalAmount,
         interestCycles,
         ledgerPayments,
-        asOf
+        asOf,
+        loan.balanceAmount
       ),
-    [loan.startDate, loan.originalPrincipalAmount, interestCycles, ledgerPayments, asOf]
+    [
+      loan.startDate,
+      loan.originalPrincipalAmount,
+      loan.balanceAmount,
+      interestCycles,
+      ledgerPayments,
+      asOf,
+    ]
   );
 
   return (
@@ -240,25 +246,16 @@ function FixedInstallmentLoanDetail({
   navigate: ReturnType<typeof useNavigate>;
 }) {
   const { t } = useT();
-  const { loan, customer, installments, guarantees, bike, ledgerPayments } =
-    detail;
+  const {
+    loan,
+    customer,
+    installments,
+    guarantees,
+    bike,
+    ledgerPayments,
+    ledgerInstallments,
+  } = detail;
   const asOfDate = useMemo(() => getSystemToday(), []);
-
-  const lateFeeEngine = useMemo(
-    () =>
-      runLateFeeEngine(
-        installments,
-        loan.installmentAmount ?? 0,
-        loan.lateFeeRate,
-        { asOfDate }
-      ),
-    [installments, loan.lateFeeRate, loan.installmentAmount, asOfDate]
-  );
-
-  const enriched = useMemo(
-    () => enrichInstallmentsFromEngine(installments, lateFeeEngine),
-    [installments, lateFeeEngine]
-  );
 
   const displayLoanStatus = useMemo(
     () =>
@@ -295,15 +292,17 @@ function FixedInstallmentLoanDetail({
       buildFixedInstallmentLedgerEntries(
         loan.startDate,
         loan.totalPayable ?? loan.principalAmount,
-        enriched,
+        ledgerInstallments,
         ledgerPayments,
-        asOfDate
+        asOfDate,
+        loan.balanceAmount
       ),
     [
       loan.startDate,
       loan.totalPayable,
       loan.principalAmount,
-      enriched,
+      loan.balanceAmount,
+      ledgerInstallments,
       ledgerPayments,
       asOfDate,
     ]

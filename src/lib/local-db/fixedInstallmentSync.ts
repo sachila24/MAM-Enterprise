@@ -49,7 +49,8 @@ function mutateFixedInstallmentLateFees(
   for (const inst of loanInstallments) {
     const input = toInput(inst);
     const line = getLateFeeLineByInstallmentId(engine, inst.id);
-    const lateFeeAmount = line?.lateFee ?? 0;
+    const computedLateFee = line?.lateFee ?? 0;
+    const lateFeeAmount = Math.max(inst.late_fee_amount, computedLateFee);
     const nextStatus = getInstallmentDisplayStatus(
       input,
       asOfDate,

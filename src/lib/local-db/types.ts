@@ -135,6 +135,11 @@ export interface DbLoanPayment {
   client_submit_id?: string;
   notes?: string;
   status: 'CONFIRMED' | 'VOIDED';
+  /** Permanent allocation totals recorded at payment time */
+  installment_paid?: number;
+  late_fee_paid?: number;
+  interest_paid?: number;
+  principal_paid?: number;
   created_at: string;
   updated_at: string;
 }

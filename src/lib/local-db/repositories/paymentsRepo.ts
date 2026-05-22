@@ -28,6 +28,7 @@ import type { LoanPayment } from '../../../types/entities';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
 import { getSystemTimestamp, isDateBefore } from '../../time/systemTime';
+import { summarizePaymentBreakdown } from '../../display/paymentLedgerBreakdown';
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -244,6 +245,8 @@ export function recordPayment(
   const paymentCode = generateCode('PAY', db.counters);
   const receiptNumber = generateCode('RCP', db.counters);
 
+  const paymentBreakdown = summarizePaymentBreakdown(merged.allocations);
+
   const paymentRow = {
     id: paymentId,
     payment_code: paymentCode,
@@ -260,6 +263,10 @@ export function recordPayment(
     client_submit_id: input.clientSubmitId,
     notes: input.notes,
     status: 'CONFIRMED' as const,
+    installment_paid: paymentBreakdown.installmentPaid,
+    late_fee_paid: paymentBreakdown.lateFeePaid,
+    interest_paid: paymentBreakdown.interestPaid,
+    principal_paid: paymentBreakdown.principalPaid,
     created_at: ts,
     updated_at: ts,
   };
@@ -429,7 +436,8 @@ function applyFixedAllocation(
     );
     for (const inst of installments) {
       const line = getLateFeeLineByInstallmentId(engine, inst.id);
-      inst.late_fee_amount = line?.lateFee ?? 0;
+      const computed = line?.lateFee ?? 0;
+      inst.late_fee_amount = Math.max(inst.late_fee_amount, computed);
     }
   };
 

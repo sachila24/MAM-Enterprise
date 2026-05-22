@@ -11,7 +11,10 @@ import {
 import type { MamDemoDb } from './types';
 import { getDb } from './localDb';
 import { getSystemToday } from '../time/systemTime';
-import { mapLedgerPaymentsFromDb } from '../display/ledgerDisplay';
+import {
+  mapInstallmentsToLedgerSource,
+  mapLedgerPaymentsFromDb,
+} from '../display/ledgerDisplay';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -60,7 +63,11 @@ export function getLoanDetailFromDb(
     .map(mapGuarantee);
 
   const loanPaymentRows = db.loan_payments.filter((p) => p.loan_id === loanId);
-  const ledgerPayments = mapLedgerPaymentsFromDb(loanPaymentRows);
+  const ledgerPayments = mapLedgerPaymentsFromDb(
+    loanPaymentRows,
+    db.payment_allocations.filter((a) => a.loan_id === loanId)
+  );
+  const ledgerInstallments = mapInstallmentsToLedgerSource(installments);
 
   const principalPayments = loanPaymentRows
     .filter((p) => p.status === 'CONFIRMED')
@@ -128,6 +135,7 @@ export function getLoanDetailFromDb(
     guarantees,
     principalPayments,
     ledgerPayments,
+    ledgerInstallments,
     monthsCompleted,
   };
 }

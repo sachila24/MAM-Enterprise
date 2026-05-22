@@ -33,6 +33,19 @@ export interface LoanLedgerPayment {
   paymentDate: string;
   amount: number;
   reference?: string;
+  installmentPaid: number;
+  lateFeePaid: number;
+  interestPaid: number;
+  principalPaid: number;
+}
+
+export interface LoanLedgerInstallment {
+  installmentNumber: number;
+  dueDate: string;
+  installmentAmount: number;
+  paidAmount: number;
+  lateFeeAmount: number;
+  lateFeePaid: number;
 }
 
 export interface LoanDetailData {
@@ -44,6 +57,7 @@ export interface LoanDetailData {
   guarantees: Guarantee[];
   principalPayments: PrincipalPaymentRecord[];
   ledgerPayments: LoanLedgerPayment[];
+  ledgerInstallments: LoanLedgerInstallment[];
   monthsCompleted: number;
 }
 
@@ -120,6 +134,7 @@ function buildInterestOnlyDetail(): LoanDetailData {
     ],
     principalPayments: [],
     ledgerPayments: [],
+    ledgerInstallments: [],
     monthsCompleted: 0,
   };
 }
@@ -188,8 +203,13 @@ export function buildInterestOnlyPaidDetail(): LoanDetailData {
         paymentDate: '2026-06-20',
         amount: 55_000,
         reference: 'PAY-IO-001',
+        installmentPaid: 5_000,
+        lateFeePaid: 0,
+        interestPaid: 5_000,
+        principalPaid: 50_000,
       },
     ],
+    ledgerInstallments: [],
     monthsCompleted: 1,
   };
 }
@@ -245,6 +265,14 @@ function buildFixedDetail(): LoanDetailData {
     guarantees: [],
     principalPayments: [],
     ledgerPayments: [],
+    ledgerInstallments: installments.map((i) => ({
+      installmentNumber: i.installmentNumber,
+      dueDate: i.dueDate,
+      installmentAmount: i.installmentAmount,
+      paidAmount: i.paidAmount,
+      lateFeeAmount: i.lateFeeAmount,
+      lateFeePaid: i.lateFeePaid,
+    })),
     monthsCompleted: 4,
   };
 }

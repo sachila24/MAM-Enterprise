@@ -31,7 +31,7 @@ export function StatusChip({ status, showDot = true }: StatusChipProps) {
   } else if (['partial'].includes(s)) {
     colorClass = 'bg-info-50 text-info-700 ring-info-200';
     dotClass = 'bg-info-500';
-  } else if (['held', 'warning', 'pending', 'reserved'].includes(s)) {
+  } else if (['held', 'warning', 'pending', 'reserved', 'unpaid'].includes(s)) {
     colorClass = 'bg-warning-50 text-warning-700 ring-warning-200';
     dotClass = 'bg-warning-500';
   } else if (['info'].includes(s)) {
