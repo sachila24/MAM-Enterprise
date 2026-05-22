@@ -98,8 +98,7 @@ export function PaymentReceiptPrint({
   const isIo = isInterestOnlyLoan(loanStub) && 'interestPaid' in receipt;
   const discount = receipt.discountApplied ?? 0;
 
-  const { previousBalance, installmentApplied, newBalance } =
-    getReceiptBalanceDisplay(receipt);
+  const { newBalance } = getReceiptBalanceDisplay(receipt);
 
   const lateFeePaid = isFixed ? receipt.lateFeePaid : 0;
   const installmentPaid = isFixed
@@ -108,7 +107,6 @@ export function PaymentReceiptPrint({
       ? receipt.interestPaid
       : 0;
   const principalPaid = isIo ? receipt.principalPaid : 0;
-  const extraPayment = isFixed ? receipt.advancePaid : 0;
 
   return (
     <div id="receipt-print-area" className="receipt-document">
@@ -160,70 +158,19 @@ export function PaymentReceiptPrint({
           <hr className="receipt-rule" />
 
           <ReceiptSection title={labels.paymentAllocation}>
-            {isFixed && (
-              <ReceiptRow
-                label={labels.lateFeePaid}
-                value={formatLKR(lateFeePaid)}
-              />
-            )}
-            {isFixed &&
-              'lateFeeBreakdown' in receipt &&
-              receipt.lateFeeBreakdown &&
-              receipt.lateFeeBreakdown.length > 0 && (
-                <>
-                  {receipt.lateFeeBreakdown.map((line) => (
-                    <ReceiptRow
-                      key={line.installmentNumber}
-                      label={labels.lateFeeInstallmentLine
-                        .replace('{n}', String(line.installmentNumber))
-                        .replace('{months}', String(line.overdueMonths))}
-                      value={formatLKR(line.lateFee)}
-                    />
-                  ))}
-                </>
+            <ReceiptRow
+              label={labels.lateFeePaid}
+              value={formatLKR(lateFeePaid)}
+            />
+            <ReceiptRow
+              label={labels.paidInstallment}
+              value={formatLKR(
+                isFixed ? installmentPaid : installmentPaid + principalPaid
               )}
-            {isFixed && (
-              <ReceiptRow
-                label={labels.paidInstallment}
-                value={formatLKR(installmentPaid)}
-              />
-            )}
-            {isIo && installmentPaid > 0 && (
-              <ReceiptRow
-                label={labels.paidInterest}
-                value={formatLKR(installmentPaid)}
-              />
-            )}
-            {isIo && principalPaid > 0 && (
-              <ReceiptRow
-                label={labels.paidPrincipal}
-                value={formatLKR(principalPaid)}
-              />
-            )}
-            {extraPayment > 0 && (
-              <ReceiptRow label={labels.extraPayment} value={formatLKR(extraPayment)} />
-            )}
-            <ReceiptRow
-              label={labels.totalPaid}
-              value={formatLKR(receipt.totalApplied)}
-              bold
-            />
-          </ReceiptSection>
-
-          <hr className="receipt-rule receipt-rule-tight" />
-
-          <ReceiptSection title={labels.balanceUpdate}>
-            <ReceiptRow
-              label={labels.previousBalance}
-              value={formatLKR(previousBalance)}
-            />
-            <ReceiptRow
-              label={labels.installmentApplied}
-              value={formatLKR(installmentApplied)}
             />
             <ReceiptRow
               label={labels.newBalance}
-              value={formatLKR(newBalance)}
+              value={formatLKR(isFixed ? newBalance : receipt.remainingPrincipal)}
               bold
             />
           </ReceiptSection>

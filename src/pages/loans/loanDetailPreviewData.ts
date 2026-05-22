@@ -29,6 +29,12 @@ export interface PrincipalPaymentRecord {
   principalAfter: number;
 }
 
+export interface LoanLedgerPayment {
+  paymentDate: string;
+  amount: number;
+  reference?: string;
+}
+
 export interface LoanDetailData {
   loan: Loan;
   customer: Customer;
@@ -37,6 +43,7 @@ export interface LoanDetailData {
   installments: LoanInstallment[];
   guarantees: Guarantee[];
   principalPayments: PrincipalPaymentRecord[];
+  ledgerPayments: LoanLedgerPayment[];
   monthsCompleted: number;
 }
 
@@ -112,6 +119,7 @@ function buildInterestOnlyDetail(): LoanDetailData {
       },
     ],
     principalPayments: [],
+    ledgerPayments: [],
     monthsCompleted: 0,
   };
 }
@@ -175,6 +183,13 @@ export function buildInterestOnlyPaidDetail(): LoanDetailData {
         principalAfter: 50_000,
       },
     ],
+    ledgerPayments: [
+      {
+        paymentDate: '2026-06-20',
+        amount: 55_000,
+        reference: 'PAY-IO-001',
+      },
+    ],
     monthsCompleted: 1,
   };
 }
@@ -229,6 +244,7 @@ function buildFixedDetail(): LoanDetailData {
     installments,
     guarantees: [],
     principalPayments: [],
+    ledgerPayments: [],
     monthsCompleted: 4,
   };
 }

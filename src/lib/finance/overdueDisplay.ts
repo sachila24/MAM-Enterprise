@@ -11,3 +11,6 @@ export function getOverdueSeverity(daysOverdue: number): OverdueSeverity {
   if (daysOverdue <= 90) return 'medium';
   return 'high';
 }
+
+/** Re-export for UI; formatting lives in display layer. */
+export { formatOverdueHuman } from '../display/ledgerDisplay';

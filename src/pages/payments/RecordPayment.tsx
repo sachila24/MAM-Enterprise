@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
-import { filterAffectedAllocationRows } from '../../lib/finance/allocationDisplay';
 import { useToast } from '../../components/ui/Toast';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
@@ -148,11 +147,6 @@ export function RecordPayment() {
     setIsSubmitting(true);
     toastShownRef.current = false;
 
-    const receiptRows = filterAffectedAllocationRows(
-      computation.allocationRows,
-      5
-    );
-
     const successState = {
       loanCode: selectedLoan.loanCode,
       loanId: selectedLoan.id,
@@ -164,7 +158,6 @@ export function RecordPayment() {
       paymentDate: form.paymentDate,
       repaymentMethod: selectedLoan.repaymentMethod,
       receipt: computation.receipt,
-      allocationRows: receiptRows,
       supabasePending: false,
     };
 
@@ -760,120 +753,12 @@ function SummaryPanel({
                   : computation.paymentNextDue?.label ?? '—'
               }
             />
-            <SummaryLine
-              label={t('lateFeeRate')}
-              value={`${loan.lateFeeRate}%`}
-            />
-            {computation.fixedDueSummary && (
-              <>
-                <div className="pt-3 border-t border-brand-700" />
-                <SummaryLine
-                  label={t('lateFeesDue')}
-                  value={formatLKR(computation.fixedDueSummary.totalLateFeesDue)}
-                />
-                <SummaryLine
-                  label={t('arrearsInstallments')}
-                  value={formatLKR(
-                    computation.fixedDueSummary.totalArrearsInstallmentsDue
-                  )}
-                />
-                <SummaryLine
-                  label={t('currentMonth')}
-                  value={formatLKR(computation.fixedDueSummary.currentMonthDue)}
-                />
-                <SummaryLine
-                  label={t('totalDueToday')}
-                  value={formatLKR(computation.fixedDueSummary.totalDue)}
-                  highlight
-                />
-              </>
-            )}
           </>
         )}
-        {step >= 2 && computation.appliedTotal > 0 && computation.allocation && (
+        {step >= 2 && computation.receipt && (
           <>
             <div className="pt-3 border-t border-brand-700" />
-            <p className="text-xs uppercase tracking-wide text-brand-300">
-              {t('livePreview')}
-            </p>
-            {computation.receipt && 'cashReceived' in computation.receipt && (
-              <>
-                <SummaryLine
-                  label={t('cashEntered')}
-                  value={formatLKR(computation.receipt.cashReceived)}
-                />
-                {computation.receipt.discountApplied > 0 && (
-                  <SummaryLine
-                    label={t('discountApplied')}
-                    value={formatLKR(computation.receipt.discountApplied)}
-                  />
-                )}
-                <SummaryLine
-                  label={t('totalApplied')}
-                  value={formatLKR(computation.receipt.totalApplied)}
-                  highlight
-                />
-              </>
-            )}
-            {isIO &&
-              computation.receipt &&
-              'interestPaid' in computation.receipt && (
-              <>
-                <SummaryLine
-                  label={t('interestPaid')}
-                  value={formatLKR(computation.receipt.interestPaid)}
-                />
-                <SummaryLine
-                  label={t('principalPaid')}
-                  value={formatLKR(computation.receipt.principalPaid)}
-                />
-                <SummaryLine
-                  label={t('remainingPrincipal')}
-                  value={formatLKR(computation.receipt.remainingPrincipal)}
-                />
-                <SummaryLine
-                  label={t('nextEstInterest')}
-                  value={formatLKR(computation.receipt.nextEstimatedInterest)}
-                />
-                {computation.receipt.pendingInterestRemaining > 0 && (
-                  <SummaryLine
-                    label={t('pendingInterest')}
-                    value={formatLKR(
-                      computation.receipt.pendingInterestRemaining
-                    )}
-                  />
-                )}
-              </>
-            )}
-            {isFixed &&
-              computation.receipt &&
-              'lateFeePaid' in computation.receipt && (
-                <>
-                  <SummaryLine
-                    label={t('lateFeePaid')}
-                    value={formatLKR(computation.receipt.lateFeePaid)}
-                  />
-                  <SummaryLine
-                    label={t('installmentPaid')}
-                    value={formatLKR(computation.receipt.installmentPaid)}
-                  />
-                  {computation.receipt.advancePaid > 0 && (
-                    <SummaryLine
-                      label={t('allocAdvance')}
-                      value={formatLKR(computation.receipt.advancePaid)}
-                    />
-                  )}
-                  <SummaryLine
-                    label={t('arrearsRemaining')}
-                    value={formatLKR(computation.receipt.remainingArrears)}
-                  />
-                  <SummaryLine
-                    label={t('balanceAfterShort')}
-                    value={formatLKR(computation.receipt.loanBalance)}
-                    highlight
-                  />
-                </>
-              )}
+            <SimpleLedgerReceiptSummary receipt={computation.receipt} loan={loan} />
           </>
         )}
       </div>
@@ -904,6 +789,79 @@ function SummaryLine({
   );
 }
 
+function getSimpleReceiptLines(
+  loan: Loan,
+  receipt: NonNullable<ReturnType<typeof usePaymentComputation>['receipt']>,
+  t: ReturnType<typeof useT>['t']
+): Array<{ label: string; value: string; highlight?: boolean }> {
+  if (isFixedInstallmentLoan(loan) && 'lateFeePaid' in receipt) {
+    return [
+      { label: t('lateFeePaid'), value: formatLKR(receipt.lateFeePaid) },
+      {
+        label: t('installmentPaid'),
+        value: formatLKR(receipt.installmentPaid),
+      },
+      {
+        label: t('remainingBalance'),
+        value: formatLKR(receipt.loanBalance),
+        highlight: true,
+      },
+    ];
+  }
+  if (isInterestOnlyLoan(loan) && 'interestPaid' in receipt) {
+    const installmentPaid = receipt.interestPaid + receipt.principalPaid;
+    return [
+      { label: t('lateFeePaid'), value: formatLKR(0) },
+      { label: t('installmentPaid'), value: formatLKR(installmentPaid) },
+      {
+        label: t('remainingBalance'),
+        value: formatLKR(receipt.remainingPrincipal),
+        highlight: true,
+      },
+    ];
+  }
+  return [];
+}
+
+function SimpleLedgerReceiptSummary({
+  loan,
+  receipt,
+  variant = 'dark',
+}: {
+  loan: Loan;
+  receipt: NonNullable<ReturnType<typeof usePaymentComputation>['receipt']>;
+  variant?: 'dark' | 'light';
+}) {
+  const { t } = useT();
+  const lines = getSimpleReceiptLines(loan, receipt, t);
+
+  if (variant === 'light') {
+    return (
+      <ul className="text-sm space-y-2 text-neutral-800">
+        {lines.map((line) => (
+          <li key={line.label} className="flex justify-between gap-4">
+            <span>{line.label}</span>
+            <span className="font-semibold tabular-nums">{line.value}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <>
+      {lines.map((line) => (
+        <SummaryLine
+          key={line.label}
+          label={line.label}
+          value={line.value}
+          highlight={line.highlight}
+        />
+      ))}
+    </>
+  );
+}
+
 function ReceiptPreview({
   loan,
   receipt,
@@ -917,29 +875,7 @@ function ReceiptPreview({
       <h4 className="text-sm font-semibold text-neutral-900 mb-3">
         {t('receiptPreview')}
       </h4>
-      {isInterestOnlyLoan(loan) && 'interestPaid' in receipt && (
-        <ul className="text-sm space-y-1 text-neutral-700">
-          <li>{t('interestPaid')}: {formatLKR(receipt.interestPaid)}</li>
-          <li>{t('principalPaid')}: {formatLKR(receipt.principalPaid)}</li>
-          <li>{t('remainingPrincipal')}: {formatLKR(receipt.remainingPrincipal)}</li>
-          {receipt.pendingInterestRemaining > 0 && (
-            <li>
-              {t('pendingInterest')}: {formatLKR(receipt.pendingInterestRemaining)}
-            </li>
-          )}
-        </ul>
-      )}
-      {isFixedInstallmentLoan(loan) && 'lateFeePaid' in receipt && (
-        <ul className="text-sm space-y-1 text-neutral-700">
-          <li>{t('lateFeePaid')}: {formatLKR(receipt.lateFeePaid)}</li>
-          <li>{t('installmentPaid')}: {formatLKR(receipt.installmentPaid)}</li>
-          {receipt.advancePaid > 0 && (
-            <li>{t('advancePaid')}: {formatLKR(receipt.advancePaid)}</li>
-          )}
-          <li>{t('remainingArrears')}: {formatLKR(receipt.remainingArrears)}</li>
-          <li>{t('loanBalance')}: {formatLKR(receipt.loanBalance)}</li>
-        </ul>
-      )}
+      <SimpleLedgerReceiptSummary loan={loan} receipt={receipt} variant="light" />
     </div>
   );
 }

@@ -22,7 +22,7 @@ import {
 } from '../lib/local-db/repositories';
 import { useT } from '../i18n/I18nProvider';
 import { getGreetingPeriod, getSystemTime } from '../lib/time/systemTime';
-import type { OverdueSeverity } from '../lib/finance/overdueDisplay';
+import { formatOverdueHuman } from '../lib/display/ledgerDisplay';
 
 function greetingKey(
   period: ReturnType<typeof getGreetingPeriod>
@@ -30,24 +30,6 @@ function greetingKey(
   if (period === 'afternoon') return 'goodAfternoon';
   if (period === 'evening') return 'goodEvening';
   return 'goodMorning';
-}
-
-function severityLabelKey(
-  severity: OverdueSeverity
-): 'overdueSeverityLow' | 'overdueSeverityMedium' | 'overdueSeverityHigh' {
-  if (severity === 'high') return 'overdueSeverityHigh';
-  if (severity === 'medium') return 'overdueSeverityMedium';
-  return 'overdueSeverityLow';
-}
-
-function severityBadgeClass(severity: OverdueSeverity): string {
-  if (severity === 'high') {
-    return 'bg-danger-100 text-danger-800 ring-danger-600/20';
-  }
-  if (severity === 'medium') {
-    return 'bg-warning-100 text-warning-800 ring-warning-600/20';
-  }
-  return 'bg-neutral-100 text-neutral-700 ring-neutral-500/20';
 }
 
 export function Dashboard() {
@@ -291,20 +273,13 @@ function OverdueQueueRow({
           <p className="text-sm font-medium text-neutral-900 truncate">
             {loan.customer?.name}
           </p>
-          <p className="text-sm text-neutral-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             <span className="tabular-nums font-medium text-neutral-700">
               {loan.loanCode}
             </span>
-            <span className="text-neutral-300">·</span>
-            <span className="text-danger-600 font-medium tabular-nums">
-              {loan.daysOverdue} {t('daysOverdue')} ({loan.monthsOverdue}{' '}
-              {t('monthsOverdueLabel')})
-            </span>
-            <span
-              className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${severityBadgeClass(loan.severity)}`}
-            >
-              {t(severityLabelKey(loan.severity))}
-            </span>
+          </p>
+          <p className="text-sm text-danger-600 font-medium mt-1">
+            {formatOverdueHuman(loan.daysOverdue)}
           </p>
         </div>
         <div className="flex items-center gap-4 shrink-0">

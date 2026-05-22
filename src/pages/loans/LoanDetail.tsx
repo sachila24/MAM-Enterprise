@@ -13,12 +13,18 @@ import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
-  arrearsSummaryFromEngine,
   enrichInstallmentsFromEngine,
   runLateFeeEngine,
   getFixedLoanDisplayStatus,
+  oldestArrearsDueDate,
+  daysBetweenDates,
   type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
+import {
+  buildFixedInstallmentLedgerEntries,
+  buildInterestOnlyLedgerEntries,
+  formatOverdueHuman,
+} from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
 import {
@@ -42,10 +48,7 @@ import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles'
 import { roundLKR } from '../../lib/finance/money';
 
 import { getSystemToday } from '../../lib/time/systemTime';
-import {
-  InstallmentScheduleTable,
-  type InstallmentScheduleRow,
-} from '../../components/loans/InstallmentScheduleTable';
+import { LedgerTable } from '../../components/loans/LedgerTable';
 
 export function LoanDetail() {
   const { t } = useT();
@@ -118,8 +121,8 @@ function InterestOnlyLoanDetail({
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { loan, customer, interestCycles, guarantees, principalPayments } =
-    detail;
+  const { t } = useT();
+  const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
 
   const asOf = useMemo(() => getSystemToday(), []);
   const cycleAlloc = useMemo(
@@ -164,6 +167,18 @@ function InterestOnlyLoanDetail({
         ? formatDate(nextDueIo.dueDate)
         : nextDueIo.label;
 
+  const ledgerEntries = useMemo(
+    () =>
+      buildInterestOnlyLedgerEntries(
+        loan.startDate,
+        loan.originalPrincipalAmount,
+        interestCycles,
+        ledgerPayments,
+        asOf
+      ),
+    [loan.startDate, loan.originalPrincipalAmount, interestCycles, ledgerPayments, asOf]
+  );
+
   return (
     <div className="max-w-7xl mx-auto pb-12">
       <LoanHeader
@@ -204,45 +219,8 @@ function InterestOnlyLoanDetail({
       </div>
 
       <section className="mb-8">
-        <SectionTitle icon={BanknoteIcon} title="Interest cycles" />
-        <DataTable
-          columns={[
-            'Cycle',
-            'Period',
-            'Opening principal',
-            'Interest due',
-            'Interest paid',
-            'Principal paid',
-            'Closing principal',
-            'Status',
-          ]}
-          rows={interestCycles.map((c) => [
-            String(c.cycleNumber),
-            `${formatDate(c.periodStart)} – ${formatDate(c.periodEnd)}`,
-            formatLKR(c.openingPrincipal),
-            formatLKR(c.interestDue),
-            formatLKR(c.interestPaid),
-            formatLKR(c.principalPaid),
-            formatLKR(c.closingPrincipal),
-            <StatusChip key={c.id} status={c.status} />,
-          ])}
-          emptyMessage="No interest cycles yet."
-        />
-      </section>
-
-      <section className="mb-8">
-        <SectionTitle icon={FileTextIcon} title="Principal payment history" />
-        <DataTable
-          columns={['Payment', 'Date', 'Amount', 'Principal reduction', 'Balance after']}
-          rows={principalPayments.map((p) => [
-            p.paymentCode,
-            formatDate(p.paymentDate),
-            formatLKR(p.amount),
-            formatLKR(p.principalReduction),
-            formatLKR(p.principalAfter),
-          ])}
-          emptyMessage="No principal payments recorded yet."
-        />
+        <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
+        <LedgerTable entries={ledgerEntries} />
       </section>
 
       <GuaranteesSection
@@ -261,7 +239,9 @@ function FixedInstallmentLoanDetail({
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { loan, customer, installments, guarantees, bike } = detail;
+  const { t } = useT();
+  const { loan, customer, installments, guarantees, bike, ledgerPayments } =
+    detail;
   const asOfDate = useMemo(() => getSystemToday(), []);
 
   const lateFeeEngine = useMemo(
@@ -278,11 +258,6 @@ function FixedInstallmentLoanDetail({
   const enriched = useMemo(
     () => enrichInstallmentsFromEngine(installments, lateFeeEngine),
     [installments, lateFeeEngine]
-  );
-
-  const arrears = useMemo(
-    () => arrearsSummaryFromEngine(lateFeeEngine, installments, asOfDate),
-    [lateFeeEngine, installments, asOfDate]
   );
 
   const displayLoanStatus = useMemo(
@@ -315,21 +290,36 @@ function FixedInstallmentLoanDetail({
         ? formatDate(nextFixed.dueDate)
         : nextFixed.label;
 
-  const scheduleRows: InstallmentScheduleRow[] = useMemo(
+  const ledgerEntries = useMemo(
     () =>
-      enriched.map((i) => ({
-        id: i.id,
-        installmentNumber: i.installmentNumber,
-        dueDate: i.dueDate,
-        installmentAmount: i.installmentAmount,
-        paidAmount: i.paidAmount,
-        overdueMonths: i.overdueMonths,
-        lateFeeAccrued: i.lateFeeAccrued,
-        remaining: i.remaining,
-        displayStatus: i.displayStatus,
-      })),
-    [enriched]
+      buildFixedInstallmentLedgerEntries(
+        loan.startDate,
+        loan.totalPayable ?? loan.principalAmount,
+        enriched,
+        ledgerPayments,
+        asOfDate
+      ),
+    [
+      loan.startDate,
+      loan.totalPayable,
+      loan.principalAmount,
+      enriched,
+      ledgerPayments,
+      asOfDate,
+    ]
   );
+
+  const overdueLabel = useMemo(() => {
+    if (loan.status === 'COMPLETED') return null;
+    const oldest = oldestArrearsDueDate(
+      installments as InstallmentArrearsInput[],
+      asOfDate
+    );
+    if (!oldest) return null;
+    const days = daysBetweenDates(oldest, asOfDate);
+    if (days <= 0) return null;
+    return formatOverdueHuman(days);
+  }, [loan.status, installments, asOfDate]);
 
   const financeLabel =
     loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
@@ -421,44 +411,28 @@ function FixedInstallmentLoanDetail({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
         <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
-        <KpiCard label="Late fee rate" value={`${loan.lateFeeRate}%`} />
         <KpiCard label="Next due" value={nextDueLabel} />
         <KpiCard
-          label="Arrears"
+          label="Balance"
           value={
-            arrears.hasArrears
-              ? `${arrears.arrearsInstallmentCount} installment${arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue`
-              : 'None'
-          }
-          delta={
-            arrears.hasArrears
-              ? {
-                  value: formatLKR(arrears.totalArrearsDue),
-                  trend: 'down',
-                }
-              : undefined
+            loan.status === 'COMPLETED' || loan.balanceAmount <= 0
+              ? formatLKR(0)
+              : formatLKR(loan.balanceAmount)
           }
         />
       </div>
 
-      {arrears.hasArrears && (
-        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 p-4 text-sm text-danger-800 space-y-1">
-          <p className="font-semibold">Arrears summary</p>
-          <p>
-            {arrears.arrearsInstallmentCount} installment
-            {arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue
-          </p>
-          <p>Installments: {formatLKR(arrears.arrearsInstallmentAmount)}</p>
-          <p>Late fees: {formatLKR(arrears.lateFeesDue)}</p>
-          <p className="font-medium">Total due: {formatLKR(arrears.totalArrearsDue)}</p>
+      {overdueLabel && (
+        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm font-medium text-danger-800">
+          {overdueLabel}
         </div>
       )}
 
       <section className="mb-8">
-        <SectionTitle icon={BanknoteIcon} title="Installment schedule" />
-        <InstallmentScheduleTable rows={scheduleRows} />
+        <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
+        <LedgerTable entries={ledgerEntries} />
       </section>
 
       <GuaranteesSection
@@ -599,59 +573,6 @@ function SectionTitle({
       <Icon className="h-5 w-5 text-brand-600" />
       {title}
     </h2>
-  );
-}
-
-function DataTable({
-  columns,
-  rows,
-  emptyMessage,
-}: {
-  columns: string[];
-  rows: React.ReactNode[][];
-  emptyMessage: string;
-}) {
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-neutral-500 py-8 text-center bg-white rounded-xl ring-1 ring-neutral-200">
-        {emptyMessage}
-      </p>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-neutral-200">
-      <table className="min-w-full divide-y divide-neutral-200 text-sm">
-        <thead className="bg-neutral-50">
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col}
-                className="py-3.5 px-3 text-left font-semibold text-neutral-900 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap"
-              >
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-100">
-          {rows.map((row, ri) => (
-            <tr key={ri} className="hover:bg-neutral-50">
-              {row.map((cell, ci) => (
-                <td
-                  key={ci}
-                  className={`py-3 px-3 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap ${
-                    ci > 1 && ci < row.length - 1 ? 'text-right tabular-nums' : ''
-                  } ${ci === 0 ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
