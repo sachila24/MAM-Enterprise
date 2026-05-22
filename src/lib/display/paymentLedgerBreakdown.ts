@@ -59,6 +59,18 @@ export function summarizePaymentBreakdown(
   };
 }
 
+/**
+ * Persisted late-fee charged amount — never below paid or a prior snapshot.
+ * (Recording layer only; does not change late-fee engine math.)
+ */
+export function preserveLateFeeChargedAmount(
+  storedAmount: number,
+  computedAmount: number,
+  paidAmount: number
+): number {
+  return roundLKR(Math.max(storedAmount, computedAmount, paidAmount));
+}
+
 /** Rebuild breakdown from stored allocation rows (historical payments). */
 export function breakdownFromDbAllocations(
   allocations: DbPaymentAllocation[]

@@ -4,6 +4,7 @@ import {
   type InstallmentArrearsInput,
 } from '../finance/fixedInstallmentStatus';
 import { getLateFeeLineByInstallmentId } from '../finance/lateFeeEngineV3';
+import { preserveLateFeeChargedAmount } from '../display/paymentLedgerBreakdown';
 import { getDb, saveDb } from './localDb';
 import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { MamDemoDb } from './types';
@@ -50,7 +51,11 @@ function mutateFixedInstallmentLateFees(
     const input = toInput(inst);
     const line = getLateFeeLineByInstallmentId(engine, inst.id);
     const computedLateFee = line?.lateFee ?? 0;
-    const lateFeeAmount = Math.max(inst.late_fee_amount, computedLateFee);
+    const lateFeeAmount = preserveLateFeeChargedAmount(
+      inst.late_fee_amount,
+      computedLateFee,
+      inst.late_fee_paid
+    );
     const nextStatus = getInstallmentDisplayStatus(
       input,
       asOfDate,

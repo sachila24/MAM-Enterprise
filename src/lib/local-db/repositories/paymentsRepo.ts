@@ -28,7 +28,10 @@ import type { LoanPayment } from '../../../types/entities';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
 import { getSystemTimestamp, isDateBefore } from '../../time/systemTime';
-import { summarizePaymentBreakdown } from '../../display/paymentLedgerBreakdown';
+import {
+  preserveLateFeeChargedAmount,
+  summarizePaymentBreakdown,
+} from '../../display/paymentLedgerBreakdown';
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -437,7 +440,11 @@ function applyFixedAllocation(
     for (const inst of installments) {
       const line = getLateFeeLineByInstallmentId(engine, inst.id);
       const computed = line?.lateFee ?? 0;
-      inst.late_fee_amount = Math.max(inst.late_fee_amount, computed);
+      inst.late_fee_amount = preserveLateFeeChargedAmount(
+        inst.late_fee_amount,
+        computed,
+        inst.late_fee_paid
+      );
     }
   };
 
