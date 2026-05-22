@@ -17,7 +17,6 @@ import { usePaymentComputation, type PaymentFormState } from './usePaymentComput
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
 import { recordPayment } from '../../lib/local-db/repositories';
-import { RecordPaymentReview } from '../../components/payments/RecordPaymentReview';
 import { useT } from '../../i18n/I18nProvider';
 import { getSystemToday } from '../../lib/time/systemTime';
 
@@ -30,7 +29,6 @@ export function RecordPayment() {
     { id: 'customer', label: t('stepCustomer') },
     { label: t('stepLoan') },
     { label: t('stepPayment') },
-    { label: t('stepReview') },
     { label: t('stepConfirm') },
   ];
   const db = useDemoDb();
@@ -108,8 +106,6 @@ export function RecordPayment() {
         return !!selectedLoanId;
       case 2:
         return form.amount > 0 || (form.discountAmount ?? 0) > 0;
-      case 3:
-        return !!computation.allocation;
       default:
         return true;
     }
@@ -213,7 +209,6 @@ export function RecordPayment() {
     if (currentStep === STEPS.length - 1) {
       return isSubmitting ? t('savingPayment') : t('confirmPaymentBtn');
     }
-    if (currentStep === 2) return t('reviewPayment');
     return t('action.continue');
   };
 
@@ -236,13 +231,7 @@ export function RecordPayment() {
       )}
 
       <div className="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-10">
-        <div
-          className={`flex-1 min-w-0 lg:max-w-[58%] space-y-6 ${
-            currentStep === 3
-              ? 'lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1'
-              : ''
-          }`}
-        >
+        <div className="flex-1 min-w-0 lg:max-w-[58%] space-y-6">
           {/* Step 0: Customer */}
           {currentStep === 0 && (
             <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
@@ -498,13 +487,8 @@ export function RecordPayment() {
             </div>
           )}
 
-          {/* Step 3: Review */}
-          {currentStep === 3 && selectedLoan && computation.allocation && (
-            <RecordPaymentReview loan={selectedLoan} computation={computation} />
-          )}
-
-          {/* Step 4: Confirm */}
-          {currentStep === 4 && selectedLoan && (
+          {/* Step 3: Confirm */}
+          {currentStep === 3 && selectedLoan && (
             <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6 space-y-4">
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('confirmPayment')}
@@ -555,13 +539,12 @@ export function RecordPayment() {
           />
         </div>
 
-        <aside className="flex-1 min-w-0 lg:max-w-[40%] shrink-0 lg:sticky lg:top-24 lg:self-start">
+        <aside className="flex-1 min-w-0 lg:max-w-[40%] shrink-0 lg:sticky lg:top-24 lg:self-start z-10">
           <SummaryPanel
             step={currentStep}
             customer={selectedCustomer}
             loan={selectedLoan}
             computation={computation}
-            compactLivePreview={currentStep === 3}
           />
         </aside>
       </div>
@@ -597,10 +580,12 @@ function Row({
   bold?: boolean;
 }) {
   return (
-    <div className="py-2 flex justify-between gap-4">
-      <dt className="text-neutral-500">{label}</dt>
+    <div className="py-2.5 flex justify-between items-baseline gap-4">
+      <dt className="text-neutral-500 text-left shrink-0">{label}</dt>
       <dd
-        className={`text-neutral-900 tabular-nums text-right ${bold ? 'font-bold text-brand-600' : ''}`}
+        className={`text-neutral-900 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
+          bold ? 'font-bold text-brand-600' : ''
+        }`}
       >
         {value}
       </dd>
@@ -665,20 +650,26 @@ function AppliedPreview({
 }) {
   const { t } = useT();
   return (
-    <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2">
-      <div className="flex justify-between gap-4">
-        <span className="text-neutral-600">{t('cashReceived')}</span>
-        <span className="font-medium tabular-nums">{formatLKR(cash)}</span>
+    <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2.5">
+      <div className="flex justify-between items-baseline gap-4">
+        <span className="text-neutral-600 text-left shrink-0">{t('cashReceived')}</span>
+        <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+          {formatLKR(cash)}
+        </span>
       </div>
       {discount > 0 && (
-        <div className="flex justify-between gap-4">
-          <span className="text-neutral-600">{t('discountGiven')}</span>
-          <span className="font-medium tabular-nums">{formatLKR(discount)}</span>
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{t('discountGiven')}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(discount)}
+          </span>
         </div>
       )}
-      <div className="flex justify-between gap-4 border-t border-neutral-200 pt-2">
-        <span className="font-medium text-neutral-900">{t('totalApplied')}</span>
-        <span className="font-bold text-brand-600 tabular-nums">
+      <div className="flex justify-between items-baseline gap-4 border-t border-neutral-200 pt-2.5">
+        <span className="font-medium text-neutral-900 text-left shrink-0">
+          {t('totalApplied')}
+        </span>
+        <span className="font-bold text-brand-600 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
           {formatLKR(total)}
         </span>
       </div>
@@ -691,13 +682,11 @@ function SummaryPanel({
   customer,
   loan,
   computation,
-  compactLivePreview = false,
 }: {
   step: number;
   customer: Customer | null | undefined;
   loan: Loan | null | undefined;
   computation: ReturnType<typeof usePaymentComputation>;
-  compactLivePreview?: boolean;
 }) {
   const { t } = useT();
   if (!loan) {
@@ -723,7 +712,7 @@ function SummaryPanel({
         </p>
       </div>
       <div className="p-6 space-y-3 text-sm">
-        {!compactLivePreview && isIO && (
+        {isIO && (
           <>
             <SummaryLine
               label={t('loanAmount')}
@@ -741,7 +730,7 @@ function SummaryPanel({
             />
           </>
         )}
-        {!compactLivePreview && isFixed && (
+        {isFixed && (
           <>
             <SummaryLine
               label={
@@ -805,7 +794,7 @@ function SummaryPanel({
           <>
             <div className="pt-3 border-t border-brand-700" />
             <p className="text-xs uppercase tracking-wide text-brand-300">
-              {compactLivePreview ? t('paymentImpact') : t('livePreview')}
+              {t('livePreview')}
             </p>
             {computation.receipt && 'cashReceived' in computation.receipt && (
               <>
@@ -822,23 +811,11 @@ function SummaryPanel({
                 <SummaryLine
                   label={t('totalApplied')}
                   value={formatLKR(computation.receipt.totalApplied)}
-                  highlight={!compactLivePreview}
+                  highlight
                 />
               </>
             )}
-            {compactLivePreview && computation.receipt && (
-              <SummaryLine
-                label={t('loanBalanceAfter')}
-                value={formatLKR(
-                  'loanBalance' in computation.receipt
-                    ? computation.receipt.loanBalance
-                    : computation.receipt.remainingPrincipal
-                )}
-                highlight
-              />
-            )}
-            {!compactLivePreview &&
-              isIO &&
+            {isIO &&
               computation.receipt &&
               'interestPaid' in computation.receipt && (
               <>
@@ -868,8 +845,7 @@ function SummaryPanel({
                 )}
               </>
             )}
-            {!compactLivePreview &&
-              isFixed &&
+            {isFixed &&
               computation.receipt &&
               'lateFeePaid' in computation.receipt && (
                 <>
@@ -915,10 +891,12 @@ function SummaryLine({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex justify-between gap-2">
-      <span className="text-brand-200">{label}</span>
+    <div className="flex justify-between items-baseline gap-4">
+      <span className="text-brand-200 text-left shrink-0">{label}</span>
       <span
-        className={`tabular-nums text-right ${highlight ? 'font-bold text-white' : 'text-brand-50'}`}
+        className={`tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
+          highlight ? 'font-bold text-white' : 'text-brand-50'
+        }`}
       >
         {value}
       </span>

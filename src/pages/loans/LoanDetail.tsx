@@ -42,6 +42,10 @@ import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles'
 import { roundLKR } from '../../lib/finance/money';
 
 import { getSystemToday } from '../../lib/time/systemTime';
+import {
+  InstallmentScheduleTable,
+  type InstallmentScheduleRow,
+} from '../../components/loans/InstallmentScheduleTable';
 
 export function LoanDetail() {
   const { t } = useT();
@@ -311,6 +315,22 @@ function FixedInstallmentLoanDetail({
         ? formatDate(nextFixed.dueDate)
         : nextFixed.label;
 
+  const scheduleRows: InstallmentScheduleRow[] = useMemo(
+    () =>
+      enriched.map((i) => ({
+        id: i.id,
+        installmentNumber: i.installmentNumber,
+        dueDate: i.dueDate,
+        installmentAmount: i.installmentAmount,
+        paidAmount: i.paidAmount,
+        overdueMonths: i.overdueMonths,
+        lateFeeAccrued: i.lateFeeAccrued,
+        remaining: i.remaining,
+        displayStatus: i.displayStatus,
+      })),
+    [enriched]
+  );
+
   const financeLabel =
     loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
 
@@ -438,29 +458,7 @@ function FixedInstallmentLoanDetail({
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title="Installment schedule" />
-        <DataTable
-          columns={[
-            'No.',
-            'Due date',
-            'Installment',
-            'Paid',
-            'Months late',
-            'Late fee',
-            'Remaining',
-            'Status',
-          ]}
-          rows={enriched.map((i) => [
-            String(i.installmentNumber),
-            formatDate(i.dueDate),
-            formatLKR(i.installmentAmount),
-            formatLKR(i.paidAmount),
-            String(i.overdueMonths),
-            formatLKR(i.lateFeeAccrued),
-            formatLKR(i.remaining),
-            <StatusChip key={i.id} status={i.displayStatus} />,
-          ])}
-          emptyMessage="No installments on this loan."
-        />
+        <InstallmentScheduleTable rows={scheduleRows} />
       </section>
 
       <GuaranteesSection
