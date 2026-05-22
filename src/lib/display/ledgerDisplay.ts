@@ -10,6 +10,9 @@ export interface LedgerPaymentRecord {
   reference?: string;
 }
 
+/** Display-only row status for the loan ledger (not loan-level status). */
+export type LedgerRowStatus = 'PAID' | 'PARTIAL' | 'PENDING' | 'APPLIED';
+
 export interface LedgerEntry {
   date: string;
   description: string;
@@ -17,7 +20,28 @@ export interface LedgerEntry {
   debit?: number;
   credit?: number;
   balance: number;
+  status: LedgerRowStatus;
   sortOrder: number;
+}
+
+function installmentRowStatus(paid: number, amount: number): LedgerRowStatus {
+  const paidR = roundLKR(paid);
+  const amountR = roundLKR(amount);
+  if (amountR <= 0) return 'PAID';
+  if (paidR >= amountR) return 'PAID';
+  if (paidR > 0) return 'PARTIAL';
+  return 'PENDING';
+}
+
+function lateFeeRowStatus(
+  lateFeePaid: number,
+  lateFeeAccrued: number,
+  lateFeeOutstanding: number
+): LedgerRowStatus {
+  if (lateFeeAccrued <= 0) return 'PAID';
+  if (roundLKR(lateFeeOutstanding) <= 0) return 'PAID';
+  if (roundLKR(lateFeePaid) >= roundLKR(lateFeeAccrued)) return 'PAID';
+  return 'PENDING';
 }
 
 /** Human-readable overdue: "110 days overdue / 3.6 months overdue" */
@@ -55,6 +79,7 @@ export function buildFixedInstallmentLedgerEntries(
     date: loanStartDate,
     description: 'Loan opened',
     debit: totalPayable,
+    status: 'PENDING',
     sortOrder: order++,
   });
 
@@ -65,6 +90,7 @@ export function buildFixedInstallmentLedgerEntries(
       date: inst.dueDate,
       description: `Installment due #${inst.installmentNumber}`,
       debit: inst.installmentAmount,
+      status: installmentRowStatus(inst.paidAmount, inst.installmentAmount),
       sortOrder: order++,
     });
 
@@ -73,6 +99,11 @@ export function buildFixedInstallmentLedgerEntries(
         date: inst.dueDate,
         description: `Late fee #${inst.installmentNumber}`,
         debit: inst.lateFeeAccrued,
+        status: lateFeeRowStatus(
+          inst.lateFeePaid,
+          inst.lateFeeAccrued,
+          inst.lateFeeOutstanding
+        ),
         sortOrder: order++,
       });
     }
@@ -84,6 +115,7 @@ export function buildFixedInstallmentLedgerEntries(
       description: 'Payment received',
       reference: p.reference,
       credit: p.amount,
+      status: 'APPLIED',
       sortOrder: order++,
     });
   }
@@ -113,6 +145,7 @@ export function buildInterestOnlyLedgerEntries(
     date: loanStartDate,
     description: 'Loan opened',
     debit: principalAmount,
+    status: 'PENDING',
     sortOrder: order++,
   });
 
@@ -123,6 +156,7 @@ export function buildInterestOnlyLedgerEntries(
         date: c.dueDate,
         description: `Interest due cycle #${c.cycleNumber}`,
         debit: c.interestDue,
+        status: installmentRowStatus(c.interestPaid, c.interestDue),
         sortOrder: order++,
       });
     }
@@ -134,6 +168,7 @@ export function buildInterestOnlyLedgerEntries(
       description: 'Payment received',
       reference: p.reference,
       credit: p.amount,
+      status: 'APPLIED',
       sortOrder: order++,
     });
   }

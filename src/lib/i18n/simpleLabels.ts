@@ -202,6 +202,7 @@ export const t = {
   ledgerColDebit: bi('Debit', 'ණය (ගෙවිය යුතු)'),
   ledgerColCredit: bi('Credit', 'ණය (ලැබුණු)'),
   ledgerColBalance: bi('Balance', 'ශේෂය'),
+  ledgerColStatus: bi('Status', 'තත්ත්වය'),
   ledgerEmpty: bi('No ledger entries yet.', 'ලෙජර් පේළි තවම නැත.'),
   loanLedger: bi('Loan ledger', 'ණය ලෙජර්'),
   advancePaid: bi('Advance paid', 'අත්තිකාරම ගෙවීම'),

@@ -1,7 +1,8 @@
 import React from 'react';
 import { formatDate, formatLKR } from '../../lib/format';
-import type { LedgerEntry } from '../../lib/display/ledgerDisplay';
+import type { LedgerEntry, LedgerRowStatus } from '../../lib/display/ledgerDisplay';
 import { useT } from '../../i18n/I18nProvider';
+import { StatusChip } from '../ui/StatusChip';
 
 interface LedgerTableProps {
   entries: LedgerEntry[];
@@ -36,6 +37,7 @@ export function LedgerTable({ entries, emptyMessage }: LedgerTableProps) {
             <th className={`${thBase} text-right`}>{t('ledgerColDebit')}</th>
             <th className={`${thBase} text-right`}>{t('ledgerColCredit')}</th>
             <th className={`${thBase} text-right`}>{t('ledgerColBalance')}</th>
+            <th className={`${thBase} text-center w-28`}>{t('ledgerColStatus')}</th>
           </tr>
         </thead>
         <tbody>
@@ -64,10 +66,29 @@ export function LedgerTable({ entries, emptyMessage }: LedgerTableProps) {
               <td className={`${tdBase} text-right font-semibold text-neutral-900`}>
                 {formatLKR(row.balance)}
               </td>
+              <td className={`${tdBase} text-center`}>
+                <LedgerRowStatusBadge status={row.status} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function LedgerRowStatusBadge({ status }: { status: LedgerRowStatus }) {
+  const chipStatus =
+    status === 'APPLIED'
+      ? 'applied'
+      : status === 'PAID'
+        ? 'paid'
+        : status === 'PARTIAL'
+          ? 'partial'
+          : 'pending';
+  return (
+    <span className="inline-flex justify-center w-full">
+      <StatusChip status={chipStatus} showDot={false} />
+    </span>
   );
 }
