@@ -17,7 +17,7 @@ import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
 import { recordPayment } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
-import { getSystemToday } from '../../lib/time/systemTime';
+import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 
 export function RecordPayment() {
   const { t } = useT();
@@ -31,6 +31,7 @@ export function RecordPayment() {
     { label: t('stepConfirm') },
   ];
   const db = useDemoDb();
+  const systemToday = useSystemToday();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const toastShownRef = useRef(false);
@@ -57,6 +58,10 @@ export function RecordPayment() {
     chequeNumber: '',
     bankReference: '',
   });
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, paymentDate: systemToday }));
+  }, [systemToday]);
 
   const customers = previewBundle?.customers ?? [];
   const loans = previewBundle?.loans ?? [];

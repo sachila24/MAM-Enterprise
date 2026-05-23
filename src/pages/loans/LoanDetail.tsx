@@ -48,7 +48,7 @@ import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
 import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
 import { roundLKR } from '../../lib/finance/money';
 
-import { getSystemToday } from '../../lib/time/systemTime';
+import { useSystemToday } from '../../lib/time/systemTime';
 import { LedgerTable } from '../../components/loans/LedgerTable';
 
 export function LoanDetail() {
@@ -56,17 +56,18 @@ export function LoanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
+  const asOfToday = useSystemToday();
 
   useEffect(() => {
     if (!id) return;
     const loan = db.loans.find((l) => l.id === id);
     if (loan?.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
-      persistInterestOnlyCycles(getDb(), id);
+      persistInterestOnlyCycles(getDb(), id, asOfToday);
     }
     if (loan?.repayment_method === 'FIXED_TERM_INSTALLMENT') {
-      syncFixedInstallmentLateFees(getDb(), id);
+      syncFixedInstallmentLateFees(getDb(), id, asOfToday);
     }
-  }, [id, db]);
+  }, [id, db, asOfToday]);
 
   const detail =
     (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
@@ -125,7 +126,7 @@ function InterestOnlyLoanDetail({
   const { t } = useT();
   const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
 
-  const asOf = useMemo(() => getSystemToday(), []);
+  const asOf = useSystemToday();
   const cycleAlloc = useMemo(
     () =>
       interestCycles.map((c) => ({
@@ -259,7 +260,7 @@ function FixedInstallmentLoanDetail({
     ledgerPayments,
     ledgerInstallments,
   } = detail;
-  const asOfDate = useMemo(() => getSystemToday(), []);
+  const asOfDate = useSystemToday();
 
   const installmentsWithIds = useMemo(
     () =>

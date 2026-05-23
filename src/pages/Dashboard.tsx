@@ -21,7 +21,11 @@ import {
   type DashboardOverdueLoan,
 } from '../lib/local-db/repositories';
 import { useT } from '../i18n/I18nProvider';
-import { getGreetingPeriod, getSystemTime } from '../lib/time/systemTime';
+import {
+  getGreetingPeriod,
+  getSystemTime,
+  useSystemToday,
+} from '../lib/time/systemTime';
 import { formatOverdueHuman } from '../lib/display/ledgerDisplay';
 
 function greetingKey(
@@ -35,8 +39,9 @@ function greetingKey(
 export function Dashboard() {
   const { t, language } = useT();
   const db = useDemoDb();
-  const kpis = useMemo(() => getDashboardKpis(db), [db]);
-  const overdueLoans = useMemo(() => getOverdueLoans(db), [db]);
+  const asOfToday = useSystemToday();
+  const kpis = useMemo(() => getDashboardKpis(db), [db, asOfToday]);
+  const overdueLoans = useMemo(() => getOverdueLoans(db), [db, asOfToday]);
   const recentActivity = useMemo(
     () => getRecentActivity(db, 10, language),
     [db, language]
@@ -48,7 +53,7 @@ export function Dashboard() {
     const greeting = `${t(greetingKey(period))}, Sachila`;
     const timestamp = formatDateTime(now);
     return `${greeting} — ${timestamp}`;
-  }, [t]);
+  }, [t, asOfToday]);
 
   const quickActions = (
     <div className="flex gap-2">

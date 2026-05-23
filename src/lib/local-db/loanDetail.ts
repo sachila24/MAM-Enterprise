@@ -10,7 +10,7 @@ import {
 } from './mappers';
 import type { MamDemoDb } from './types';
 import { getDb } from './localDb';
-import { getSystemToday } from '../time/systemTime';
+import { getSystemDate, getSystemToday } from '../time/systemTime';
 import {
   mapInstallmentsToLedgerSource,
   mapLedgerPaymentsFromDb,
@@ -126,7 +126,7 @@ export function getLoanDetailFromDb(
       ? installments.filter((i) => i.status === 'PAID').length
       : (() => {
           const start = new Date(dbLoan.start_date);
-          const now = new Date();
+          const now = getSystemDate();
           return Math.max(
             0,
             (now.getFullYear() - start.getFullYear()) * 12 +

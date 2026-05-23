@@ -3,9 +3,19 @@
  * UI display formatting may still use locale formatters elsewhere.
  */
 
+import { useSyncExternalStore } from 'react';
+import {
+  getRealDate,
+  getSystemDate,
+  getDevTimeSnapshot,
+  subscribeDevTime,
+} from './devTime';
+
+export { getSystemDate } from './devTime';
+
 /** YYYY-MM-DD in UTC — single source of truth for "today" in business logic. */
 export function getSystemToday(): string {
-  const now = new Date();
+  const now = getSystemDate();
   const y = now.getUTCFullYear();
   const m = String(now.getUTCMonth() + 1).padStart(2, '0');
   const d = String(now.getUTCDate()).padStart(2, '0');
@@ -86,9 +96,15 @@ export function calculateLateMonthsFromDueDate(
   return Math.floor(daysBetweenDates(dueDate, asOfDate) / 30);
 }
 
-/** Live clock for UI greetings and timestamps (local timezone). */
+/** Live clock for UI greetings and finance "now" (respects dev simulation). */
 export function getSystemTime(): Date {
-  return new Date();
+  return getSystemDate();
+}
+
+/** Re-render when dev simulated date changes (or on each render in production). */
+export function useSystemToday(): string {
+  useSyncExternalStore(subscribeDevTime, getDevTimeSnapshot, getDevTimeSnapshot);
+  return getSystemToday();
 }
 
 export type GreetingPeriod = 'morning' | 'afternoon' | 'evening';
@@ -101,17 +117,19 @@ export function getGreetingPeriod(date: Date = getSystemTime()): GreetingPeriod 
   return 'evening';
 }
 
-/** ISO timestamp for audit rows (not used for late-fee as-of). */
+/** ISO timestamp for audit rows — always real wall clock (not simulated). */
 export function getSystemTimestamp(): string {
-  return new Date().toISOString();
+  return getRealDate().toISOString();
 }
 
 /** Temporary diagnostic — call from devtools or once on loan detail load. */
 export function debugTimeContext(label = 'TIME_DEBUG'): void {
-  const now = new Date();
+  const now = getSystemDate();
+  const real = getRealDate();
   console.log(label, {
-    localSystemTime: now.toString(),
-    utcIso: now.toISOString(),
+    simulated: now.toString(),
+    simulatedUtcIso: now.toISOString(),
+    realWallClock: real.toString(),
     utcDateOnly: getSystemToday(),
     timezoneOffsetMinutes: now.getTimezoneOffset(),
     executionContext:
