@@ -2,7 +2,11 @@ import type { AllocationType } from '../finance/paymentAllocation';
 import type { DbPaymentAllocation } from '../local-db/types';
 import type { DisplayMode, LabelKey } from '../i18n/simpleLabels';
 import { roundLKR } from '../finance/money';
-import type { LedgerAllocationLine } from './ledgerDisplay';
+import type {
+  LedgerAllocationLine,
+  LedgerEntry,
+  LedgerEntryType,
+} from './ledgerDisplay';
 
 export interface LedgerAllocationLookup {
   installments: Array<{
@@ -33,6 +37,71 @@ export function formatAllocationMonth(
   if (Number.isNaN(d.getTime())) return '';
   const locale = language === 'si' ? 'si-LK' : 'en-GB';
   return d.toLocaleDateString(locale, { month: 'short' });
+}
+
+/** Full month name for ledger row descriptions. */
+export function formatLedgerMonthLong(
+  dueDate: string,
+  language: DisplayMode
+): string {
+  const d = new Date(`${dueDate}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  const locale = language === 'si' ? 'si-LK' : 'en-GB';
+  return d.toLocaleDateString(locale, { month: 'long' });
+}
+
+export function formatLedgerRowDescription(
+  entry: Pick<
+    LedgerEntry,
+    'entryType' | 'description' | 'periodDueDate'
+  >,
+  t: (key: LabelKey) => string,
+  tf: (key: LabelKey, params?: Record<string, string | number>) => string,
+  language: DisplayMode
+): string {
+  const month = entry.periodDueDate
+    ? formatLedgerMonthLong(entry.periodDueDate, language)
+    : '';
+
+  switch (entry.entryType as LedgerEntryType) {
+    case 'INSTALLMENT':
+      return month
+        ? tf('ledgerDescMonthInstallment', { month })
+        : t('allocInstallment');
+    case 'LATE_FEE':
+      return month
+        ? tf('ledgerDescLateFeeForMonth', { month })
+        : t('allocLateFee');
+    case 'INTEREST':
+      return month
+        ? tf('ledgerDescMonthInterest', { month })
+        : t('allocInterest');
+    case 'PAYMENT':
+      return t('ledgerDescPaymentReceived');
+    default:
+      return entry.description || '—';
+  }
+}
+
+/** Compact amount for ledger cells (no currency prefix). */
+export function formatLedgerAmount(amount: number): string {
+  return Math.round(amount).toLocaleString('en-US');
+}
+
+/** Dotted leader line for payment breakdown (display only). */
+export function formatLedgerBreakdownLine(
+  label: string,
+  amount: number
+): { label: string; dots: string; amount: string } {
+  const amountStr = formatLedgerAmount(amount);
+  const targetWidth = 36;
+  const used = label.length + amountStr.length + 1;
+  const dotCount = Math.max(2, targetWidth - used);
+  return {
+    label,
+    dots: '.'.repeat(dotCount),
+    amount: amountStr,
+  };
 }
 
 function allocTypePhrase(

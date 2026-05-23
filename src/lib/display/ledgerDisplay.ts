@@ -72,7 +72,11 @@ export interface LedgerEntry {
   entryType: LedgerEntryType;
   status: LedgerRowStatus;
   sortOrder: number;
-  /** Payment allocation breakdown — shown in expandable detail. */
+  /** Installment/cycle due date for month-based labels (display). */
+  periodDueDate?: string;
+  installmentNumber?: number;
+  cycleNumber?: number;
+  /** Payment allocation breakdown — inline under payment rows. */
   allocationLines?: LedgerAllocationLine[];
 }
 
@@ -126,6 +130,14 @@ function installmentLedgerStatus(
   return ledgerStatusFromPaidAndDue(totalPaid, totalDue, inst.dueDate, asOf);
 }
 
+function ledgerInstallmentRef(installmentNumber: number): string {
+  return `INST-${String(installmentNumber).padStart(3, '0')}`;
+}
+
+function ledgerLateFeeRef(installmentNumber: number): string {
+  return `DI-${String(installmentNumber).padStart(3, '0')}`;
+}
+
 function buildInstallmentChargedDraft(
   inst: InstallmentLedgerSource,
   asOf: string,
@@ -134,13 +146,15 @@ function buildInstallmentChargedDraft(
   const installment = roundLKR(inst.installmentAmount);
   return {
     date: inst.dueDate,
-    ref: null,
-    description: `Installment #${inst.installmentNumber}`,
+    ref: ledgerInstallmentRef(inst.installmentNumber),
+    description: '',
     debit: installment,
     credit: null,
     entryType: 'INSTALLMENT',
     status: installmentLedgerStatus(inst, asOf),
     sortOrder: order,
+    periodDueDate: inst.dueDate,
+    installmentNumber: inst.installmentNumber,
   };
 }
 
@@ -154,13 +168,15 @@ function buildLateFeeChargedDraft(
 
   return {
     date: inst.dueDate,
-    ref: null,
-    description: `Late fee #${inst.installmentNumber}`,
+    ref: ledgerLateFeeRef(inst.installmentNumber),
+    description: '',
     debit: lateFee,
     credit: null,
     entryType: 'LATE_FEE',
     status: installmentLedgerStatus(inst, asOf),
     sortOrder: order,
+    periodDueDate: inst.dueDate,
+    installmentNumber: inst.installmentNumber,
   };
 }
 
@@ -185,8 +201,10 @@ function buildPaymentDraft(
   order: number,
   paymentIndex: number
 ): LedgerDraft {
-  const ref = p.reference?.trim() || null;
-  const description = 'Payment received';
+  const ref =
+    p.reference?.trim() ||
+    `PAY-${String(paymentIndex + 1).padStart(4, '0')}`;
+  const description = '';
 
   return {
     date: p.paymentDate,
@@ -234,7 +252,7 @@ function attachRunningBalances(events: LedgerDraft[]): LedgerEntry[] {
   return sorted.map((e) => {
     const debit = e.debit ?? 0;
     const credit = e.runningCredit ?? e.credit ?? 0;
-    balance = roundLKR(Math.max(0, balance + debit - credit));
+    balance = roundLKR(balance + debit - credit);
     const { paymentIndex: _pi, runningCredit: _rc, ...row } = e;
     return { ...row, balance };
   });
@@ -301,8 +319,8 @@ export function buildInterestOnlyLedgerEntries(
 
     events.push({
       date: c.dueDate,
-      ref: null,
-      description: `Interest #${c.cycleNumber}`,
+      ref: `INT-${String(c.cycleNumber).padStart(3, '0')}`,
+      description: '',
       debit: interest,
       credit: null,
       entryType: 'INTEREST',
@@ -313,6 +331,8 @@ export function buildInterestOnlyLedgerEntries(
         asOf
       ),
       sortOrder: order++,
+      periodDueDate: c.dueDate,
+      cycleNumber: c.cycleNumber,
     });
   }
 
