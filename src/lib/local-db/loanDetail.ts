@@ -65,7 +65,19 @@ export function getLoanDetailFromDb(
   const loanPaymentRows = db.loan_payments.filter((p) => p.loan_id === loanId);
   const ledgerPayments = mapLedgerPaymentsFromDb(
     loanPaymentRows,
-    db.payment_allocations.filter((a) => a.loan_id === loanId)
+    db.payment_allocations.filter((a) => a.loan_id === loanId),
+    {
+      installments: installments.map((i) => ({
+        id: i.id,
+        installmentNumber: i.installmentNumber,
+        dueDate: i.dueDate,
+      })),
+      interestCycles: interestCycles.map((c) => ({
+        id: c.id,
+        cycleNumber: c.cycleNumber,
+        dueDate: c.dueDate,
+      })),
+    }
   );
   const ledgerInstallments = mapInstallmentsToLedgerSource(installments);
 

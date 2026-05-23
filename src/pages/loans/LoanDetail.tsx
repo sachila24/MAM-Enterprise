@@ -175,13 +175,11 @@ function InterestOnlyLoanDetail({
         loan.originalPrincipalAmount,
         interestCycles,
         ledgerPayments,
-        asOf,
-        loan.balanceAmount
+        asOf
       ),
     [
       loan.startDate,
       loan.originalPrincipalAmount,
-      loan.balanceAmount,
       interestCycles,
       ledgerPayments,
       asOf,
@@ -229,7 +227,10 @@ function InterestOnlyLoanDetail({
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
-        <LedgerTable entries={ledgerEntries} />
+        <LedgerTable
+          entries={ledgerEntries}
+          loanBalanceRemaining={loan.balanceAmount}
+        />
       </section>
 
       <GuaranteesSection
@@ -343,14 +344,12 @@ function FixedInstallmentLoanDetail({
         loan.totalPayable ?? loan.principalAmount,
         ledgerInstallmentsLive,
         ledgerPayments,
-        asOfDate,
-        loan.balanceAmount
+        asOfDate
       ),
     [
       loan.startDate,
       loan.totalPayable,
       loan.principalAmount,
-      loan.balanceAmount,
       ledgerInstallmentsLive,
       ledgerPayments,
       asOfDate,
@@ -503,7 +502,10 @@ function FixedInstallmentLoanDetail({
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
-        <LedgerTable entries={ledgerEntries} />
+        <LedgerTable
+          entries={ledgerEntries}
+          loanBalanceRemaining={loan.balanceAmount}
+        />
       </section>
 
       <GuaranteesSection
