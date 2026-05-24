@@ -31,6 +31,7 @@ const SSR_SNAPSHOT: MamDemoDb = {
   early_settlements: [],
   guarantees: [],
   receipts: [],
+  documents: [],
   expenses: [],
   audit_logs: [],
   counters: {},
@@ -54,6 +55,7 @@ function seedAndPersist(): MamDemoDb {
   const db = buildSeedDatabase();
   normalizeDemoPayments(db);
   normalizeDemoGuarantees(db);
+  normalizeDemoDocuments(db);
   normalizeDemoBikes(db);
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
@@ -97,6 +99,12 @@ function normalizeDemoGuarantees(db: MamDemoDb) {
   }
 }
 
+function normalizeDemoDocuments(db: MamDemoDb) {
+  if (!Array.isArray(db.documents)) {
+    db.documents = [];
+  }
+}
+
 function normalizeDemoBikes(db: MamDemoDb) {
   for (const b of db.bikes) {
     if (typeof b.repair_cost !== 'number') b.repair_cost = 0;
@@ -122,6 +130,7 @@ export function getDbSnapshot(): MamDemoDb {
   cachedDb = parseStoredDb(raw);
   normalizeDemoPayments(cachedDb);
   normalizeDemoGuarantees(cachedDb);
+  normalizeDemoDocuments(cachedDb);
   normalizeDemoBikes(cachedDb);
   cachedRaw = raw;
   return cachedDb;

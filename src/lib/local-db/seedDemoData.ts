@@ -482,6 +482,7 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    documents: [],
     receipts: [
       // {
       //   id: 'rcp-00001',

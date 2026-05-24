@@ -50,6 +50,8 @@ import { roundLKR } from '../../lib/finance/money';
 
 import { useSystemToday } from '../../lib/time/systemTime';
 import { LedgerTable } from '../../components/loans/LedgerTable';
+import { findLoanCreationDocument } from '../../lib/documents/documentService';
+import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 
 export function LoanDetail() {
   const { t } = useT();
@@ -72,6 +74,7 @@ export function LoanDetail() {
   const detail =
     (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
   const demoLinks = listLoanDetailLinks(db);
+  const loanInvoiceDoc = id ? findLoanCreationDocument(db, id) : undefined;
 
   if (!detail) {
     return (
@@ -110,20 +113,34 @@ export function LoanDetail() {
   }
 
   if (isInterestOnlyLoan(detail.loan)) {
-    return <InterestOnlyLoanDetail detail={detail} navigate={navigate} />;
+    return (
+      <InterestOnlyLoanDetail
+        detail={detail}
+        navigate={navigate}
+        invoiceDocumentId={loanInvoiceDoc?.id}
+      />
+    );
   }
 
-  return <FixedInstallmentLoanDetail detail={detail} navigate={navigate} />;
+  return (
+    <FixedInstallmentLoanDetail
+      detail={detail}
+      navigate={navigate}
+      invoiceDocumentId={loanInvoiceDoc?.id}
+    />
+  );
 }
 
 function InterestOnlyLoanDetail({
   detail,
   navigate,
+  invoiceDocumentId,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
+  invoiceDocumentId?: string;
 }) {
-  const { t } = useT();
+  const { t, language } = useT();
   const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
 
   const asOf = useSystemToday();
@@ -200,6 +217,8 @@ function InterestOnlyLoanDetail({
             showEarlySettlement={false}
             monthsCompleted={detail.monthsCompleted}
             minimumMonths={loan.minimumMonthsBeforeSettlement}
+            invoiceDocumentId={invoiceDocumentId}
+            language={language}
           />
         }
       />
@@ -243,11 +262,13 @@ function InterestOnlyLoanDetail({
 function FixedInstallmentLoanDetail({
   detail,
   navigate,
+  invoiceDocumentId,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
+  invoiceDocumentId?: string;
 }) {
-  const { t } = useT();
+  const { t, language } = useT();
   const {
     loan,
     customer,
@@ -408,6 +429,8 @@ function FixedInstallmentLoanDetail({
             settlementEligible={settlementEligible}
             monthsCompleted={detail.monthsCompleted}
             minimumMonths={loan.minimumMonthsBeforeSettlement}
+            invoiceDocumentId={invoiceDocumentId}
+            language={language}
           />
         }
       />
@@ -575,6 +598,8 @@ function LoanActionBar({
   settlementEligible = false,
   monthsCompleted,
   minimumMonths,
+  invoiceDocumentId,
+  language = 'both',
 }: {
   loanId: string;
   navigate: ReturnType<typeof useNavigate>;
@@ -582,10 +607,31 @@ function LoanActionBar({
   settlementEligible?: boolean;
   monthsCompleted: number;
   minimumMonths: number;
+  invoiceDocumentId?: string;
+  language?: 'en' | 'si' | 'both';
 }) {
+  const viewInvoiceLabel = getDocumentLabel('viewInvoice', language);
+  const printInvoiceLabel = getDocumentLabel('printInvoice', language);
+
   return (
     <div className="flex flex-col gap-2 sm:items-end">
       <div className="flex flex-wrap gap-2">
+        {invoiceDocumentId && (
+          <>
+            <ActionButton
+              onClick={() => navigate(`/documents/${invoiceDocumentId}`)}
+            >
+              {viewInvoiceLabel}
+            </ActionButton>
+            <ActionButton
+              onClick={() =>
+                navigate(`/documents/${invoiceDocumentId}?print=1`)
+              }
+            >
+              {printInvoiceLabel}
+            </ActionButton>
+          </>
+        )}
         <ActionButton
           primary
           onClick={() => navigate(`/payments/new?loanId=${loanId}`)}
@@ -605,7 +651,7 @@ function LoanActionBar({
         )}
         <ActionButton
           variant="danger"
-          onClick={() => window.alert(t('cancelLoanSupabaseSoon'))}
+          onClick={() => window.alert('Cancel loan — available after Supabase migration.')}
         >
           Cancel Loan
         </ActionButton>

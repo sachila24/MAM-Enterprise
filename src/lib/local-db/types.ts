@@ -241,6 +241,30 @@ export interface DbAuditLog {
   created_at: string;
 }
 
+export type DocumentType =
+  | 'LOAN_CREATION'
+  | 'PAYMENT_RECEIPT'
+  | 'CASH_SALE';
+
+export type DocumentStatus = 'ISSUED' | 'VOID';
+
+export interface DbDocument {
+  id: string;
+  document_number: string;
+  document_type: DocumentType;
+  loan_id?: string;
+  payment_id?: string;
+  customer_id?: string;
+  bike_id?: string;
+  created_at: string;
+  created_by?: string;
+  total_amount: number;
+  status: DocumentStatus;
+  locked: boolean;
+  print_count: number;
+  metadata_json: Record<string, unknown>;
+}
+
 export interface MamDemoDb {
   version: 1;
   profiles: DbProfile[];
@@ -254,6 +278,7 @@ export interface MamDemoDb {
   early_settlements: DbEarlySettlement[];
   guarantees: DbGuarantee[];
   receipts: DbReceipt[];
+  documents: DbDocument[];
   expenses: DbExpense[];
   audit_logs: DbAuditLog[];
   /** Next sequence per code prefix e.g. CUS: 3 */

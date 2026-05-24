@@ -32,6 +32,7 @@ import {
   preserveLateFeeChargedAmount,
   summarizePaymentBreakdown,
 } from '../../display/paymentLedgerBreakdown';
+import { createPaymentReceiptDocument } from '../../documents/documentService';
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -330,6 +331,8 @@ export function recordPayment(
     breakdown: { ...merged.summary, receipt: receiptBreakdown },
     created_at: ts,
   });
+
+  createPaymentReceiptDocument(db, paymentId, receiptBreakdown);
 
   db.audit_logs.push({
     id: generateId(),

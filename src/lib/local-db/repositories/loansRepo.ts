@@ -12,6 +12,7 @@ import { getLoanDetailFromDb } from '../loanDetail';
 import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import { getSystemToday } from '../../time/systemTime';
+import { createLoanCreationDocument } from '../../documents/documentService';
 
 export { getLoanDetailFromDb };
 
@@ -41,6 +42,8 @@ export interface CreateLoanInput {
   notes?: string;
   /** Optional collateral items to store when the loan is created */
   guarantees?: CreateGuaranteeDraft[];
+  /** Bike installment — stored on locked finance invoice snapshot */
+  downPayment?: number;
 }
 
 function nextLoanCode(
@@ -260,6 +263,12 @@ export function createLoan(
     summary: buildAuditSummary('loanCreatedSummary', { code: loanCode }),
     created_at: ts,
   });
+
+  createLoanCreationDocument(db, id, {
+    downPayment: input.downPayment,
+    createdBy: db.profiles[0]?.id,
+  });
+
   saveDb(db);
   return mapLoan(dbLoan);
 }

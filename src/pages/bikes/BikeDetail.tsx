@@ -18,9 +18,11 @@ import {
 } from '../../lib/local-db/repositories';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { useT } from '../../i18n/I18nProvider';
+import { findCashSaleDocumentForBike } from '../../lib/documents/documentService';
+import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 
 export function BikeDetail() {
-  const { t } = useT();
+  const { t, language } = useT();
   const { id } = useParams();
   const navigate = useNavigate();
   const db = useDemoDb();
@@ -48,6 +50,11 @@ export function BikeDetail() {
     if (!bike?.soldLoanId) return undefined;
     return getLoan(bike.soldLoanId, db);
   }, [bike?.soldLoanId, db]);
+
+  const cashSaleDoc = useMemo(
+    () => (bike?.id ? findCashSaleDocumentForBike(db, bike.id) : undefined),
+    [db, bike?.id]
+  );
 
   const linkableLoans = useMemo(() => {
     if (!bike?.id) return [];
@@ -145,6 +152,26 @@ export function BikeDetail() {
                 <CheckIcon className="-ml-0.5 h-4 w-4 text-success-600" />
                 {t('markAsSold')}
               </button>
+            )}
+            {cashSaleDoc && !saleLoan && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/documents/${cashSaleDoc.id}`)}
+                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+                >
+                  {getDocumentLabel('viewInvoice', language)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/documents/${cashSaleDoc.id}?print=1`)
+                  }
+                  className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500"
+                >
+                  {getDocumentLabel('printInvoice', language)}
+                </button>
+              </>
             )}
             <button
               type="button"

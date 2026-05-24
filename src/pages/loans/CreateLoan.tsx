@@ -275,6 +275,7 @@ export function CreateLoan() {
           firstDueDate: firstDueDate || computeFirstDueDate(startDate),
           dueDay: isInterestOnly ? dueDay : undefined,
           bikeId: isBike ? bikeId : undefined,
+          downPayment: isBike ? downPayment : undefined,
           guarantees: mapCompleteGuarantees(guaranteeDrafts),
         },
         db

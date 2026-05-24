@@ -3,6 +3,7 @@ import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapBike } from '../mappers';
 import type { DbBike, MamDemoDb } from '../types';
+import { createCashSaleDocument } from '../../documents/documentService';
 import { uiError } from '../../i18n/messages';
 
 const inFlightBikeCreates = new Set<string>();
@@ -142,5 +143,15 @@ export function markBikeSold(
     other_cost: opts.otherCost ?? row.other_cost ?? 0,
     sold_loan_id: opts.loanId,
   };
-  return updateBike(bikeId, patch, db);
+  const updated = updateBike(bikeId, patch, db);
+  if (updated && !opts.loanId) {
+    createCashSaleDocument(db, bikeId, {
+      soldPrice: opts.soldPrice,
+      soldDate,
+      repairCost: opts.repairCost ?? row.repair_cost ?? 0,
+      otherCost: opts.otherCost ?? row.other_cost ?? 0,
+    });
+    saveDb(db);
+  }
+  return updated;
 }

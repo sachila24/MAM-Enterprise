@@ -12,6 +12,9 @@ import type {
 import type { AllocationDisplayRow } from '../../lib/finance/allocationDisplay';
 import type { RepaymentMethod } from '../../types/loan';
 import { PaymentReceiptPrint } from '../../components/payments/PaymentReceiptPrint';
+import { findPaymentReceiptDocument } from '../../lib/documents/documentService';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { useT } from '../../i18n/I18nProvider';
 
 export interface PaymentSuccessState {
@@ -39,6 +42,7 @@ export function PaymentSuccess() {
   const { t, language } = useT();
   const navigate = useNavigate();
   const location = useLocation();
+  const db = useDemoDb();
   const state = location.state as PaymentSuccessState | null;
 
   if (!state?.receipt) {
@@ -56,6 +60,9 @@ export function PaymentSuccess() {
   }
 
   const receiptNo = state.receiptNumber ?? '—';
+  const officialDoc = state.paymentId
+    ? findPaymentReceiptDocument(db, state.paymentId)
+    : undefined;
 
   return (
     <div className="payment-success-page pb-16">
@@ -109,6 +116,15 @@ export function PaymentSuccess() {
           <PrinterIcon className="h-4 w-4" />
           {t('printReceipt')}
         </button>
+        {officialDoc && (
+          <button
+            type="button"
+            onClick={() => navigate(`/documents/${officialDoc.id}`)}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-brand-700 ring-1 ring-brand-300 hover:bg-brand-50"
+          >
+            {getDocumentLabel('viewInvoice', language)}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => navigate(`/loans/${state.loanId}`)}

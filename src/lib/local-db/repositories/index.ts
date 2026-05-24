@@ -7,3 +7,4 @@ export * from './receiptsRepo';
 export * from './expensesRepo';
 export * from './dashboardRepo';
 export * from './earlySettlementRepo';
+export * from './documentsRepo';
