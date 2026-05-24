@@ -404,9 +404,11 @@ export function RecordPayment() {
               />
               {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
                 <AppliedPreview
-                  cash={form.amount}
+                  amountDue={computation.amountDue}
                   discount={form.discountAmount ?? 0}
-                  total={computation.appliedTotal}
+                  cash={form.amount}
+                  netPayable={computation.netPayable}
+                  settlementTotal={computation.settlementTotal}
                 />
               )}
               <p className="text-xs text-neutral-500">
@@ -493,26 +495,39 @@ export function RecordPayment() {
               </h3>
               <p className="text-sm font-medium text-neutral-800 rounded-lg bg-brand-50 border border-brand-100 px-4 py-3">
                 {form.paymentMethod === 'CASH'
-                  ? `Confirm cash payment ${formatLKR(form.amount)}`
-                  : `Confirm ${formatEnum(form.paymentMethod).toLowerCase()} payment ${formatLKR(form.amount)}`}
+                  ? `${t('confirmPayment')}: ${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
+                  : `${t('confirmPayment')}: ${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
                 {(form.discountAmount ?? 0) > 0 &&
-                  ` with discount ${formatLKR(form.discountAmount ?? 0)}`}
-                . Total applied: {formatLKR(computation.appliedTotal)}.
+                  ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
+                {computation.settlementTotal > 0 &&
+                  ` · ${t('installmentSettled')} ${formatLKR(computation.settlementTotal)}`}
+                .
               </p>
               <dl className="divide-y divide-neutral-200 text-sm">
                 <Row label={t('field.customer')} value={selectedCustomer?.name ?? '—'} />
                 <Row label={t('field.loan')} value={selectedLoan.loanCode} />
-                <Row label={t('cashReceived')} value={formatLKR(form.amount)} bold />
+                {computation.amountDue > 0 && (
+                  <Row label={t('amountDue')} value={formatLKR(computation.amountDue)} />
+                )}
                 {(form.discountAmount ?? 0) > 0 && (
                   <Row
-                    label={t('discountGiven')}
+                    label={t('discountWaiver')}
                     value={formatLKR(form.discountAmount ?? 0)}
                   />
                 )}
-                <Row
-                  label={t('totalApplied')}
-                  value={formatLKR(computation.appliedTotal)}
-                />
+                {computation.amountDue > 0 && (form.discountAmount ?? 0) > 0 && (
+                  <Row
+                    label={t('netPayable')}
+                    value={formatLKR(computation.netPayable)}
+                  />
+                )}
+                <Row label={t('customerPays')} value={formatLKR(form.amount)} bold />
+                {computation.settlementTotal > 0 && (
+                  <Row
+                    label={t('installmentSettled')}
+                    value={formatLKR(computation.settlementTotal)}
+                  />
+                )}
                 <Row label={t('field.method')} value={formatEnum(form.paymentMethod)} />
                 <Row label={t('field.date')} value={formatDate(form.paymentDate)} />
               </dl>
@@ -638,39 +653,61 @@ function NavButtons({
 }
 
 function AppliedPreview({
-  cash,
+  amountDue,
   discount,
-  total,
+  cash,
+  netPayable,
+  settlementTotal,
 }: {
-  cash: number;
+  amountDue: number;
   discount: number;
-  total: number;
+  cash: number;
+  netPayable: number;
+  settlementTotal: number;
 }) {
   const { t } = useT();
   return (
     <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2.5">
-      <div className="flex justify-between items-baseline gap-4">
-        <span className="text-neutral-600 text-left shrink-0">{t('cashReceived')}</span>
-        <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-          {formatLKR(cash)}
-        </span>
-      </div>
-      {discount > 0 && (
+      {amountDue > 0 && (
         <div className="flex justify-between items-baseline gap-4">
-          <span className="text-neutral-600 text-left shrink-0">{t('discountGiven')}</span>
+          <span className="text-neutral-600 text-left shrink-0">{t('amountDue')}</span>
           <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-            {formatLKR(discount)}
+            {formatLKR(amountDue)}
           </span>
         </div>
       )}
-      <div className="flex justify-between items-baseline gap-4 border-t border-neutral-200 pt-2.5">
-        <span className="font-medium text-neutral-900 text-left shrink-0">
-          {t('totalApplied')}
-        </span>
-        <span className="font-bold text-brand-600 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-          {formatLKR(total)}
+      {discount > 0 && (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{t('discountWaiver')}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            −{formatLKR(discount)}
+          </span>
+        </div>
+      )}
+      {amountDue > 0 && discount > 0 && (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{t('netPayable')}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(netPayable)}
+          </span>
+        </div>
+      )}
+      <div className="flex justify-between items-baseline gap-4">
+        <span className="text-neutral-600 text-left shrink-0">{t('customerPays')}</span>
+        <span className="font-semibold tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+          {formatLKR(cash)}
         </span>
       </div>
+      {settlementTotal > 0 && (
+        <div className="flex justify-between items-baseline gap-4 border-t border-neutral-200 pt-2.5">
+          <span className="font-medium text-neutral-900 text-left shrink-0">
+            {t('installmentSettled')}
+          </span>
+          <span className="font-bold text-brand-600 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(settlementTotal)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

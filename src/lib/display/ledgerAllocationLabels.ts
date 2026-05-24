@@ -137,6 +137,12 @@ export function formatLedgerAllocationLabel(
   t: (key: LabelKey) => string,
   language: DisplayMode
 ): string {
+  if (allocationType.endsWith('_DISCOUNT')) {
+    const month = dueDate ? formatAllocationMonth(dueDate, language) : '';
+    const waiver = t('ledgerAllocDiscountApproved');
+    return month ? `${month} ${waiver}` : waiver;
+  }
+
   const base = baseAllocationType(allocationType);
   const phrase = allocTypePhrase(allocationType, t, language);
 

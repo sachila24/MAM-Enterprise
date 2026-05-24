@@ -7,6 +7,7 @@ import {
   formatLedgerBreakdownLine,
   formatLedgerRowDescription,
 } from '../../lib/display/ledgerAllocationLabels';
+import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
 
 interface LedgerTableProps {
@@ -135,8 +136,8 @@ function LedgerDesktopRows({
   const bg = rowBackgroundClass(row.entryType);
   const hasBreakdown =
     row.entryType === 'PAYMENT' &&
-    row.allocationLines != null &&
-    row.allocationLines.length > 0;
+    ((row.allocationLines != null && row.allocationLines.length > 0) ||
+      (row.paymentDiscountAmount ?? 0) > 0);
   const showStatus = showsInstallmentStatus(row.entryType);
 
   return (
@@ -173,6 +174,8 @@ function LedgerDesktopRows({
           <td colSpan={7} className="px-4 pb-2.5 pt-0 sm:px-5 sm:pb-3">
             <LedgerPaymentBreakdown
               lines={row.allocationLines!}
+              cashReceived={row.paymentCashReceived}
+              discountAmount={row.paymentDiscountAmount}
               appliedLabel={t('ledgerAllocationApplied')}
               t={t}
               language={language}
@@ -199,8 +202,8 @@ function LedgerMobileCard({
   const bg = rowBackgroundClass(row.entryType);
   const hasBreakdown =
     row.entryType === 'PAYMENT' &&
-    row.allocationLines != null &&
-    row.allocationLines.length > 0;
+    ((row.allocationLines != null && row.allocationLines.length > 0) ||
+      (row.paymentDiscountAmount ?? 0) > 0);
   const showStatus = showsInstallmentStatus(row.entryType);
 
   return (
@@ -247,6 +250,8 @@ function LedgerMobileCard({
         <div className="mt-2 pt-2 border-t border-amber-200/50">
           <LedgerPaymentBreakdown
             lines={row.allocationLines!}
+            cashReceived={row.paymentCashReceived}
+            discountAmount={row.paymentDiscountAmount}
             appliedLabel={t('ledgerAllocationApplied')}
             t={t}
             language={language}
@@ -259,17 +264,48 @@ function LedgerMobileCard({
 
 function LedgerPaymentBreakdown({
   lines,
+  cashReceived,
+  discountAmount,
   appliedLabel,
   t,
   language,
 }: {
   lines: NonNullable<LedgerEntry['allocationLines']>;
+  cashReceived?: number;
+  discountAmount?: number;
   appliedLabel: string;
   t: ReturnType<typeof useT>['t'];
   language: ReturnType<typeof useT>['language'];
 }) {
+  const cash = cashReceived ?? 0;
+  const discount = discountAmount ?? 0;
+  const settled = roundLKR(cash + discount);
+
   return (
     <div className="ml-0 sm:ml-8 text-xs text-neutral-700 max-w-lg">
+      {(cash > 0 || discount > 0) && (
+        <ul className="space-y-0.5 font-mono mb-2">
+          {cash > 0 && (
+            <LedgerBreakdownSummaryLine
+              label={t('ledgerDescPaymentReceived')}
+              amount={cash}
+            />
+          )}
+          {discount > 0 && (
+            <LedgerBreakdownSummaryLine
+              label={t('ledgerPaymentDiscountApproved')}
+              amount={discount}
+            />
+          )}
+          {discount > 0 && settled > 0 && (
+            <LedgerBreakdownSummaryLine
+              label={t('ledgerInstallmentSettled')}
+              amount={settled}
+              bold
+            />
+          )}
+        </ul>
+      )}
       <p className="font-medium text-neutral-800 mb-1">{appliedLabel}:</p>
       <ul className="space-y-0.5 font-mono">
         {lines.map((line) => {
@@ -297,6 +333,36 @@ function LedgerPaymentBreakdown({
         })}
       </ul>
     </div>
+  );
+}
+
+function LedgerBreakdownSummaryLine({
+  label,
+  amount,
+  bold,
+}: {
+  label: string;
+  amount: number;
+  bold?: boolean;
+}) {
+  const { dots, amount: amountStr } = formatLedgerBreakdownLine(label, amount);
+  return (
+    <li className="flex gap-1 min-w-0">
+      <span className="shrink-0 text-neutral-500" aria-hidden>
+        •
+      </span>
+      <span className={`truncate ${bold ? 'font-semibold text-neutral-900' : 'text-neutral-800'}`}>
+        {label}
+      </span>
+      <span className="shrink-0 text-neutral-400 hidden sm:inline">{dots}</span>
+      <span
+        className={`shrink-0 ml-auto sm:ml-0 tabular-nums ${
+          bold ? 'font-bold text-neutral-900' : 'font-semibold text-neutral-900'
+        }`}
+      >
+        {amountStr}
+      </span>
+    </li>
   );
 }
 

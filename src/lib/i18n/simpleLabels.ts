@@ -103,6 +103,11 @@ export const t = {
   cashReceived: bi('Cash Received', 'ලැබුණු මුදල'),
   discount: bi('Discount', 'වට්ටම'),
   discountGiven: bi('Discount given', 'දුන් වට්ටම'),
+  discountWaiver: bi('Discount / waiver', 'වට්ටම / මුදවා හැරීම'),
+  amountDue: bi('Amount due', 'ගෙවිය යුතු මුදල'),
+  netPayable: bi('Net payable', 'ශුද්ධ ගෙවිය යුතු'),
+  customerPays: bi('Customer pays', 'පාරිභෝගිකයා ගෙවන්නේ'),
+  installmentSettled: bi('Installment settled', 'වාරිකය සම්පූර්ණයි'),
   totalApplied: bi('Total Applied', 'මුළු ගණන'),
   loanBalance: bi('Loan Balance', 'ණය ඉතිරි මුදල'),
   nextDue: bi('Next Due', 'ඊළඟ ගෙවීම'),
@@ -207,6 +212,14 @@ export const t = {
   ledgerDescLateFeeForMonth: bi('Late fee for {month}', '{month} සඳහා ප්‍රමාද ගාස්තු'),
   ledgerDescMonthInterest: bi('{month} interest', '{month} පොලිය'),
   ledgerDescPaymentReceived: bi('Payment received', 'ගෙවීම ලැබුණි'),
+  ledgerPaymentDiscountApproved: bi(
+    'Discount approved',
+    'වට්ටම අනුමත කළා'
+  ),
+  ledgerInstallmentSettled: bi(
+    'Total installment settled',
+    'වාරිකය සම්පූර්ණයි'
+  ),
   ledgerLoanBalanceRemaining: bi('Loan balance remaining', 'ඉතිරි ණය ශේෂය'),
   ledgerColStatus: bi('Status', 'තත්ත්වය'),
   ledgerAllocationApplied: bi('Applied', 'යොදන ලදී'),
@@ -240,6 +253,7 @@ export const t = {
   allocAdvance: bi('Advance', 'අත්තිකාරම'),
   ledgerAllocPrincipalPayment: bi('Principal payment', 'මුල්‍ය ගෙවීම'),
   ledgerAllocAdvancePayment: bi('Advance payment', 'අත්තිකාරම ගෙවීම'),
+  ledgerAllocDiscountApproved: bi('Discount / waiver', 'වට්ටම / මුදවා හැරීම'),
   allocPartial: bi('Partial', 'අර්ධ'),
   allocPaid: bi('Paid', 'ගෙවූ'),
   allocRemaining: bi('Remaining', 'ඉතිරි'),

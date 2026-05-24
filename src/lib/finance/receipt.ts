@@ -11,6 +11,7 @@ import { roundLKR } from './money';
 export interface PaymentReceiptCashDiscount {
   cashReceived: number;
   discountApplied: number;
+  /** Cash + waiver applied toward due (installment settled), not customer cash total. */
   totalApplied: number;
 }
 

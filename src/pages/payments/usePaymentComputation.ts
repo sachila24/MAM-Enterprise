@@ -61,7 +61,8 @@ export function usePaymentComputation(
 ) {
   const cash = roundLKR(form.amount);
   const disc = roundLKR(form.discountAmount ?? 0);
-  const totalApply = roundLKR(cash + disc);
+  /** Cash + waiver applied toward due (not “customer paid” total). */
+  const settlementTotal = roundLKR(cash + disc);
 
   const cycles: InterestCycleForAllocation[] = useMemo(() => {
     if (!loan || !bundle) return [];
@@ -121,7 +122,7 @@ export function usePaymentComputation(
   ]);
 
   const allocation = useMemo(() => {
-    if (!loan || totalApply <= 0) return null;
+    if (!loan || settlementTotal <= 0) return null;
 
     let base: PaymentAllocationResult;
 
@@ -132,7 +133,7 @@ export function usePaymentComputation(
           monthlyInterestRatePercent: loan.interestRate,
           cycles,
         },
-        totalApply
+        settlementTotal
       );
     } else if (isFixedInstallmentLoan(loan) && installments.length > 0) {
       base = allocateFixedInstallmentPayment(
@@ -144,7 +145,7 @@ export function usePaymentComputation(
           currentInstallmentNumber,
           loanBalanceAmount: loan.balanceAmount,
         },
-        totalApply
+        settlementTotal
       );
     } else {
       return null;
@@ -169,12 +170,12 @@ export function usePaymentComputation(
       allocations: finalLines,
       summary,
       totalAllocated,
-      unallocated: roundLKR(totalApply - totalAllocated),
+      unallocated: roundLKR(settlementTotal - totalAllocated),
     };
     return merged;
   }, [
     loan,
-    totalApply,
+    settlementTotal,
     cash,
     disc,
     form.paymentDate,
@@ -267,8 +268,17 @@ export function usePaymentComputation(
     return null;
   }, [loan, cycles, installments, form.paymentDate, loan?.lateFeeRate]);
 
+  const amountDue = roundLKR(
+    fixedDueSummary?.totalDue ?? interestOnlySummary?.totalInterestDue ?? 0
+  );
+  const netPayable = roundLKR(Math.max(0, amountDue - disc));
+
   return {
-    appliedTotal: totalApply,
+    /** @deprecated Use settlementTotal — kept for callers not yet updated */
+    appliedTotal: settlementTotal,
+    settlementTotal,
+    amountDue,
+    netPayable,
     cashAmount: cash,
     discountAmount: disc,
     cycles,

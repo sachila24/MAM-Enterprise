@@ -19,6 +19,11 @@ import {
 
 export interface LedgerPaymentRecord {
   paymentDate: string;
+  /** Cash received from customer (excludes discount/waiver). */
+  cashReceived: number;
+  /** Approved discount / waiver (not customer cash). */
+  discountAmount: number;
+  /** @deprecated Use cashReceived */
   amount: number;
   reference?: string;
   installmentPaid: number;
@@ -78,6 +83,10 @@ export interface LedgerEntry {
   cycleNumber?: number;
   /** Payment allocation breakdown — inline under payment rows. */
   allocationLines?: LedgerAllocationLine[];
+  /** Cash received (payment rows only). */
+  paymentCashReceived?: number;
+  /** Discount / waiver on this payment (payment rows only). */
+  paymentDiscountAmount?: number;
 }
 
 type LedgerDraft = Omit<LedgerEntry, 'balance'> & {
@@ -193,7 +202,7 @@ function paymentArrearsCredit(p: LedgerPaymentRecord): number {
     p.installmentPaid + p.lateFeePaid + p.interestPaid
   );
   if (applied > 0) return applied;
-  return roundLKR(p.amount);
+  return roundLKR(p.cashReceived + p.discountAmount);
 }
 
 function buildPaymentDraft(
@@ -211,13 +220,15 @@ function buildPaymentDraft(
     ref,
     description,
     debit: null,
-    credit: roundLKR(p.amount),
+    credit: roundLKR(p.cashReceived),
     runningCredit: paymentArrearsCredit(p),
     entryType: 'PAYMENT',
     status: 'PAID',
     sortOrder: order,
     paymentIndex,
     allocationLines: paymentAllocationLines(p),
+    paymentCashReceived: roundLKR(p.cashReceived),
+    paymentDiscountAmount: roundLKR(p.discountAmount),
   };
 }
 
@@ -393,9 +404,14 @@ export function mapLedgerPaymentsFromDb(
           ? mapDbAllocationsToLedgerLines(p.id, allocations, lookup)
           : undefined;
 
+      const cashReceived = roundLKR(p.amount);
+      const discountAmount = roundLKR(p.discount_amount ?? 0);
+
       return {
         paymentDate: p.payment_date,
-        amount: roundLKR(p.amount + (p.discount_amount ?? 0)),
+        cashReceived,
+        discountAmount,
+        amount: cashReceived,
         reference: p.payment_code,
         installmentPaid: breakdown.installmentPaid,
         lateFeePaid: breakdown.lateFeePaid,
