@@ -210,6 +210,15 @@ export const t = {
   ledgerColRunningBalance: bi('Running Balance', 'ධාවන ශේෂය'),
   ledgerDescMonthInstallment: bi('{month} installment', '{month} වාරිකය'),
   ledgerDescLateFeeForMonth: bi('Late fee for {month}', '{month} සඳහා ප්‍රමාද ගාස්තු'),
+  ledgerDescLateFeeAccruedFrom: bi(
+    '{month} late fee (from {start})',
+    '{month} ප්‍රමාද ගාස්තු ({start} සිට)'
+  ),
+  ledgerDescLateFeeSettledForMonth: bi(
+    '{month} late fee settled (from {start})',
+    '{month} ප්‍රමාද ගාස්තු ගෙවී අවසන් ({start} සිට)'
+  ),
+  ledgerLateFeeSettled: bi('Late fee settled', 'ප්‍රමාද ගාස්තු ගෙවී අවසන්'),
   ledgerDescMonthInterest: bi('{month} interest', '{month} පොලිය'),
   ledgerDescPaymentReceived: bi('Payment received', 'ගෙවීම ලැබුණි'),
   ledgerPaymentDiscountApproved: bi(

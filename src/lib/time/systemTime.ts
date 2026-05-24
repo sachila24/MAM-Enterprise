@@ -84,9 +84,20 @@ export function daysBetweenDates(fromDate: string, toDate: string): number {
   );
 }
 
+/** Add calendar days to a YYYY-MM-DD date (UTC-safe). */
+export function addDaysToDate(date: string, days: number): string {
+  const d = new Date(`${normalizeDate(date)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * Late months for one installment: floor((asOf − dueDate) / 30).
  * Zero when asOf is on or before the due date.
+ * @deprecated For late-fee accrual use calculateLateFeeCyclesFromGraceEnd.
  */
 export function calculateLateMonthsFromDueDate(
   dueDate: string,
@@ -94,6 +105,29 @@ export function calculateLateMonthsFromDueDate(
 ): number {
   if (compareDateOnly(asOfDate, dueDate) <= 0) return 0;
   return Math.floor(daysBetweenDates(dueDate, asOfDate) / 30);
+}
+
+function calendarYearMonth(date: string): { year: number; month: number } {
+  const [year, month] = normalizeDate(date).split('-').map(Number);
+  return { year, month };
+}
+
+/**
+ * Inclusive calendar-month cycles from grace-end through as-of.
+ * e.g. cycle start Feb 8, as-of Apr 26 → Feb + Mar + Apr = 3 cycles.
+ * Zero when as-of is before cycle start.
+ */
+export function calculateLateFeeCyclesFromGraceEnd(
+  cycleStartDate: string,
+  asOfDate: string
+): number {
+  const start = normalizeDate(cycleStartDate);
+  const asOf = normalizeDate(asOfDate);
+  if (compareDateOnly(asOf, start) < 0) return 0;
+
+  const s = calendarYearMonth(start);
+  const e = calendarYearMonth(asOf);
+  return (e.year - s.year) * 12 + (e.month - s.month) + 1;
 }
 
 /** Live clock for UI greetings and finance "now" (respects dev simulation). */

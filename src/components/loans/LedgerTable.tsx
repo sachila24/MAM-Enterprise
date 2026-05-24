@@ -45,8 +45,11 @@ function rowBackgroundClass(entryType: LedgerEntry['entryType']): string {
   }
 }
 
-function showsInstallmentStatus(entryType: LedgerEntry['entryType']): boolean {
-  return entryType === 'INSTALLMENT' || entryType === 'INTEREST';
+function showsInstallmentStatus(row: LedgerEntry): boolean {
+  if (row.entryType === 'INSTALLMENT' || row.entryType === 'INTEREST') {
+    return true;
+  }
+  return row.entryType === 'LATE_FEE' && row.lateFeeSettled === true;
 }
 
 export function LedgerTable({ entries, emptyMessage }: LedgerTableProps) {
@@ -138,7 +141,7 @@ function LedgerDesktopRows({
     row.entryType === 'PAYMENT' &&
     ((row.allocationLines != null && row.allocationLines.length > 0) ||
       (row.paymentDiscountAmount ?? 0) > 0);
-  const showStatus = showsInstallmentStatus(row.entryType);
+  const showStatus = showsInstallmentStatus(row);
 
   return (
     <>
@@ -204,7 +207,7 @@ function LedgerMobileCard({
     row.entryType === 'PAYMENT' &&
     ((row.allocationLines != null && row.allocationLines.length > 0) ||
       (row.paymentDiscountAmount ?? 0) > 0);
-  const showStatus = showsInstallmentStatus(row.entryType);
+  const showStatus = showsInstallmentStatus(row);
 
   return (
     <article

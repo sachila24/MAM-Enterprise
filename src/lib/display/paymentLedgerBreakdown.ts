@@ -68,6 +68,9 @@ export function preserveLateFeeChargedAmount(
   computedAmount: number,
   paidAmount: number
 ): number {
+  if (paidAmount > 0 && storedAmount > 0 && paidAmount >= storedAmount) {
+    return roundLKR(Math.max(storedAmount, paidAmount));
+  }
   return roundLKR(Math.max(storedAmount, computedAmount, paidAmount));
 }
 

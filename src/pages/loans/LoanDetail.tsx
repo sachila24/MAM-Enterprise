@@ -329,9 +329,23 @@ function FixedInstallmentLoanDetail({
     const liveByNumber = new Map(
       lateFeeEngine.lines.map((line) => [line.installmentNumber, line.lateFee])
     );
+    const settledByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeSettled,
+      ])
+    );
+    const startDateByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeStartDate,
+      ])
+    );
     return enrichLedgerInstallmentsWithLiveLateFees(
       ledgerInstallments,
-      liveByNumber
+      liveByNumber,
+      settledByNumber,
+      startDateByNumber
     );
   }, [ledgerInstallments, lateFeeEngine]);
 

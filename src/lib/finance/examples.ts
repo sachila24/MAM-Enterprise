@@ -189,7 +189,7 @@ const LATE_FEE_SCHEDULE_MAY15 = [
   { installmentId: 'lf-may', installmentNumber: 4, dueDate: '2026-05-16', installmentAmount: LATE_FEE_INST, paidAmount: 0 },
 ];
 
-/** A: Feb index 0, pay 2026-05-15 → 3 late months, fee 3,957 */
+/** A: Feb due, as-of 2026-05-15 → 4 cycles from Feb 9, fee 1,319 × 4 */
 export const EXAMPLE_LATE_FEE_A = (() => {
   const result = computeLoanLateFeesV3({
     monthlyInstallment: LATE_FEE_INST,
@@ -202,11 +202,11 @@ export const EXAMPLE_LATE_FEE_A = (() => {
     due: '2026-02-02',
     monthsLate: line?.lateMonths ?? 0,
     lateFee: line?.lateFee ?? 0,
-    expected: { monthsLate: 3, lateFee: 3_957 },
+    expected: { monthsLate: 4, lateFee: 5_276 },
   };
 })();
 
-/** B: Mar index 1 → 2 late months, fee 2,638 */
+/** B: Mar due, as-of 2026-05-15 → 3 cycles from Mar 9 */
 export const EXAMPLE_LATE_FEE_B = (() => {
   const result = computeLoanLateFeesV3({
     monthlyInstallment: LATE_FEE_INST,
@@ -219,7 +219,7 @@ export const EXAMPLE_LATE_FEE_B = (() => {
     due: '2026-03-02',
     monthsLate: line?.lateMonths ?? 0,
     lateFee: line?.lateFee ?? 0,
-    expected: { monthsLate: 2, lateFee: 2_638 },
+    expected: { monthsLate: 3, lateFee: 3_957 },
   };
 })();
 
@@ -239,6 +239,121 @@ export const EXAMPLE_LATE_FEE_C = (() => {
     LATE_FEE_AS_OF
   );
   return { monthsLate, lateFeeAmount, expected: { monthsLate: 0, lateFeeAmount: 0 } };
+})();
+
+/** Grace: due 2026-03-01 — no fee through 7th; 1 cycle from 8th */
+export const EXAMPLE_LATE_FEE_GRACE = (() => {
+  const row = {
+    installmentId: 'grace-mar',
+    installmentNumber: 1,
+    dueDate: '2026-03-01',
+    installmentAmount: 10_000,
+    paidAmount: 0,
+  };
+  const duringGrace = computeLoanLateFeesV3({
+    monthlyInstallment: 10_000,
+    lateFeeRatePercent: 5,
+    paymentDate: '2026-03-07',
+    installments: [row],
+  });
+  const afterGrace = computeLoanLateFeesV3({
+    monthlyInstallment: 10_000,
+    lateFeeRatePercent: 5,
+    paymentDate: '2026-03-08',
+    installments: [row],
+  });
+  return {
+    duringGrace: duringGrace.lines[0]?.lateFee ?? 0,
+    afterGrace: afterGrace.lines[0]?.lateFee ?? 0,
+    expected: { duringGrace: 0, afterGrace: 500 },
+  };
+})();
+
+/** Late fee paid in full — locked; installment may remain unpaid */
+export const EXAMPLE_LATE_FEE_PAID_LOCK = (() => {
+  const result = computeLoanLateFeesV3({
+    monthlyInstallment: 10_000,
+    lateFeeRatePercent: 5,
+    paymentDate: '2026-06-01',
+    installments: [
+      {
+        installmentId: 'lock-mar',
+        installmentNumber: 1,
+        dueDate: '2026-03-01',
+        installmentAmount: 10_000,
+        paidAmount: 0,
+        lateFeePaid: 500,
+        lateFeeCharged: 500,
+      },
+    ],
+  });
+  const line = result.lines[0];
+  return {
+    lateFee: line?.lateFee ?? 0,
+    outstanding: line?.lateFeeOutstanding ?? 0,
+    settled: line?.lateFeeSettled ?? false,
+    expected: { lateFee: 500, outstanding: 0, settled: true },
+  };
+})();
+
+/** Leasing book: 15,834 @ 5% → 792/mo; as-of 2026-04-26 (grace-aware cycles) */
+export const EXAMPLE_LEASING_APR26 = (() => {
+  const monthlyInstallment = 15_834;
+  const asOf = '2026-04-26';
+  const rows = [
+    {
+      installmentId: 'ex-feb',
+      installmentNumber: 1,
+      dueDate: '2026-02-01',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+    {
+      installmentId: 'ex-mar',
+      installmentNumber: 2,
+      dueDate: '2026-03-01',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+    {
+      installmentId: 'ex-apr',
+      installmentNumber: 3,
+      dueDate: '2026-04-01',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+    {
+      installmentId: 'ex-may',
+      installmentNumber: 4,
+      dueDate: '2026-05-01',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+  ];
+  const result = computeLoanLateFeesV3({
+    monthlyInstallment,
+    lateFeeRatePercent: 5,
+    paymentDate: asOf,
+    installments: rows,
+  });
+  const byId = Object.fromEntries(result.lines.map((l) => [l.installmentId, l]));
+  return {
+    baseLateFee: result.baseLateFee,
+    feb: byId['ex-feb'],
+    mar: byId['ex-mar'],
+    apr: byId['ex-apr'],
+    may: byId['ex-may'],
+    expected: {
+      baseLateFee: 792,
+      febCycles: 3,
+      febFee: 2_376,
+      marCycles: 2,
+      marFee: 1_584,
+      aprCycles: 1,
+      aprFee: 792,
+      mayFee: 0,
+    },
+  };
 })();
 
 /** Declining model: 15,834 @ 5% → base 792; Feb–May overdue as of 2026-06-01 */
@@ -274,7 +389,7 @@ export const EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20 = (() => {
     result,
     apr: byId.apr,
     may: byId.may,
-    expected: { totalLateFee: 500, aprMonths: 1, mayMonths: 0 },
+    expected: { totalLateFee: 1_500, aprMonths: 2, mayMonths: 1 },
   };
 })();
 
@@ -300,7 +415,7 @@ export const EXAMPLE_DATE_LATE_FEE_MAY20 = (() => {
     mar: byId.mar,
     apr: byId.apr,
     may: byId.may,
-    expected: { febMonths: 3, marMonths: 2, aprMonths: 1, mayMonths: 0 },
+    expected: { febMonths: 4, marMonths: 3, aprMonths: 2, mayMonths: 1 },
   };
 })();
 
@@ -339,9 +454,9 @@ export const EXAMPLE_BANK_LATE_FEE_MAY20 = (() => {
     apr: byId.apr,
     expected: {
       baseLateFee: 500,
-      totalLateFee: 1_500,
-      marMonths: 2,
-      aprMonths: 1,
+      totalLateFee: 2_500,
+      marMonths: 3,
+      aprMonths: 2,
       marIndex: 0,
       aprIndex: 1,
     },
@@ -390,12 +505,12 @@ export const EXAMPLE_BANK_ALLOCATION_15K = (() => {
   return {
     allocation,
     marInstPaid: marInst?.amount ?? 0,
-    aprInstPaid: aprInst?.amount ?? 0,
+      aprInstPaid: aprInst?.amount ?? 0,
     expected: {
-      lateFeesPaid: 1_500,
+      lateFeesPaid: 2_500,
       marInstallmentPaid: 10_000,
-      aprInstallmentPaid: 3_500,
-      aprRemaining: 6_500,
+      aprInstallmentPaid: 2_500,
+      aprRemaining: 7_500,
     },
   };
 })();
@@ -426,11 +541,11 @@ export const EXAMPLE_DECLINING_LATE_FEES = (() => {
     may: byNum[5],
     expected: {
       baseLateFee: 792,
-      febFee: 3_168,
-      marFee: 2_376,
-      aprFee: 1_584,
-      mayFee: 792,
-      total: 7_920,
+      febFee: 3_960,
+      marFee: 3_168,
+      aprFee: 2_376,
+      mayFee: 1_584,
+      total: 11_088,
     },
   };
 })();
@@ -635,7 +750,7 @@ export const EXAMPLE_NEXT_DUE_SKIPS_PAID = getNextDueDateForFixedInstallments(
     },
   ],
   DEFAULT_LATE_FEE_RATE_PERCENT,
-  '2026-06-15'
+  '2026-06-07'
 );
 
 export interface ExampleCheck {
@@ -838,26 +953,26 @@ export function verifyFinanceExamples(): ExampleCheck[] {
     },
     {
       name: 'Late fee A: months late',
-      pass: EXAMPLE_LATE_FEE_A.monthsLate === 3,
-      expected: 3,
+      pass: EXAMPLE_LATE_FEE_A.monthsLate === 4,
+      expected: 4,
       actual: EXAMPLE_LATE_FEE_A.monthsLate,
     },
     {
       name: 'Late fee A: amount',
-      pass: EXAMPLE_LATE_FEE_A.lateFee === 3_957,
-      expected: 3_957,
+      pass: EXAMPLE_LATE_FEE_A.lateFee === 5_276,
+      expected: 5_276,
       actual: EXAMPLE_LATE_FEE_A.lateFee,
     },
     {
       name: 'Late fee B: months late',
-      pass: EXAMPLE_LATE_FEE_B.monthsLate === 2,
-      expected: 2,
+      pass: EXAMPLE_LATE_FEE_B.monthsLate === 3,
+      expected: 3,
       actual: EXAMPLE_LATE_FEE_B.monthsLate,
     },
     {
       name: 'Late fee B: amount',
-      pass: EXAMPLE_LATE_FEE_B.lateFee === 2_638,
-      expected: 2_638,
+      pass: EXAMPLE_LATE_FEE_B.lateFee === 3_957,
+      expected: 3_957,
       actual: EXAMPLE_LATE_FEE_B.lateFee,
     },
     {
@@ -872,6 +987,53 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       },
     },
     {
+      name: 'Late fee grace: no fee on day 7',
+      pass: EXAMPLE_LATE_FEE_GRACE.duringGrace === 0,
+      expected: 0,
+      actual: EXAMPLE_LATE_FEE_GRACE.duringGrace,
+    },
+    {
+      name: 'Late fee grace: one-time fee from day 8',
+      pass: EXAMPLE_LATE_FEE_GRACE.afterGrace === 500,
+      expected: 500,
+      actual: EXAMPLE_LATE_FEE_GRACE.afterGrace,
+    },
+    {
+      name: 'Late fee paid lock: no outstanding',
+      pass:
+        EXAMPLE_LATE_FEE_PAID_LOCK.outstanding === 0 &&
+        EXAMPLE_LATE_FEE_PAID_LOCK.settled === true,
+      expected: { outstanding: 0, settled: true },
+      actual: {
+        outstanding: EXAMPLE_LATE_FEE_PAID_LOCK.outstanding,
+        settled: EXAMPLE_LATE_FEE_PAID_LOCK.settled,
+      },
+    },
+    {
+      name: 'Leasing Apr-26: Feb 792×3',
+      pass: EXAMPLE_LEASING_APR26.feb?.lateFee === 2_376,
+      expected: 2_376,
+      actual: EXAMPLE_LEASING_APR26.feb?.lateFee,
+    },
+    {
+      name: 'Leasing Apr-26: Mar 792×2',
+      pass: EXAMPLE_LEASING_APR26.mar?.lateFee === 1_584,
+      expected: 1_584,
+      actual: EXAMPLE_LEASING_APR26.mar?.lateFee,
+    },
+    {
+      name: 'Leasing Apr-26: Apr 792×1',
+      pass: EXAMPLE_LEASING_APR26.apr?.lateFee === 792,
+      expected: 792,
+      actual: EXAMPLE_LEASING_APR26.apr?.lateFee,
+    },
+    {
+      name: 'Leasing Apr-26: May grace (0)',
+      pass: (EXAMPLE_LEASING_APR26.may?.lateFee ?? -1) === 0,
+      expected: 0,
+      actual: EXAMPLE_LEASING_APR26.may?.lateFee,
+    },
+    {
       name: 'Declining late fee: base unit 792',
       pass: EXAMPLE_DECLINING_LATE_FEES.baseLateFee === 792,
       expected: 792,
@@ -879,46 +1041,46 @@ export function verifyFinanceExamples(): ExampleCheck[] {
     },
     {
       name: 'Declining late fee: Feb ×4',
-      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee === 3_168,
-      expected: 3_168,
+      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee === 3_960,
+      expected: 3_960,
       actual: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee,
     },
     {
       name: 'Declining late fee: Feb 4 late months',
-      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths === 4,
-      expected: 4,
+      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths === 5,
+      expected: 5,
       actual: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths,
     },
     {
       name: 'Declining late fee: May ×1',
-      pass: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee === 792,
-      expected: 792,
+      pass: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee === 1_584,
+      expected: 1_584,
       actual: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee,
     },
     {
       name: 'Declining late fee: total outstanding',
       pass:
-        EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding === 7_920,
-      expected: 7_920,
+        EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding === 11_088,
+      expected: 11_088,
       actual: EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding,
     },
     {
       name: 'Bank late fee May-20: total 1,500',
-      pass: EXAMPLE_BANK_LATE_FEE_MAY20.result.totalLateFee === 1_500,
-      expected: 1_500,
+      pass: EXAMPLE_BANK_LATE_FEE_MAY20.result.totalLateFee === 2_500,
+      expected: 2_500,
       actual: EXAMPLE_BANK_LATE_FEE_MAY20.result.totalLateFee,
     },
     {
       name: 'Bank late fee May-20: Mar 2 months',
-      pass: EXAMPLE_BANK_LATE_FEE_MAY20.mar?.lateMonths === 2,
-      expected: 2,
+      pass: EXAMPLE_BANK_LATE_FEE_MAY20.mar?.lateMonths === 3,
+      expected: 3,
       actual: EXAMPLE_BANK_LATE_FEE_MAY20.mar?.lateMonths,
     },
     {
       name: 'Bank allocation 15k: late fees first',
       pass:
-        EXAMPLE_BANK_ALLOCATION_15K.allocation.summary.lateFeesPaid === 1_500,
-      expected: 1_500,
+        EXAMPLE_BANK_ALLOCATION_15K.allocation.summary.lateFeesPaid === 2_500,
+      expected: 2_500,
       actual: EXAMPLE_BANK_ALLOCATION_15K.allocation.summary.lateFeesPaid,
     },
     {
@@ -929,8 +1091,8 @@ export function verifyFinanceExamples(): ExampleCheck[] {
     },
     {
       name: 'Bank allocation 15k: Apr partial 3,500',
-      pass: EXAMPLE_BANK_ALLOCATION_15K.aprInstPaid === 3_500,
-      expected: 3_500,
+      pass: EXAMPLE_BANK_ALLOCATION_15K.aprInstPaid === 2_500,
+      expected: 2_500,
       actual: EXAMPLE_BANK_ALLOCATION_15K.aprInstPaid,
     },
     {
@@ -942,39 +1104,39 @@ export function verifyFinanceExamples(): ExampleCheck[] {
     },
     {
       name: 'Date May-20: Feb → 3 late months',
-      pass: EXAMPLE_DATE_LATE_FEE_MAY20.feb?.lateMonths === 3,
-      expected: 3,
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.feb?.lateMonths === 4,
+      expected: 4,
       actual: EXAMPLE_DATE_LATE_FEE_MAY20.feb?.lateMonths,
     },
     {
-      name: 'Date May-20: Mar → 2 late months',
-      pass: EXAMPLE_DATE_LATE_FEE_MAY20.mar?.lateMonths === 2,
-      expected: 2,
+      name: 'Date May-20: Mar → 3 late months',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.mar?.lateMonths === 3,
+      expected: 3,
       actual: EXAMPLE_DATE_LATE_FEE_MAY20.mar?.lateMonths,
     },
     {
-      name: 'Date May-20: Apr → 1 late month',
-      pass: EXAMPLE_DATE_LATE_FEE_MAY20.apr?.lateMonths === 1,
-      expected: 1,
+      name: 'Date May-20: Apr → 2 late months',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.apr?.lateMonths === 2,
+      expected: 2,
       actual: EXAMPLE_DATE_LATE_FEE_MAY20.apr?.lateMonths,
     },
     {
-      name: 'Date May-20: May → 0 late months',
-      pass: EXAMPLE_DATE_LATE_FEE_MAY20.may?.lateMonths === 0,
-      expected: 0,
+      name: 'Date May-20: May → 1 late month',
+      pass: EXAMPLE_DATE_LATE_FEE_MAY20.may?.lateMonths === 1,
+      expected: 1,
       actual: EXAMPLE_DATE_LATE_FEE_MAY20.may?.lateMonths,
     },
     {
       name: 'Bank schedule Apr+May: 500 on May-20 (date 1 & 0)',
       pass:
-        EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee === 500,
-      expected: 500,
+        EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee === 1_500,
+      expected: 1_500,
       actual: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.result.totalLateFee,
     },
     {
       name: 'Bank schedule: May → 0 late months',
-      pass: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths === 0,
-      expected: 0,
+      pass: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths === 1,
+      expected: 1,
       actual: EXAMPLE_BANK_LATE_FEE_SCHEDULE_MAY20.may?.lateMonths,
     },
     {

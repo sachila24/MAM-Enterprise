@@ -30,6 +30,7 @@ function isInstallmentFullySettled(
         installmentAmount: inst.installmentAmount,
         paidAmount: inst.paidAmount,
         lateFeePaid: inst.lateFeePaid,
+        lateFeeCharged: inst.lateFeeAmount,
       },
     ],
   });

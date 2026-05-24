@@ -11,6 +11,7 @@ import {
   mapDbAllocationsToLedgerLines,
   type LedgerAllocationLookup,
 } from './ledgerAllocationLabels';
+import { getLateFeeStartDate } from '../finance/lateFeeEngineV3';
 import {
   isDateBefore,
   isDateOnOrBefore,
@@ -45,6 +46,10 @@ export interface InstallmentLedgerSource {
   lateFeePaid: number;
   /** Live accrued late fee at ledger as-of (from engine; overrides display when set). */
   liveLateFeeAccrued?: number;
+  /** Late-fee balance fully paid — monthly accumulation stopped. */
+  lateFeeSettled?: boolean;
+  /** First day late-fee cycles accrue (due + grace). */
+  lateFeeStartDate?: string;
 }
 
 /** Display-only ledger row status. */
@@ -81,6 +86,10 @@ export interface LedgerEntry {
   periodDueDate?: string;
   installmentNumber?: number;
   cycleNumber?: number;
+  /** LATE_FEE row: late-fee balance fully paid. */
+  lateFeeSettled?: boolean;
+  /** LATE_FEE row: grace-end / cycle-start date. */
+  lateFeeStartDate?: string;
   /** Payment allocation breakdown — inline under payment rows. */
   allocationLines?: LedgerAllocationLine[];
   /** Cash received (payment rows only). */
@@ -173,19 +182,36 @@ function buildLateFeeChargedDraft(
   order: number
 ): LedgerDraft | null {
   const lateFee = liveLateFeeAccrued(inst);
-  if (lateFee <= 0) return null;
+  const charged = historicalLateFeeCharged(inst);
+  if (lateFee <= 0 && charged <= 0) return null;
+
+  const lateFeeSettled =
+    inst.lateFeeSettled ??
+    (inst.lateFeePaid > 0 && inst.lateFeePaid >= charged && charged > 0);
+  const displayFee = lateFee > 0 ? lateFee : charged;
+  const lateFeeStartDate =
+    inst.lateFeeStartDate ?? getLateFeeStartDate(inst.dueDate);
 
   return {
-    date: inst.dueDate,
+    date: lateFeeStartDate,
     ref: ledgerLateFeeRef(inst.installmentNumber),
     description: '',
-    debit: lateFee,
+    debit: displayFee,
     credit: null,
     entryType: 'LATE_FEE',
-    status: installmentLedgerStatus(inst, asOf),
+    status: lateFeeSettled
+      ? 'PAID'
+      : ledgerStatusFromPaidAndDue(
+          inst.lateFeePaid,
+          displayFee,
+          inst.dueDate,
+          asOf
+        ),
     sortOrder: order,
     periodDueDate: inst.dueDate,
     installmentNumber: inst.installmentNumber,
+    lateFeeSettled,
+    lateFeeStartDate,
   };
 }
 
@@ -447,12 +473,18 @@ export function mapInstallmentsToLedgerSource(
 /** Merge live engine accrued amounts into ledger installment rows. */
 export function enrichLedgerInstallmentsWithLiveLateFees(
   installments: InstallmentLedgerSource[],
-  liveByNumber: Map<number, number>
+  liveByNumber: Map<number, number>,
+  settledByNumber?: Map<number, boolean>,
+  startDateByNumber?: Map<number, string>
 ): InstallmentLedgerSource[] {
   return installments.map((inst) => ({
     ...inst,
     liveLateFeeAccrued:
       liveByNumber.get(inst.installmentNumber) ?? inst.liveLateFeeAccrued,
+    lateFeeSettled:
+      settledByNumber?.get(inst.installmentNumber) ?? inst.lateFeeSettled,
+    lateFeeStartDate:
+      startDateByNumber?.get(inst.installmentNumber) ?? inst.lateFeeStartDate,
   }));
 }
 

@@ -39,6 +39,14 @@ export function formatAllocationMonth(
   return d.toLocaleDateString(locale, { month: 'short' });
 }
 
+/** Short calendar date for ledger (e.g. 8 Feb). */
+function formatDateShort(date: string, language: DisplayMode): string {
+  const d = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return date;
+  const locale = language === 'si' ? 'si-LK' : 'en-GB';
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+}
+
 /** Full month name for ledger row descriptions. */
 export function formatLedgerMonthLong(
   dueDate: string,
@@ -53,7 +61,11 @@ export function formatLedgerMonthLong(
 export function formatLedgerRowDescription(
   entry: Pick<
     LedgerEntry,
-    'entryType' | 'description' | 'periodDueDate'
+    | 'entryType'
+    | 'description'
+    | 'periodDueDate'
+    | 'lateFeeSettled'
+    | 'lateFeeStartDate'
   >,
   t: (key: LabelKey) => string,
   tf: (key: LabelKey, params?: Record<string, string | number>) => string,
@@ -68,10 +80,19 @@ export function formatLedgerRowDescription(
       return month
         ? tf('ledgerDescMonthInstallment', { month })
         : t('allocInstallment');
-    case 'LATE_FEE':
+    case 'LATE_FEE': {
+      const startLabel = entry.lateFeeStartDate
+        ? formatDateShort(entry.lateFeeStartDate, language)
+        : '';
+      if (entry.lateFeeSettled) {
+        return month
+          ? tf('ledgerDescLateFeeSettledForMonth', { month, start: startLabel })
+          : t('ledgerLateFeeSettled');
+      }
       return month
-        ? tf('ledgerDescLateFeeForMonth', { month })
+        ? tf('ledgerDescLateFeeAccruedFrom', { month, start: startLabel })
         : t('allocLateFee');
+    }
     case 'INTEREST':
       return month
         ? tf('ledgerDescMonthInterest', { month })
