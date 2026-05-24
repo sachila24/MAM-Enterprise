@@ -15,7 +15,6 @@ import {
   type LedgerMonthGroup,
 } from '../../lib/display/ledgerEnrichment';
 import type { LateFeeEngineLine } from '../../lib/finance/lateFeeEngineV3';
-import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
 
 interface LedgerTableProps {
@@ -26,9 +25,16 @@ interface LedgerTableProps {
 }
 
 const thBase =
-  'sticky top-0 z-10 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 bg-amber-50/95 border-b border-amber-200/80 first:pl-4 last:pr-4 sm:px-4 sm:first:pl-5 sm:last:pr-5';
+  'sticky top-0 z-10 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700 bg-amber-50/95 border-b border-amber-200/80 first:pl-3 last:pr-3 sm:px-3 sm:first:pl-4 sm:last:pr-4';
 const tdBase =
-  'px-3 py-2 align-middle text-sm first:pl-4 last:pr-4 sm:px-4 sm:first:pl-5 sm:last:pr-5 [font-variant-numeric:tabular-nums]';
+  'px-2 py-1 align-middle text-xs leading-tight first:pl-3 last:pr-3 sm:px-3 sm:first:pl-4 sm:last:pr-4 [font-variant-numeric:tabular-nums]';
+const breakdownBlockClass =
+  'mt-1.5 w-full max-w-[20rem] pl-3 border-l border-amber-200/60 text-[11px] leading-4 font-mono text-neutral-600';
+const breakdownLateFeeBlockClass =
+  'mt-1.5 w-full max-w-[20rem] pl-3 border-l border-orange-200/55 text-[11px] leading-4 font-mono text-neutral-600';
+const breakdownListClass = 'space-y-0.5';
+const breakdownHeaderClass =
+  'text-[11px] font-medium text-neutral-700 leading-4 mb-1';
 
 function formatDrCr(value: number | null): string {
   if (value == null) return '—';
@@ -72,6 +78,10 @@ function hasPaymentBreakdown(row: LedgerEntry): boolean {
     ((row.allocationLines != null && row.allocationLines.length > 0) ||
       (row.paymentDiscountAmount ?? 0) > 0)
   );
+}
+
+function allocationEntryCount(row: LedgerEntry): number {
+  return row.allocationLines?.length ?? 0;
 }
 
 function hasLateFeeBreakdown(row: LedgerEntry): boolean {
@@ -168,7 +178,7 @@ export function LedgerTable({
     <>
       {/* Desktop / tablet */}
       <div className="hidden sm:block overflow-x-auto rounded-lg border border-amber-200/80 bg-amber-50/30 shadow-sm">
-        <table className="min-w-[40rem] w-full text-sm border-collapse">
+        <table className="min-w-[40rem] w-full text-xs border-collapse">
           <thead>
             <tr>
               <th className={`${thBase} text-left w-[6.5rem]`}>
@@ -258,7 +268,7 @@ function LedgerMonthSectionDesktop({
           <button
             type="button"
             onClick={onToggle}
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-neutral-800 hover:bg-amber-100/90 sm:px-5"
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-semibold text-neutral-800 hover:bg-amber-100/90 sm:px-4"
             aria-expanded={expanded}
           >
             {expanded ? (
@@ -315,7 +325,7 @@ function LedgerMonthSectionMobile({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-neutral-800 bg-amber-100/70 border-b border-amber-200/70"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs font-semibold text-neutral-800 bg-amber-100/70 border-b border-amber-200/70"
         aria-expanded={expanded}
       >
         {expanded ? (
@@ -326,7 +336,7 @@ function LedgerMonthSectionMobile({
         <span>{group.monthLabel}</span>
       </button>
       {expanded && (
-        <div className="p-2 space-y-2">
+        <div className="p-1.5 space-y-1">
           {group.entries.map((row, index) => (
             <LedgerMobileCard
               key={rowExpandKey(row, index)}
@@ -370,46 +380,26 @@ function LedgerDesktopRows({
   const showStatus = showsInstallmentStatus(row);
 
   return (
-    <>
-      <tr className={`border-b border-amber-100/90 ${bg}`}>
+    <tr className={`border-b border-amber-100/90 ${bg}`}>
         <td className={`${tdBase} text-left text-neutral-800 whitespace-nowrap`}>
           {formatDate(row.date)}
         </td>
-        <td className={`${tdBase} text-left text-neutral-600 font-mono text-xs`}>
+        <td className={`${tdBase} text-left text-neutral-600 font-mono text-[10px]`}>
           {row.ref ?? '—'}
         </td>
         <td className={`${tdBase} text-left font-medium text-neutral-900`}>
-          <div className="flex items-start gap-1.5 min-w-0">
-            {expandable ? (
-              <button
-                type="button"
-                onClick={onToggle}
-                className="mt-0.5 shrink-0 text-neutral-500 hover:text-neutral-800"
-                aria-expanded={expanded}
-                aria-label={
-                  expanded ? t('ledgerCollapseDetails') : t('ledgerExpandDetails')
-                }
-              >
-                {expanded ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-              </button>
-            ) : (
-              <span className="w-3.5 shrink-0" aria-hidden />
-            )}
-            <div className="min-w-0">
-              <span className="block">{description}</span>
-              {row.inGracePeriod && row.lateFeeStartDate && (
-                <p className="mt-0.5 text-[11px] font-normal text-amber-800">
-                  {tf('ledgerGraceLateFeeStarts', {
-                    date: formatDate(row.lateFeeStartDate),
-                  })}
-                </p>
-              )}
-            </div>
-          </div>
+          <LedgerDescriptionCell
+            row={row}
+            description={description}
+            paymentBreakdown={paymentBreakdown}
+            lateFeeBreakdown={lateFeeBreakdown}
+            expandable={expandable}
+            expanded={expanded}
+            onToggle={onToggle}
+            t={t}
+            tf={tf}
+            language={language}
+          />
         </td>
         <td className={`${tdBase} text-right text-neutral-800`}>
           {formatDrCr(row.debit)}
@@ -423,33 +413,114 @@ function LedgerDesktopRows({
         <td className={`${tdBase} text-center`}>
           <LedgerStatusCell row={row} showStatus={showStatus} t={t} />
         </td>
-      </tr>
-      {expanded && paymentBreakdown && (
-        <tr className={`border-b border-amber-100/90 ${bg}`}>
-          <td colSpan={7} className="px-4 pb-2.5 pt-0 sm:px-5 sm:pb-3">
-            <LedgerPaymentBreakdown
-              lines={row.allocationLines!}
-              cashReceived={row.paymentCashReceived}
-              discountAmount={row.paymentDiscountAmount}
-              appliedLabel={t('ledgerAppliedTo')}
-              t={t}
-              language={language}
-            />
-          </td>
-        </tr>
+    </tr>
+  );
+}
+
+function LedgerDescriptionCell({
+  row,
+  description,
+  paymentBreakdown,
+  lateFeeBreakdown,
+  expandable,
+  expanded,
+  onToggle,
+  t,
+  tf,
+  language,
+}: {
+  row: LedgerEntry;
+  description: string;
+  paymentBreakdown: boolean;
+  lateFeeBreakdown: boolean;
+  expandable: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  t: ReturnType<typeof useT>['t'];
+  tf: ReturnType<typeof useT>['tf'];
+  language: ReturnType<typeof useT>['language'];
+}) {
+  const paymentCollapsed = paymentBreakdown && !expanded;
+  const paymentAmount = row.credit ?? row.paymentCashReceived ?? 0;
+
+  return (
+    <div className="flex items-start gap-1 min-w-0">
+      {expandable ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="shrink-0 text-neutral-500 hover:text-neutral-800 leading-none pt-px"
+          aria-expanded={expanded}
+          aria-label={
+            expanded ? t('ledgerCollapseDetails') : t('ledgerExpandDetails')
+          }
+        >
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+      ) : (
+        <span className="w-3 shrink-0" aria-hidden />
       )}
-      {expanded && lateFeeBreakdown && (
-        <tr className={`border-b border-amber-100/90 ${bg}`}>
-          <td colSpan={7} className="px-4 pb-2.5 pt-0 sm:px-5 sm:pb-3">
-            <LedgerLateFeeBreakdown
-              lines={row.lateFeeCycleLines!}
-              total={row.debit ?? 0}
-              totalLabel={t('ledgerLateFeeTotal')}
+      <div className="min-w-0 flex-1 leading-tight">
+        {paymentCollapsed ? (
+          <>
+            <PaymentAmountLine
+              label={t('ledgerDescPaymentReceived')}
+              amount={paymentAmount}
             />
-          </td>
-        </tr>
-      )}
-    </>
+            {allocationEntryCount(row) > 0 && (
+              <p className="text-[10px] text-neutral-500 mt-px">
+                {tf('ledgerAppliedEntryCount', {
+                  count: allocationEntryCount(row),
+                })}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="block">{description}</span>
+            {row.inGracePeriod && row.lateFeeStartDate && (
+              <p className="text-[10px] font-normal text-amber-800 mt-px">
+                {tf('ledgerGraceLateFeeStarts', {
+                  date: formatDate(row.lateFeeStartDate),
+                })}
+              </p>
+            )}
+          </>
+        )}
+        {expanded && paymentBreakdown && (
+          <LedgerPaymentBreakdownVertical
+            lines={row.allocationLines ?? []}
+            discountAmount={row.paymentDiscountAmount}
+            appliedLabel={t('ledgerAppliedTo')}
+            t={t}
+            language={language}
+          />
+        )}
+        {expanded && lateFeeBreakdown && (
+          <LedgerLateFeeBreakdownVertical
+            lines={row.lateFeeCycleLines!}
+            total={row.debit ?? 0}
+            cyclesLabel={t('ledgerLateFeeCycles')}
+            totalLabel={t('ledgerLateFeeTotal')}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaymentAmountLine({ label, amount }: { label: string; amount: number }) {
+  const { dots, amount: amountStr } = formatLedgerBreakdownLine(label, amount);
+  return (
+    <p className="font-mono text-[11px] text-neutral-900 truncate">
+      <span>{label}</span>
+      <span className="text-neutral-400">{dots}</span>
+      <span className="font-semibold">{amountStr}</span>
+    </p>
   );
 }
 
@@ -479,48 +550,32 @@ function LedgerMobileCard({
 
   return (
     <article
-      className={`rounded-lg border border-amber-200/70 px-3 py-2.5 ${bg}`}
+      className={`rounded border border-amber-200/70 px-2 py-1.5 ${bg}`}
     >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
+      <div className="flex items-start justify-between gap-1.5 mb-1">
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-1">
-            {expandable && (
-              <button
-                type="button"
-                onClick={onToggle}
-                className="mt-0.5 shrink-0 text-neutral-500"
-                aria-expanded={expanded}
-              >
-                {expanded ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-              </button>
-            )}
-            <div className="min-w-0">
-              <p className="text-xs text-neutral-600">{formatDate(row.date)}</p>
-              <p className="font-medium text-neutral-900 leading-snug">
-                {description}
-              </p>
-              {row.inGracePeriod && row.lateFeeStartDate && (
-                <p className="text-[11px] text-amber-800 mt-0.5">
-                  {tf('ledgerGraceLateFeeStarts', {
-                    date: formatDate(row.lateFeeStartDate),
-                  })}
-                </p>
-              )}
-              {row.ref && (
-                <p className="font-mono text-xs text-neutral-500 mt-0.5">
-                  {row.ref}
-                </p>
-              )}
-            </div>
-          </div>
+          <p className="text-[10px] text-neutral-600 leading-none mb-0.5">
+            {formatDate(row.date)}
+            {row.ref ? (
+              <span className="font-mono text-neutral-500 ml-1.5">{row.ref}</span>
+            ) : null}
+          </p>
+          <LedgerDescriptionCell
+            row={row}
+            description={description}
+            paymentBreakdown={paymentBreakdown}
+            lateFeeBreakdown={lateFeeBreakdown}
+            expandable={expandable}
+            expanded={expanded}
+            onToggle={onToggle}
+            t={t}
+            tf={tf}
+            language={language}
+          />
         </div>
         <LedgerStatusCell row={row} showStatus={showStatus} t={t} />
       </div>
-      <dl className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
+      <dl className="grid grid-cols-3 gap-x-1.5 text-[10px] leading-tight">
         <div>
           <dt className="text-neutral-500">{t('ledgerColDebit')}</dt>
           <dd className="font-medium text-neutral-900 tabular-nums">
@@ -540,27 +595,6 @@ function LedgerMobileCard({
           </dd>
         </div>
       </dl>
-      {expanded && paymentBreakdown && (
-        <div className="mt-2 pt-2 border-t border-amber-200/50">
-          <LedgerPaymentBreakdown
-            lines={row.allocationLines!}
-            cashReceived={row.paymentCashReceived}
-            discountAmount={row.paymentDiscountAmount}
-            appliedLabel={t('ledgerAppliedTo')}
-            t={t}
-            language={language}
-          />
-        </div>
-      )}
-      {expanded && lateFeeBreakdown && (
-        <div className="mt-2 pt-2 border-t border-amber-200/50">
-          <LedgerLateFeeBreakdown
-            lines={row.lateFeeCycleLines!}
-            total={row.debit ?? 0}
-            totalLabel={t('ledgerLateFeeTotal')}
-          />
-        </div>
-      )}
     </article>
   );
 }
@@ -598,13 +632,13 @@ function LedgerStatusCell({
   }
 
   return (
-    <div className="flex flex-col items-center gap-1">{badges}</div>
+    <div className="flex flex-row flex-wrap justify-center items-center gap-0.5 max-w-[10rem]">{badges}</div>
   );
 }
 
 function GracePeriodBadge({ t }: { t: ReturnType<typeof useT>['t'] }) {
   return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 bg-amber-200/90 ring-1 ring-inset ring-amber-400/50">
+    <span className="inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-900 bg-amber-200/90 ring-1 ring-inset ring-amber-400/50 whitespace-nowrap">
       {t('ledgerGracePeriod')}
     </span>
   );
@@ -612,58 +646,86 @@ function GracePeriodBadge({ t }: { t: ReturnType<typeof useT>['t'] }) {
 
 function LateFeeSettledBadge({ t }: { t: ReturnType<typeof useT>['t'] }) {
   return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success-800 bg-success-100/90 ring-1 ring-inset ring-success-300/60">
+    <span className="inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-success-800 bg-success-100/90 ring-1 ring-inset ring-success-300/60 whitespace-nowrap">
       {t('ledgerBadgeLateFeeSettled')}
     </span>
   );
 }
 
-function LedgerPaymentBreakdown({
+function LedgerVerticalBreakdownLine({
+  label,
+  amount,
+  bold,
+  totalLine,
+}: {
+  label: string;
+  amount: number;
+  bold?: boolean;
+  /** Emphasize total row (late-fee cycle total). */
+  totalLine?: boolean;
+}) {
+  const amountStr = formatLedgerAmount(amount);
+  const isTotal = bold || totalLine;
+  return (
+    <li
+      className={`flex items-baseline gap-1.5 min-w-0 py-[1px] leading-4 ${
+        isTotal
+          ? `pt-0.5 mt-0.5 border-t ${
+              totalLine ? 'border-orange-200/65' : 'border-neutral-200/70'
+            }`
+          : ''
+      }`}
+    >
+      <span className="shrink-0 text-neutral-400 select-none" aria-hidden>
+        •
+      </span>
+      <span className="flex flex-1 min-w-0 items-baseline justify-between gap-3">
+        <span
+          className={`truncate pr-1 ${
+            isTotal ? 'font-medium text-neutral-900' : 'text-neutral-700'
+          }`}
+        >
+          {label}
+        </span>
+        <span
+          className={`shrink-0 tabular-nums ${
+            isTotal ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-800'
+          }`}
+        >
+          {amountStr}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function LedgerPaymentBreakdownVertical({
   lines,
-  cashReceived,
   discountAmount,
   appliedLabel,
   t,
   language,
 }: {
   lines: NonNullable<LedgerEntry['allocationLines']>;
-  cashReceived?: number;
   discountAmount?: number;
   appliedLabel: string;
   t: ReturnType<typeof useT>['t'];
   language: ReturnType<typeof useT>['language'];
 }) {
-  const cash = cashReceived ?? 0;
   const discount = discountAmount ?? 0;
-  const settled = roundLKR(cash + discount);
 
   return (
-    <div className="ml-0 sm:ml-8 text-xs text-neutral-700 max-w-lg border-l-2 border-amber-300/50 pl-3">
-      {(cash > 0 || discount > 0) && (
-        <ul className="space-y-0.5 font-mono mb-2">
-          {cash > 0 && (
-            <LedgerBreakdownSummaryLine
-              label={t('ledgerDescPaymentReceived')}
-              amount={cash}
-            />
-          )}
-          {discount > 0 && (
-            <LedgerBreakdownSummaryLine
-              label={t('ledgerPaymentDiscountApproved')}
-              amount={discount}
-            />
-          )}
-          {discount > 0 && settled > 0 && (
-            <LedgerBreakdownSummaryLine
-              label={t('ledgerInstallmentSettled')}
-              amount={settled}
-              bold
-            />
-          )}
+    <div className={breakdownBlockClass}>
+      {discount > 0 && (
+        <ul className={`${breakdownListClass} mb-0.5`}>
+          <LedgerVerticalBreakdownLine
+            label={t('ledgerAllocDiscountApproved')}
+            amount={discount}
+          />
         </ul>
       )}
-      <p className="font-medium text-neutral-800 mb-1">{appliedLabel}:</p>
-      <ul className="space-y-0.5 font-mono">
+      <p className={breakdownHeaderClass}>{appliedLabel}:</p>
+      <ul className={breakdownListClass}>
         {lines.map((line) => {
           const label = formatLedgerAllocationLabel(
             line.allocationType,
@@ -671,20 +733,12 @@ function LedgerPaymentBreakdown({
             t,
             language
           );
-          const { dots, amount } = formatLedgerBreakdownLine(label, line.amount);
           return (
-            <li key={line.key} className="flex gap-1 min-w-0">
-              <span className="shrink-0 text-neutral-500" aria-hidden>
-                •
-              </span>
-              <span className="truncate text-neutral-800">{label}</span>
-              <span className="shrink-0 text-neutral-400 hidden sm:inline">
-                {dots}
-              </span>
-              <span className="shrink-0 ml-auto sm:ml-0 font-semibold text-neutral-900 tabular-nums">
-                {amount}
-              </span>
-            </li>
+            <LedgerVerticalBreakdownLine
+              key={line.key}
+              label={label}
+              amount={line.amount}
+            />
           );
         })}
       </ul>
@@ -692,78 +746,36 @@ function LedgerPaymentBreakdown({
   );
 }
 
-function LedgerLateFeeBreakdown({
+function LedgerLateFeeBreakdownVertical({
   lines,
   total,
+  cyclesLabel,
   totalLabel,
 }: {
   lines: NonNullable<LedgerEntry['lateFeeCycleLines']>;
   total: number;
+  cyclesLabel: string;
   totalLabel: string;
 }) {
   return (
-    <div className="ml-0 sm:ml-8 text-xs text-neutral-700 max-w-lg border-l-2 border-orange-300/50 pl-3">
-      <ul className="space-y-0.5 font-mono">
-        {lines.map((line) => {
-          const { dots, amount } = formatLedgerBreakdownLine(line.label, line.amount);
-          return (
-            <li key={line.key} className="flex gap-1 min-w-0">
-              <span className="shrink-0 text-neutral-500" aria-hidden>
-                •
-              </span>
-              <span className="truncate text-neutral-800">{line.label}</span>
-              <span className="shrink-0 text-neutral-400 hidden sm:inline">
-                {dots}
-              </span>
-              <span className="shrink-0 ml-auto sm:ml-0 font-semibold text-neutral-900 tabular-nums">
-                {amount}
-              </span>
-            </li>
-          );
-        })}
-        <li className="flex gap-1 min-w-0 pt-1 border-t border-orange-200/60 mt-1">
-          <span className="shrink-0 text-neutral-500" aria-hidden>
-            •
-          </span>
-          <span className="font-semibold text-neutral-900">{totalLabel}</span>
-          <span className="shrink-0 ml-auto font-bold text-neutral-900 tabular-nums">
-            {formatLedgerAmount(total)}
-          </span>
-        </li>
+    <div className={breakdownLateFeeBlockClass}>
+      <p className={breakdownHeaderClass}>{cyclesLabel}:</p>
+      <ul className={breakdownListClass}>
+        {lines.map((line) => (
+          <LedgerVerticalBreakdownLine
+            key={line.key}
+            label={line.label}
+            amount={line.amount}
+          />
+        ))}
+        <LedgerVerticalBreakdownLine
+          label={totalLabel}
+          amount={total}
+          bold
+          totalLine
+        />
       </ul>
     </div>
-  );
-}
-
-function LedgerBreakdownSummaryLine({
-  label,
-  amount,
-  bold,
-}: {
-  label: string;
-  amount: number;
-  bold?: boolean;
-}) {
-  const { dots, amount: amountStr } = formatLedgerBreakdownLine(label, amount);
-  return (
-    <li className="flex gap-1 min-w-0">
-      <span className="shrink-0 text-neutral-500" aria-hidden>
-        •
-      </span>
-      <span
-        className={`truncate ${bold ? 'font-semibold text-neutral-900' : 'text-neutral-800'}`}
-      >
-        {label}
-      </span>
-      <span className="shrink-0 text-neutral-400 hidden sm:inline">{dots}</span>
-      <span
-        className={`shrink-0 ml-auto sm:ml-0 tabular-nums ${
-          bold ? 'font-bold text-neutral-900' : 'font-semibold text-neutral-900'
-        }`}
-      >
-        {amountStr}
-      </span>
-    </li>
   );
 }
 
@@ -797,7 +809,7 @@ function LedgerRowStatusBadge({
   const { labelKey, className } = config[status];
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset ${className}`}
+      className={`inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide ring-1 ring-inset whitespace-nowrap ${className}`}
     >
       {t(labelKey)}
     </span>

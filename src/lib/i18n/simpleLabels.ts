@@ -242,8 +242,13 @@ export const t = {
   ),
   ledgerBadgeLateFeeSettled: bi('Late Fee Settled', 'ප්‍රමාද ගාස්තු ගෙවී අවසන්'),
   ledgerLateFeeCycle: bi('{month} cycle', '{month} චක්‍රය'),
+  ledgerLateFeeCycles: bi('Late fee cycles', 'ප්‍රමාද ගාස්තු චක්‍ර'),
   ledgerLateFeeTotal: bi('Total', 'මුළු'),
   ledgerAppliedTo: bi('Applied to', 'යොදන ලදී'),
+  ledgerAppliedEntryCount: bi(
+    'Applied to {count} entries',
+    'පේළි {count}කට යොදන ලදී'
+  ),
   ledgerExpandDetails: bi('Details', 'විස්තර'),
   ledgerCollapseDetails: bi('Hide', 'සඟවන්න'),
   ledgerEmpty: bi('No ledger entries yet.', 'ලෙජර් පේළි තවම නැත.'),

@@ -151,6 +151,44 @@ function allocTypePhrase(
   }
 }
 
+/** Short logbook-style chip: "Feb LF 1584". */
+export function formatCompactAllocationChip(
+  allocationType: AllocationType,
+  dueDate: string | undefined,
+  amount: number,
+  language: DisplayMode
+): string {
+  const month = dueDate ? formatAllocationMonth(dueDate, language) : '';
+  const base = baseAllocationType(allocationType);
+  let code: string;
+  if (allocationType.endsWith('_DISCOUNT')) {
+    code = 'DISC';
+  } else {
+    switch (base) {
+      case 'LATE_FEE':
+        code = 'LF';
+        break;
+      case 'INSTALLMENT':
+        code = 'INST';
+        break;
+      case 'INTEREST':
+        code = 'INT';
+        break;
+      case 'PRINCIPAL':
+      case 'SETTLEMENT':
+        code = 'PRIN';
+        break;
+      case 'ADVANCE':
+        code = 'ADV';
+        break;
+      default:
+        code = 'INST';
+    }
+  }
+  const amt = formatLedgerAmount(amount);
+  return month ? `${month} ${code} ${amt}` : `${code} ${amt}`;
+}
+
 /** Human-readable allocation line label for ledger expand rows. */
 export function formatLedgerAllocationLabel(
   allocationType: AllocationType,
