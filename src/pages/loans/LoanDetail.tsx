@@ -228,7 +228,7 @@ function InterestOnlyLoanDetail({
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
-        <LedgerTable entries={ledgerEntries} />
+        <LedgerTable entries={ledgerEntries} asOfDate={asOf} />
       </section>
 
       <GuaranteesSection
@@ -514,7 +514,11 @@ function FixedInstallmentLoanDetail({
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
-        <LedgerTable entries={ledgerEntries} />
+        <LedgerTable
+          entries={ledgerEntries}
+          asOfDate={asOfDate}
+          lateFeeEngineLines={lateFeeEngine.lines}
+        />
       </section>
 
       <GuaranteesSection

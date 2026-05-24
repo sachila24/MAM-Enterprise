@@ -96,6 +96,10 @@ export interface LedgerEntry {
   paymentCashReceived?: number;
   /** Discount / waiver on this payment (payment rows only). */
   paymentDiscountAmount?: number;
+  /** Installment overdue but still inside 7-day grace (display only). */
+  inGracePeriod?: boolean;
+  /** Per-calendar-month late fee cycles from engine (display only). */
+  lateFeeCycleLines?: Array<{ key: string; label: string; amount: number }>;
 }
 
 type LedgerDraft = Omit<LedgerEntry, 'balance'> & {
@@ -162,6 +166,13 @@ function buildInstallmentChargedDraft(
   order: number
 ): LedgerDraft {
   const installment = roundLKR(inst.installmentAmount);
+  const charged = historicalLateFeeCharged(inst);
+  const lateFeeSettled =
+    inst.lateFeeSettled ??
+    (inst.lateFeePaid > 0 && inst.lateFeePaid >= charged && charged > 0);
+  const lateFeeStartDate =
+    inst.lateFeeStartDate ?? getLateFeeStartDate(inst.dueDate);
+
   return {
     date: inst.dueDate,
     ref: ledgerInstallmentRef(inst.installmentNumber),
@@ -173,6 +184,8 @@ function buildInstallmentChargedDraft(
     sortOrder: order,
     periodDueDate: inst.dueDate,
     installmentNumber: inst.installmentNumber,
+    lateFeeSettled: charged > 0 ? lateFeeSettled : undefined,
+    lateFeeStartDate,
   };
 }
 

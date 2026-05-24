@@ -235,6 +235,17 @@ export const t = {
   ledgerStatusPaid: bi('Paid', 'ගෙවූ'),
   ledgerStatusPartial: bi('Partial', 'අර්ධ'),
   ledgerStatusOverdue: bi('Overdue', 'ප්‍රමාද'),
+  ledgerGracePeriod: bi('Grace Period', 'අත්‍යාස කාලය'),
+  ledgerGraceLateFeeStarts: bi(
+    'Late fee starts on {date}',
+    'ප්‍රමාද ගාස්තු ආරම්භය {date}'
+  ),
+  ledgerBadgeLateFeeSettled: bi('Late Fee Settled', 'ප්‍රමාද ගාස්තු ගෙවී අවසන්'),
+  ledgerLateFeeCycle: bi('{month} cycle', '{month} චක්‍රය'),
+  ledgerLateFeeTotal: bi('Total', 'මුළු'),
+  ledgerAppliedTo: bi('Applied to', 'යොදන ලදී'),
+  ledgerExpandDetails: bi('Details', 'විස්තර'),
+  ledgerCollapseDetails: bi('Hide', 'සඟවන්න'),
   ledgerEmpty: bi('No ledger entries yet.', 'ලෙජර් පේළි තවම නැත.'),
   loanLedger: bi('Loan ledger', 'ණය ලෙජර්'),
   advancePaid: bi('Advance paid', 'අත්තිකාරම ගෙවීම'),
