@@ -62,6 +62,7 @@ export function toLateFeeEngineInstallments<
     installmentAmount: inst.installmentAmount,
     paidAmount: inst.paidAmount,
     lateFeePaid: inst.lateFeePaid,
+    lateFeeCharged: inst.lateFeeAmount,
   }));
 }
 
@@ -162,6 +163,7 @@ export function calculateInstallmentLateFee(
         installmentAmount: inst.installmentAmount,
         paidAmount: inst.paidAmount,
         lateFeePaid: inst.lateFeePaid,
+        lateFeeCharged: inst.lateFeeAmount,
       },
     ],
   });
@@ -219,6 +221,7 @@ export function getInstallmentDisplayStatus(
         installmentAmount: inst.installmentAmount,
         paidAmount: inst.paidAmount,
         lateFeePaid: inst.lateFeePaid,
+        lateFeeCharged: inst.lateFeeAmount,
       },
     ],
   });
@@ -315,11 +318,4 @@ export function oldestArrearsDueDate(
   return arrears[0]?.dueDate ?? null;
 }
 
-export function daysBetweenDates(fromDate: string, toDate: string): number {
-  const from = new Date(`${normalizeDate(fromDate)}T12:00:00Z`);
-  const to = new Date(`${normalizeDate(toDate)}T12:00:00Z`);
-  return Math.max(
-    0,
-    Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
-  );
-}
+export { daysBetweenDates } from '../time/systemTime';

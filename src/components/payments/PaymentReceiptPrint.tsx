@@ -149,7 +149,9 @@ export function PaymentReceiptPrint({
               <ReceiptRow label={labels.discount} value={formatLKR(discount)} />
             )}
             <ReceiptRow
-              label={labels.totalPaid}
+              label={
+                discount > 0 ? labels.installmentSettled : labels.totalPaid
+              }
               value={formatLKR(receipt.totalApplied)}
               bold
             />

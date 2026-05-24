@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -18,7 +18,7 @@ import { confirmEarlySettlement } from '../../lib/local-db/repositories/earlySet
 import { isFixedInstallmentLoan } from '../../types/loan';
 import { useT } from '../../i18n/I18nProvider';
 import { formatMessage } from '../../lib/i18n/messages';
-import { getSystemToday } from '../../lib/time/systemTime';
+import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 
 export function EarlySettlement() {
   const { id: loanId } = useParams<{ id: string }>();
@@ -26,11 +26,16 @@ export function EarlySettlement() {
   const { t, language } = useT();
   const { showToast } = useToast();
   const db = useDemoDb();
+  const systemToday = useSystemToday();
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [includeCurrentMonth, setIncludeCurrentMonth] = useState(true);
   const [settlementDate, setSettlementDate] = useState(
     getSystemToday()
   );
+
+  useEffect(() => {
+    setSettlementDate(systemToday);
+  }, [systemToday]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const detail = useMemo(

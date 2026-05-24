@@ -10,7 +10,7 @@ import {
 } from './mappers';
 import type { MamDemoDb } from './types';
 import { getDb } from './localDb';
-import { getSystemToday } from '../time/systemTime';
+import { getSystemDate, getSystemToday } from '../time/systemTime';
 import {
   mapInstallmentsToLedgerSource,
   mapLedgerPaymentsFromDb,
@@ -65,7 +65,19 @@ export function getLoanDetailFromDb(
   const loanPaymentRows = db.loan_payments.filter((p) => p.loan_id === loanId);
   const ledgerPayments = mapLedgerPaymentsFromDb(
     loanPaymentRows,
-    db.payment_allocations.filter((a) => a.loan_id === loanId)
+    db.payment_allocations.filter((a) => a.loan_id === loanId),
+    {
+      installments: installments.map((i) => ({
+        id: i.id,
+        installmentNumber: i.installmentNumber,
+        dueDate: i.dueDate,
+      })),
+      interestCycles: interestCycles.map((c) => ({
+        id: c.id,
+        cycleNumber: c.cycleNumber,
+        dueDate: c.dueDate,
+      })),
+    }
   );
   const ledgerInstallments = mapInstallmentsToLedgerSource(installments);
 
@@ -114,7 +126,7 @@ export function getLoanDetailFromDb(
       ? installments.filter((i) => i.status === 'PAID').length
       : (() => {
           const start = new Date(dbLoan.start_date);
-          const now = new Date();
+          const now = getSystemDate();
           return Math.max(
             0,
             (now.getFullYear() - start.getFullYear()) * 12 +

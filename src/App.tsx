@@ -31,11 +31,14 @@ import { Backup } from './pages/admin/Backup';
 import { Staff } from './pages/admin/Staff';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
+import { DevTimePanel } from './components/dev/DevTimePanel';
+
 export function App() {
   return (
     <I18nProvider>
       <FormatModeSync />
       <ToastProvider>
+        <DevTimePanel />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />

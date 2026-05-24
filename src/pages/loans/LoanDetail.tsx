@@ -14,13 +14,16 @@ import type { Guarantee } from '../../types/entities';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
   getFixedLoanDisplayStatus,
+  getFixedLoanArrearsSummary,
   oldestArrearsDueDate,
   daysBetweenDates,
+  runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
 import {
   buildFixedInstallmentLedgerEntries,
   buildInterestOnlyLedgerEntries,
+  enrichLedgerInstallmentsWithLiveLateFees,
   formatOverdueHuman,
 } from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
@@ -45,7 +48,7 @@ import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
 import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
 import { roundLKR } from '../../lib/finance/money';
 
-import { getSystemToday } from '../../lib/time/systemTime';
+import { useSystemToday } from '../../lib/time/systemTime';
 import { LedgerTable } from '../../components/loans/LedgerTable';
 
 export function LoanDetail() {
@@ -53,17 +56,18 @@ export function LoanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
+  const asOfToday = useSystemToday();
 
   useEffect(() => {
     if (!id) return;
     const loan = db.loans.find((l) => l.id === id);
     if (loan?.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
-      persistInterestOnlyCycles(getDb(), id);
+      persistInterestOnlyCycles(getDb(), id, asOfToday);
     }
     if (loan?.repayment_method === 'FIXED_TERM_INSTALLMENT') {
-      syncFixedInstallmentLateFees(getDb(), id);
+      syncFixedInstallmentLateFees(getDb(), id, asOfToday);
     }
-  }, [id, db]);
+  }, [id, db, asOfToday]);
 
   const detail =
     (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
@@ -122,7 +126,7 @@ function InterestOnlyLoanDetail({
   const { t } = useT();
   const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
 
-  const asOf = useMemo(() => getSystemToday(), []);
+  const asOf = useSystemToday();
   const cycleAlloc = useMemo(
     () =>
       interestCycles.map((c) => ({
@@ -172,13 +176,11 @@ function InterestOnlyLoanDetail({
         loan.originalPrincipalAmount,
         interestCycles,
         ledgerPayments,
-        asOf,
-        loan.balanceAmount
+        asOf
       ),
     [
       loan.startDate,
       loan.originalPrincipalAmount,
-      loan.balanceAmount,
       interestCycles,
       ledgerPayments,
       asOf,
@@ -255,7 +257,43 @@ function FixedInstallmentLoanDetail({
     ledgerPayments,
     ledgerInstallments,
   } = detail;
-  const asOfDate = useMemo(() => getSystemToday(), []);
+  const asOfDate = useSystemToday();
+
+  const installmentsWithIds = useMemo(
+    () =>
+      installments.map((inst, index) => ({
+        ...inst,
+        id: inst.id ?? `ledger-${inst.installmentNumber}-${index}`,
+      })),
+    [installments]
+  );
+
+  const lateFeeEngine = useMemo(
+    () =>
+      runLateFeeEngine(
+        installmentsWithIds,
+        loan.installmentAmount ?? 0,
+        loan.lateFeeRate,
+        { asOfDate }
+      ),
+    [
+      installmentsWithIds,
+      loan.installmentAmount,
+      loan.lateFeeRate,
+      asOfDate,
+    ]
+  );
+
+  const arrearsSummary = useMemo(
+    () =>
+      getFixedLoanArrearsSummary(
+        installments as InstallmentArrearsInput[],
+        asOfDate,
+        loan.lateFeeRate,
+        loan.installmentAmount
+      ),
+    [installments, asOfDate, loan.lateFeeRate, loan.installmentAmount]
+  );
 
   const displayLoanStatus = useMemo(
     () =>
@@ -287,22 +325,44 @@ function FixedInstallmentLoanDetail({
         ? formatDate(nextFixed.dueDate)
         : nextFixed.label;
 
+  const ledgerInstallmentsLive = useMemo(() => {
+    const liveByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [line.installmentNumber, line.lateFee])
+    );
+    const settledByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeSettled,
+      ])
+    );
+    const startDateByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeStartDate,
+      ])
+    );
+    return enrichLedgerInstallmentsWithLiveLateFees(
+      ledgerInstallments,
+      liveByNumber,
+      settledByNumber,
+      startDateByNumber
+    );
+  }, [ledgerInstallments, lateFeeEngine]);
+
   const ledgerEntries = useMemo(
     () =>
       buildFixedInstallmentLedgerEntries(
         loan.startDate,
         loan.totalPayable ?? loan.principalAmount,
-        ledgerInstallments,
+        ledgerInstallmentsLive,
         ledgerPayments,
-        asOfDate,
-        loan.balanceAmount
+        asOfDate
       ),
     [
       loan.startDate,
       loan.totalPayable,
       loan.principalAmount,
-      loan.balanceAmount,
-      ledgerInstallments,
+      ledgerInstallmentsLive,
       ledgerPayments,
       asOfDate,
     ]
@@ -422,6 +482,29 @@ function FixedInstallmentLoanDetail({
           }
         />
       </div>
+
+      {loan.status !== 'COMPLETED' && arrearsSummary.hasArrears && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label="Overdue amount (live)"
+            value={formatLKR(arrearsSummary.totalArrearsDue)}
+          />
+          <KpiCard
+            label="Late fee accrued"
+            value={formatLKR(lateFeeEngine.totalLateFee)}
+          />
+          <KpiCard
+            label="Late fee paid"
+            value={formatLKR(
+              installments.reduce((sum, i) => sum + i.lateFeePaid, 0)
+            )}
+          />
+          <KpiCard
+            label="Late fee remaining"
+            value={formatLKR(lateFeeEngine.totalLateFeeOutstanding)}
+          />
+        </div>
+      )}
 
       {overdueLabel && (
         <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm font-medium text-danger-800">

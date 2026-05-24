@@ -103,6 +103,11 @@ export const t = {
   cashReceived: bi('Cash Received', 'ලැබුණු මුදල'),
   discount: bi('Discount', 'වට්ටම'),
   discountGiven: bi('Discount given', 'දුන් වට්ටම'),
+  discountWaiver: bi('Discount / waiver', 'වට්ටම / මුදවා හැරීම'),
+  amountDue: bi('Amount due', 'ගෙවිය යුතු මුදල'),
+  netPayable: bi('Net payable', 'ශුද්ධ ගෙවිය යුතු'),
+  customerPays: bi('Customer pays', 'පාරිභෝගිකයා ගෙවන්නේ'),
+  installmentSettled: bi('Installment settled', 'වාරිකය සම්පූර්ණයි'),
   totalApplied: bi('Total Applied', 'මුළු ගණන'),
   loanBalance: bi('Loan Balance', 'ණය ඉතිරි මුදල'),
   nextDue: bi('Next Due', 'ඊළඟ ගෙවීම'),
@@ -197,15 +202,36 @@ export const t = {
   lastPaymentDate: bi('Last payment', 'අවසාන ගෙවීම'),
   completedLoansCount: bi('Completed loans', 'සම්පූර්ණ ණය'),
   ledgerColDate: bi('Date', 'දිනය'),
+  ledgerColRef: bi('Ref', 'යොමුව'),
   ledgerColDescription: bi('Description', 'විස්තරය'),
-  ledgerColInstallmentAmount: bi('Installment amount', 'වාරික මුදල'),
-  ledgerColLateFee: bi('Late fee amount', 'ප්‍රමාද ගාස්තු'),
-  ledgerColPaymentAmount: bi('Payment amount', 'ගෙවීම් මුදල'),
-  ledgerColOutstandingAfter: bi(
-    'Outstanding balance (after transaction)',
-    'ගනුදෙනුවෙන් පසු ඉතිරි ශේෂය'
+  ledgerColDebit: bi('Debit', 'ණය'),
+  ledgerColCredit: bi('Credit', 'ක්‍රෙඩිට්'),
+  ledgerColBalance: bi('Balance', 'ශේෂය'),
+  ledgerColRunningBalance: bi('Running Balance', 'ධාවන ශේෂය'),
+  ledgerDescMonthInstallment: bi('{month} installment', '{month} වාරිකය'),
+  ledgerDescLateFeeForMonth: bi('Late fee for {month}', '{month} සඳහා ප්‍රමාද ගාස්තු'),
+  ledgerDescLateFeeAccruedFrom: bi(
+    '{month} late fee (from {start})',
+    '{month} ප්‍රමාද ගාස්තු ({start} සිට)'
   ),
+  ledgerDescLateFeeSettledForMonth: bi(
+    '{month} late fee settled (from {start})',
+    '{month} ප්‍රමාද ගාස්තු ගෙවී අවසන් ({start} සිට)'
+  ),
+  ledgerLateFeeSettled: bi('Late fee settled', 'ප්‍රමාද ගාස්තු ගෙවී අවසන්'),
+  ledgerDescMonthInterest: bi('{month} interest', '{month} පොලිය'),
+  ledgerDescPaymentReceived: bi('Payment received', 'ගෙවීම ලැබුණි'),
+  ledgerPaymentDiscountApproved: bi(
+    'Discount approved',
+    'වට්ටම අනුමත කළා'
+  ),
+  ledgerInstallmentSettled: bi(
+    'Total installment settled',
+    'වාරිකය සම්පූර්ණයි'
+  ),
+  ledgerLoanBalanceRemaining: bi('Loan balance remaining', 'ඉතිරි ණය ශේෂය'),
   ledgerColStatus: bi('Status', 'තත්ත්වය'),
+  ledgerAllocationApplied: bi('Applied', 'යොදන ලදී'),
   ledgerStatusPaid: bi('Paid', 'ගෙවූ'),
   ledgerStatusPartial: bi('Partial', 'අර්ධ'),
   ledgerStatusOverdue: bi('Overdue', 'ප්‍රමාද'),
@@ -234,6 +260,9 @@ export const t = {
   allocLateFee: bi('Late fee', 'ප්‍රමාද ගාස්තු'),
   allocInstallment: bi('Installment', 'වාරිකය'),
   allocAdvance: bi('Advance', 'අත්තිකාරම'),
+  ledgerAllocPrincipalPayment: bi('Principal payment', 'මුල්‍ය ගෙවීම'),
+  ledgerAllocAdvancePayment: bi('Advance payment', 'අත්තිකාරම ගෙවීම'),
+  ledgerAllocDiscountApproved: bi('Discount / waiver', 'වට්ටම / මුදවා හැරීම'),
   allocPartial: bi('Partial', 'අර්ධ'),
   allocPaid: bi('Paid', 'ගෙවූ'),
   allocRemaining: bi('Remaining', 'ඉතිරි'),

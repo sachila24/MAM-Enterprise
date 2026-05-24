@@ -1,10 +1,17 @@
 import type { LoanInterestCycle } from '../../types/loan';
+import type { AllocationType } from '../finance/paymentAllocation';
 import { roundLKR } from '../finance/money';
 import {
   breakdownFromDbAllocations,
   type PaymentLedgerBreakdown,
 } from './paymentLedgerBreakdown';
 import type { DbPaymentAllocation } from '../local-db/types';
+import {
+  groupedLedgerAllocationFallback,
+  mapDbAllocationsToLedgerLines,
+  type LedgerAllocationLookup,
+} from './ledgerAllocationLabels';
+import { getLateFeeStartDate } from '../finance/lateFeeEngineV3';
 import {
   isDateBefore,
   isDateOnOrBefore,
@@ -13,50 +20,102 @@ import {
 
 export interface LedgerPaymentRecord {
   paymentDate: string;
+  /** Cash received from customer (excludes discount/waiver). */
+  cashReceived: number;
+  /** Approved discount / waiver (not customer cash). */
+  discountAmount: number;
+  /** @deprecated Use cashReceived */
   amount: number;
   reference?: string;
   installmentPaid: number;
   lateFeePaid: number;
   interestPaid: number;
   principalPaid: number;
+  /** Per-line allocations in stored order (when available). */
+  allocationLines?: LedgerAllocationLine[];
 }
 
-/** Installment snapshot for ledger (persisted DB fields — not live engine totals). */
+/** Installment snapshot for ledger (persisted + optional live engine totals). */
 export interface InstallmentLedgerSource {
   installmentNumber: number;
   dueDate: string;
   installmentAmount: number;
   paidAmount: number;
-  /** Historical late fee charged — never reduced after payment */
+  /** Historical late fee charged snapshot — never reduced after payment */
   lateFeeAmount: number;
   lateFeePaid: number;
+  /** Live accrued late fee at ledger as-of (from engine; overrides display when set). */
+  liveLateFeeAccrued?: number;
+  /** Late-fee balance fully paid — monthly accumulation stopped. */
+  lateFeeSettled?: boolean;
+  /** First day late-fee cycles accrue (due + grace). */
+  lateFeeStartDate?: string;
 }
 
 /** Display-only ledger row status. */
 export type LedgerRowStatus = 'PAID' | 'PARTIAL' | 'OVERDUE';
 
-export type LedgerEntryType = 'LOAN' | 'INSTALLMENT' | 'PAYMENT';
+/** Chronological ledger event kinds (display only). */
+export type LedgerEntryType =
+  | 'INSTALLMENT'
+  | 'LATE_FEE'
+  | 'INTEREST'
+  | 'PAYMENT'
+  | 'ADJUSTMENT';
 
-export interface LedgerDescriptionLine {
-  label: string;
+export interface LedgerAllocationLine {
+  key: string;
   amount: number;
+  allocationType: AllocationType;
+  /** Installment/cycle due date for month prefix (display only). */
+  dueDate?: string;
 }
 
+/** Classic running-ledger row (display only). */
 export interface LedgerEntry {
   date: string;
-  title: string;
-  descriptionLines: LedgerDescriptionLine[];
-  installmentAmount: number | null;
-  lateFeeAmount: number | null;
-  paymentAmount: number | null;
+  ref: string | null;
+  description: string;
+  debit: number | null;
+  credit: number | null;
+  balance: number;
   entryType: LedgerEntryType;
   status: LedgerRowStatus;
-  /** Loan balance after this payment (payment rows only). */
-  outstandingBalance: number | null;
   sortOrder: number;
+  /** Installment/cycle due date for month-based labels (display). */
+  periodDueDate?: string;
+  installmentNumber?: number;
+  cycleNumber?: number;
+  /** LATE_FEE row: late-fee balance fully paid. */
+  lateFeeSettled?: boolean;
+  /** LATE_FEE row: grace-end / cycle-start date. */
+  lateFeeStartDate?: string;
+  /** Payment allocation breakdown — inline under payment rows. */
+  allocationLines?: LedgerAllocationLine[];
+  /** Cash received (payment rows only). */
+  paymentCashReceived?: number;
+  /** Discount / waiver on this payment (payment rows only). */
+  paymentDiscountAmount?: number;
 }
 
-type LedgerDraft = Omit<LedgerEntry, 'outstandingBalance'>;
+type LedgerDraft = Omit<LedgerEntry, 'balance'> & {
+  paymentIndex?: number;
+  /** Credit applied to running arrears balance (defaults to `credit`). */
+  runningCredit?: number;
+};
+
+const EVENT_SORT_PRIORITY: Record<LedgerEntryType, number> = {
+  INSTALLMENT: 1,
+  INTEREST: 1,
+  LATE_FEE: 2,
+  ADJUSTMENT: 3,
+  PAYMENT: 4,
+};
+
+/** Charged late fee for ledger — never below what was already paid. */
+export function historicalLateFeeCharged(inst: InstallmentLedgerSource): number {
+  return roundLKR(Math.max(inst.lateFeeAmount, inst.lateFeePaid));
+}
 
 function ledgerStatusFromPaidAndDue(
   paid: number,
@@ -72,85 +131,130 @@ function ledgerStatusFromPaidAndDue(
   return 'PARTIAL';
 }
 
+function liveLateFeeAccrued(inst: InstallmentLedgerSource): number {
+  if (inst.liveLateFeeAccrued != null) {
+    return roundLKR(inst.liveLateFeeAccrued);
+  }
+  return historicalLateFeeCharged(inst);
+}
+
 function installmentLedgerStatus(
   inst: InstallmentLedgerSource,
   asOf: string
 ): LedgerRowStatus {
-  const totalDue = roundLKR(inst.installmentAmount + inst.lateFeeAmount);
+  const accrued = liveLateFeeAccrued(inst);
+  const totalDue = roundLKR(inst.installmentAmount + accrued);
   const totalPaid = roundLKR(inst.paidAmount + inst.lateFeePaid);
   return ledgerStatusFromPaidAndDue(totalPaid, totalDue, inst.dueDate, asOf);
 }
 
-function buildInstallmentDraft(
+function ledgerInstallmentRef(installmentNumber: number): string {
+  return `INST-${String(installmentNumber).padStart(3, '0')}`;
+}
+
+function ledgerLateFeeRef(installmentNumber: number): string {
+  return `DI-${String(installmentNumber).padStart(3, '0')}`;
+}
+
+function buildInstallmentChargedDraft(
   inst: InstallmentLedgerSource,
   asOf: string,
   order: number
 ): LedgerDraft {
   const installment = roundLKR(inst.installmentAmount);
-  const installmentPaid = roundLKR(inst.paidAmount);
-  const installmentRemaining = roundLKR(
-    Math.max(0, installment - installmentPaid)
-  );
-
-  const lateCharged = roundLKR(inst.lateFeeAmount);
-  const latePaid = roundLKR(inst.lateFeePaid);
-  const lateRemaining = roundLKR(Math.max(0, lateCharged - latePaid));
-
-  const descriptionLines: LedgerDescriptionLine[] = [
-    { label: 'Installment', amount: installment },
-    { label: 'Installment paid', amount: installmentPaid },
-    { label: 'Installment remaining', amount: installmentRemaining },
-  ];
-
-  if (lateCharged > 0 || latePaid > 0) {
-    descriptionLines.push(
-      { label: 'Late fee charged', amount: lateCharged },
-      { label: 'Late fee paid', amount: latePaid },
-      { label: 'Late fee remaining', amount: lateRemaining }
-    );
-  }
-
   return {
     date: inst.dueDate,
-    title: `Installment #${inst.installmentNumber}`,
-    descriptionLines,
-    installmentAmount: installment,
-    lateFeeAmount: lateCharged,
-    paymentAmount: null,
+    ref: ledgerInstallmentRef(inst.installmentNumber),
+    description: '',
+    debit: installment,
+    credit: null,
     entryType: 'INSTALLMENT',
     status: installmentLedgerStatus(inst, asOf),
     sortOrder: order,
+    periodDueDate: inst.dueDate,
+    installmentNumber: inst.installmentNumber,
   };
 }
 
-function buildPaymentDraft(p: LedgerPaymentRecord, order: number): LedgerDraft {
-  const refSuffix = p.reference ? ` (${p.reference})` : '';
-  const descriptionLines: LedgerDescriptionLine[] = [];
+function buildLateFeeChargedDraft(
+  inst: InstallmentLedgerSource,
+  asOf: string,
+  order: number
+): LedgerDraft | null {
+  const lateFee = liveLateFeeAccrued(inst);
+  const charged = historicalLateFeeCharged(inst);
+  if (lateFee <= 0 && charged <= 0) return null;
 
-  if (p.lateFeePaid > 0) {
-    descriptionLines.push({ label: 'To late fee', amount: p.lateFeePaid });
+  const lateFeeSettled =
+    inst.lateFeeSettled ??
+    (inst.lateFeePaid > 0 && inst.lateFeePaid >= charged && charged > 0);
+  const displayFee = lateFee > 0 ? lateFee : charged;
+  const lateFeeStartDate =
+    inst.lateFeeStartDate ?? getLateFeeStartDate(inst.dueDate);
+
+  return {
+    date: lateFeeStartDate,
+    ref: ledgerLateFeeRef(inst.installmentNumber),
+    description: '',
+    debit: displayFee,
+    credit: null,
+    entryType: 'LATE_FEE',
+    status: lateFeeSettled
+      ? 'PAID'
+      : ledgerStatusFromPaidAndDue(
+          inst.lateFeePaid,
+          displayFee,
+          inst.dueDate,
+          asOf
+        ),
+    sortOrder: order,
+    periodDueDate: inst.dueDate,
+    installmentNumber: inst.installmentNumber,
+    lateFeeSettled,
+    lateFeeStartDate,
+  };
+}
+
+function paymentAllocationLines(p: LedgerPaymentRecord): LedgerAllocationLine[] {
+  if (p.allocationLines && p.allocationLines.length > 0) {
+    return p.allocationLines;
   }
-  if (p.installmentPaid > 0) {
-    descriptionLines.push({ label: 'To installment', amount: p.installmentPaid });
-  }
-  if (p.interestPaid > 0) {
-    descriptionLines.push({ label: 'To interest', amount: p.interestPaid });
-  }
-  if (p.principalPaid > 0) {
-    descriptionLines.push({ label: 'To principal', amount: p.principalPaid });
-  }
-  descriptionLines.push({ label: 'Total payment', amount: p.amount });
+  return groupedLedgerAllocationFallback(p);
+}
+
+/** Amount applied to schedule/arrears (excludes principal prepayment and advance). */
+function paymentArrearsCredit(p: LedgerPaymentRecord): number {
+  const applied = roundLKR(
+    p.installmentPaid + p.lateFeePaid + p.interestPaid
+  );
+  if (applied > 0) return applied;
+  return roundLKR(p.cashReceived + p.discountAmount);
+}
+
+function buildPaymentDraft(
+  p: LedgerPaymentRecord,
+  order: number,
+  paymentIndex: number
+): LedgerDraft {
+  const ref =
+    p.reference?.trim() ||
+    `PAY-${String(paymentIndex + 1).padStart(4, '0')}`;
+  const description = '';
 
   return {
     date: p.paymentDate,
-    title: `Payment received${refSuffix}`,
-    descriptionLines,
-    installmentAmount: p.installmentPaid > 0 ? p.installmentPaid : null,
-    lateFeeAmount: p.lateFeePaid > 0 ? p.lateFeePaid : null,
-    paymentAmount: p.amount,
+    ref,
+    description,
+    debit: null,
+    credit: roundLKR(p.cashReceived),
+    runningCredit: paymentArrearsCredit(p),
     entryType: 'PAYMENT',
     status: 'PAID',
     sortOrder: order,
+    paymentIndex,
+    allocationLines: paymentAllocationLines(p),
+    paymentCashReceived: roundLKR(p.cashReceived),
+    paymentDiscountAmount: roundLKR(p.discountAmount),
   };
 }
 
@@ -168,92 +272,80 @@ export function formatOverdueHuman(daysOverdue: number): string {
   return `${months} month${months === 1 ? '' : 's'} ${days} day${days === 1 ? '' : 's'} overdue`;
 }
 
-function attachPaymentOutstandingBalances(
-  events: LedgerDraft[],
-  currentLoanBalance: number,
-  payments: LedgerPaymentRecord[]
-): LedgerEntry[] {
-  const sorted = [...events].sort((a, b) => {
-    const d = a.date.localeCompare(b.date);
-    if (d !== 0) return d;
-    return a.sortOrder - b.sortOrder;
-  });
+function compareLedgerEvents(a: LedgerDraft, b: LedgerDraft): number {
+  const d = a.date.localeCompare(b.date);
+  if (d !== 0) return d;
+  const typeOrder =
+    EVENT_SORT_PRIORITY[a.entryType] - EVENT_SORT_PRIORITY[b.entryType];
+  if (typeOrder !== 0) return typeOrder;
+  return a.sortOrder - b.sortOrder;
+}
+
+/** Running arrears balance: debits increase liability, credits reduce it. */
+function attachRunningBalances(events: LedgerDraft[]): LedgerEntry[] {
+  const sorted = [...events].sort(compareLedgerEvents);
+  let balance = 0;
 
   return sorted.map((e) => {
-    let outstandingBalance: number | null = null;
-    if (e.entryType === 'PAYMENT') {
-      const paymentsAfter = payments
-        .filter((p) => p.paymentDate > e.date)
-        .reduce((sum, p) => sum + p.amount, 0);
-      outstandingBalance = roundLKR(
-        Math.max(0, currentLoanBalance + paymentsAfter)
-      );
-    }
-    return { ...e, outstandingBalance };
+    const debit = e.debit ?? 0;
+    const credit = e.runningCredit ?? e.credit ?? 0;
+    balance = roundLKR(balance + debit - credit);
+    const { paymentIndex: _pi, runningCredit: _rc, ...row } = e;
+    return { ...row, balance };
   });
+}
+
+function appendInstallmentEvents(
+  events: LedgerDraft[],
+  inst: InstallmentLedgerSource,
+  asOf: string,
+  order: { value: number }
+): void {
+  events.push(buildInstallmentChargedDraft(inst, asOf, order.value++));
+  const lateFee = buildLateFeeChargedDraft(inst, asOf, order.value);
+  if (lateFee) {
+    events.push(lateFee);
+    order.value++;
+  }
 }
 
 /** Fixed-term loan ledger from persisted installment + payment records. */
 export function buildFixedInstallmentLedgerEntries(
-  loanStartDate: string,
-  totalPayable: number,
+  _loanStartDate: string,
+  _totalPayable: number,
   installments: InstallmentLedgerSource[],
   payments: LedgerPaymentRecord[],
-  asOfDate: string,
-  currentLoanBalance: number
+  asOfDate: string
 ): LedgerEntry[] {
   const asOf = normalizeDate(asOfDate);
   const events: LedgerDraft[] = [];
   let order = 0;
 
-  events.push({
-    date: loanStartDate,
-    title: 'Loan started',
-    descriptionLines: [{ label: 'Loan amount', amount: totalPayable }],
-    installmentAmount: totalPayable,
-    lateFeeAmount: null,
-    paymentAmount: null,
-    entryType: 'LOAN',
-    status: currentLoanBalance <= 0 ? 'PAID' : 'PARTIAL',
-    sortOrder: order++,
-  });
-
+  const orderRef = { value: order };
   for (const inst of installments) {
     if (!isDateOnOrBefore(inst.dueDate, asOf)) continue;
-    events.push(buildInstallmentDraft(inst, asOf, order++));
+    appendInstallmentEvents(events, inst, asOf, orderRef);
   }
+  order = orderRef.value;
 
-  for (const p of payments) {
-    events.push(buildPaymentDraft(p, order++));
-  }
+  payments.forEach((p, i) => {
+    events.push(buildPaymentDraft(p, order++, i));
+  });
 
-  return attachPaymentOutstandingBalances(events, currentLoanBalance, payments);
+  return attachRunningBalances(events);
 }
 
 /** Interest-only loan ledger from persisted cycles + payments. */
 export function buildInterestOnlyLedgerEntries(
-  loanStartDate: string,
-  principalAmount: number,
+  _loanStartDate: string,
+  _principalAmount: number,
   cycles: LoanInterestCycle[],
   payments: LedgerPaymentRecord[],
-  asOfDate: string,
-  currentLoanBalance: number
+  asOfDate: string
 ): LedgerEntry[] {
   const asOf = normalizeDate(asOfDate);
   const events: LedgerDraft[] = [];
   let order = 0;
-
-  events.push({
-    date: loanStartDate,
-    title: 'Loan started',
-    descriptionLines: [{ label: 'Loan amount', amount: principalAmount }],
-    installmentAmount: principalAmount,
-    lateFeeAmount: null,
-    paymentAmount: null,
-    entryType: 'LOAN',
-    status: currentLoanBalance <= 0 ? 'PAID' : 'PARTIAL',
-    sortOrder: order++,
-  });
 
   for (const c of cycles) {
     if (!isDateOnOrBefore(c.dueDate, asOf)) continue;
@@ -261,20 +353,14 @@ export function buildInterestOnlyLedgerEntries(
 
     const interest = roundLKR(c.interestDue);
     const interestPaid = roundLKR(c.interestPaid);
-    const interestRemaining = roundLKR(Math.max(0, interest - interestPaid));
 
     events.push({
       date: c.dueDate,
-      title: `Installment #${c.cycleNumber}`,
-      descriptionLines: [
-        { label: 'Interest due', amount: interest },
-        { label: 'Interest paid', amount: interestPaid },
-        { label: 'Interest remaining', amount: interestRemaining },
-      ],
-      installmentAmount: interest,
-      lateFeeAmount: null,
-      paymentAmount: null,
-      entryType: 'INSTALLMENT',
+      ref: `INT-${String(c.cycleNumber).padStart(3, '0')}`,
+      description: '',
+      debit: interest,
+      credit: null,
+      entryType: 'INTEREST',
       status: ledgerStatusFromPaidAndDue(
         interestPaid,
         interest,
@@ -282,15 +368,19 @@ export function buildInterestOnlyLedgerEntries(
         asOf
       ),
       sortOrder: order++,
+      periodDueDate: c.dueDate,
+      cycleNumber: c.cycleNumber,
     });
   }
 
-  for (const p of payments) {
-    events.push(buildPaymentDraft(p, order++));
-  }
+  payments.forEach((p, i) => {
+    events.push(buildPaymentDraft(p, order++, i));
+  });
 
-  return attachPaymentOutstandingBalances(events, currentLoanBalance, payments);
+  return attachRunningBalances(events);
 }
+
+export type { LedgerAllocationLookup };
 
 /** Map confirmed payments with permanent breakdown (stored fields or allocations). */
 export function mapLedgerPaymentsFromDb(
@@ -306,11 +396,13 @@ export function mapLedgerPaymentsFromDb(
     interest_paid?: number;
     principal_paid?: number;
   }>,
-  allocations: DbPaymentAllocation[]
+  allocations: DbPaymentAllocation[],
+  lookup?: LedgerAllocationLookup
 ): LedgerPaymentRecord[] {
   return payments
     .filter((p) => p.status === 'CONFIRMED')
     .map((p) => {
+      const paymentAllocations = allocations.filter((a) => a.payment_id === p.id);
       const stored: PaymentLedgerBreakdown | null =
         p.installment_paid != null ||
         p.late_fee_paid != null ||
@@ -331,19 +423,27 @@ export function mapLedgerPaymentsFromDb(
           : null;
 
       const breakdown =
-        stored ??
-        breakdownFromDbAllocations(
-          allocations.filter((a) => a.payment_id === p.id)
-        );
+        stored ?? breakdownFromDbAllocations(paymentAllocations);
+
+      const detailLines =
+        lookup && paymentAllocations.length > 0
+          ? mapDbAllocationsToLedgerLines(p.id, allocations, lookup)
+          : undefined;
+
+      const cashReceived = roundLKR(p.amount);
+      const discountAmount = roundLKR(p.discount_amount ?? 0);
 
       return {
         paymentDate: p.payment_date,
-        amount: roundLKR(p.amount + (p.discount_amount ?? 0)),
+        cashReceived,
+        discountAmount,
+        amount: cashReceived,
         reference: p.payment_code,
         installmentPaid: breakdown.installmentPaid,
         lateFeePaid: breakdown.lateFeePaid,
         interestPaid: breakdown.interestPaid,
         principalPaid: breakdown.principalPaid,
+        allocationLines: detailLines,
       };
     });
 }
@@ -356,6 +456,7 @@ export function mapInstallmentsToLedgerSource(
     paidAmount: number;
     lateFeeAmount: number;
     lateFeePaid: number;
+    liveLateFeeAccrued?: number;
   }>
 ): InstallmentLedgerSource[] {
   return installments.map((i) => ({
@@ -363,8 +464,27 @@ export function mapInstallmentsToLedgerSource(
     dueDate: i.dueDate,
     installmentAmount: i.installmentAmount,
     paidAmount: i.paidAmount,
-    lateFeeAmount: i.lateFeeAmount,
+    lateFeeAmount: roundLKR(Math.max(i.lateFeeAmount, i.lateFeePaid)),
     lateFeePaid: i.lateFeePaid,
+    liveLateFeeAccrued: i.liveLateFeeAccrued,
+  }));
+}
+
+/** Merge live engine accrued amounts into ledger installment rows. */
+export function enrichLedgerInstallmentsWithLiveLateFees(
+  installments: InstallmentLedgerSource[],
+  liveByNumber: Map<number, number>,
+  settledByNumber?: Map<number, boolean>,
+  startDateByNumber?: Map<number, string>
+): InstallmentLedgerSource[] {
+  return installments.map((inst) => ({
+    ...inst,
+    liveLateFeeAccrued:
+      liveByNumber.get(inst.installmentNumber) ?? inst.liveLateFeeAccrued,
+    lateFeeSettled:
+      settledByNumber?.get(inst.installmentNumber) ?? inst.lateFeeSettled,
+    lateFeeStartDate:
+      startDateByNumber?.get(inst.installmentNumber) ?? inst.lateFeeStartDate,
   }));
 }
 

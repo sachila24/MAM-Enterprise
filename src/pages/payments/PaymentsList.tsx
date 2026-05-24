@@ -13,6 +13,7 @@ import {
   listLoans,
   listLoanPayments,
 } from '../../lib/local-db/repositories';
+import { useSystemToday } from '../../lib/time/systemTime';
 
 export function PaymentsList() {
   const { t } = useT();
@@ -22,7 +23,7 @@ export function PaymentsList() {
   const payments = listLoanPayments(db);
   const loans = listLoans(db);
   const customers = listCustomers(db);
-  const today = new Date().toISOString().split('T')[0];
+  const today = useSystemToday();
   const monthPrefix = today.slice(0, 7);
   const enrichedPayments = payments.map((p) => {
     const loan = loans.find((l) => l.id === p.loanId);

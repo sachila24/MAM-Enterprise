@@ -322,10 +322,9 @@ export function summarizeFixedInstallmentDue(
 }
 
 /**
- * Fixed installment waterfall:
- * 1. All overdue late fees (oldest installment first)
- * 2. All installment principal (oldest first; partial when funds run out)
- * 3. Advance / extra
+ * Fixed installment waterfall (oldest month first):
+ * For each installment in order: late fee, then installment principal.
+ * Advance / extra only after all due buckets are satisfied.
  */
 export function allocateFixedInstallmentPayment(
   ctx: FixedInstallmentAllocationContext,
@@ -358,36 +357,40 @@ export function allocateFixedInstallmentPayment(
   );
 
   for (const inst of sorted) {
-    const line = getLateFeeLineByInstallmentId(engine, inst.id);
-    const owed = line?.lateFeeOutstanding ?? 0;
-    if (owed <= 0 || remaining <= 0) continue;
-    const pay = roundLKR(Math.min(remaining, owed));
-    allocations.push({
-      allocationType: 'LATE_FEE',
-      installmentId: inst.id,
-      installmentNumber: inst.installmentNumber,
-      amount: pay,
-    });
-    lateFeesPaid = roundLKR(lateFeesPaid + pay);
-    remaining = roundLKR(remaining - pay);
-  }
+    if (remaining <= 0) break;
 
-  for (const inst of sorted) {
-    const owed = installmentOutstanding(inst);
-    if (owed <= 0 || remaining <= 0) continue;
-    const pay = roundLKR(Math.min(remaining, owed));
-    allocations.push({
-      allocationType: 'INSTALLMENT',
-      installmentId: inst.id,
-      installmentNumber: inst.installmentNumber,
-      amount: pay,
-    });
-    if (inst.installmentNumber === ctx.currentInstallmentNumber) {
-      currentMonthPaid = roundLKR(currentMonthPaid + pay);
-    } else {
-      installmentsPaid = roundLKR(installmentsPaid + pay);
+    const line = getLateFeeLineByInstallmentId(engine, inst.id);
+    const lateOwed = line?.lateFeeOutstanding ?? 0;
+    if (lateOwed > 0) {
+      const pay = roundLKR(Math.min(remaining, lateOwed));
+      allocations.push({
+        allocationType: 'LATE_FEE',
+        installmentId: inst.id,
+        installmentNumber: inst.installmentNumber,
+        amount: pay,
+      });
+      lateFeesPaid = roundLKR(lateFeesPaid + pay);
+      remaining = roundLKR(remaining - pay);
     }
-    remaining = roundLKR(remaining - pay);
+
+    if (remaining <= 0) break;
+
+    const instOwed = installmentOutstanding(inst);
+    if (instOwed > 0) {
+      const pay = roundLKR(Math.min(remaining, instOwed));
+      allocations.push({
+        allocationType: 'INSTALLMENT',
+        installmentId: inst.id,
+        installmentNumber: inst.installmentNumber,
+        amount: pay,
+      });
+      if (inst.installmentNumber === ctx.currentInstallmentNumber) {
+        currentMonthPaid = roundLKR(currentMonthPaid + pay);
+      } else {
+        installmentsPaid = roundLKR(installmentsPaid + pay);
+      }
+      remaining = roundLKR(remaining - pay);
+    }
   }
 
   let advanceAmount = 0;

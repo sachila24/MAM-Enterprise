@@ -1,8 +1,5 @@
 import { roundLKR } from './money';
-import {
-  calculateLateMonthsFromIndex,
-  resolveCurrentIndex,
-} from './lateFeeEngineV3';
+import { calculateLateMonthsFromDueDate } from '../time/systemTime';
 
 export interface FixedInstallmentTermsInput {
   financeAmount: number;
@@ -96,12 +93,7 @@ export function calculateLateFeeAmount(input: LateFeeInput): number {
  * Single-installment fallback (index 0 only).
  */
 export function calculateMonthsLate(dueDate: string, today: string): number {
-  return calculateLateMonthsFromIndex(
-    0,
-    resolveCurrentIndex([{ installmentIndex: 0, dueDate }], today),
-    today,
-    dueDate
-  );
+  return calculateLateMonthsFromDueDate(dueDate, today);
 }
 
 /** Late fee = baseLateFeeUnit × overdue months (whole LKR). */

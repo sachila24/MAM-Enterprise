@@ -11,6 +11,7 @@ export interface ReceiptLabelSet {
   cashReceived: string;
   discount: string;
   totalPaid: string;
+  installmentSettled: string;
   balanceAfter: string;
   paymentBreakdown: string;
   paymentAllocation: string;
@@ -53,6 +54,7 @@ const RECEIPT_EN: ReceiptLabelSet = {
   cashReceived: 'Cash Received',
   discount: 'Discount',
   totalPaid: 'Total Paid',
+  installmentSettled: 'Installment settled',
   balanceAfter: 'Balance After Payment',
   paymentBreakdown: 'Payment Breakdown',
   paymentAllocation: 'Payment Allocation',
@@ -95,6 +97,7 @@ const RECEIPT_SI: ReceiptLabelSet = {
   cashReceived: 'ලැබුණු මුදල',
   discount: 'වට්ටම',
   totalPaid: 'මුළු ගෙවූ මුදල',
+  installmentSettled: 'වාරිකය සම්පූර්ණයි',
   balanceAfter: 'ගෙවීමෙන් පසු ඉතිරිය',
   paymentBreakdown: 'ගෙවීම් විස්තරය',
   paymentAllocation: 'ගෙවීම් වෙන්වීම',
