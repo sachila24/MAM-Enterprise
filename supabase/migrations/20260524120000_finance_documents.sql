@@ -22,6 +22,7 @@ create table documents (
   status document_status not null default 'ISSUED',
   locked boolean not null default true,
   print_count integer not null default 0,
+  last_printed_at timestamptz,
   metadata_json jsonb not null default '{}'::jsonb
 );
 

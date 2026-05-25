@@ -262,6 +262,7 @@ export interface DbDocument {
   status: DocumentStatus;
   locked: boolean;
   print_count: number;
+  last_printed_at?: string;
   metadata_json: Record<string, unknown>;
 }
 

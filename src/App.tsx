@@ -32,6 +32,7 @@ import { Staff } from './pages/admin/Staff';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
 import { DevTimePanel } from './components/dev/DevTimePanel';
+import { DocumentsList } from './pages/documents/DocumentsList';
 import { DocumentView } from './pages/documents/DocumentView';
 
 export function App() {
@@ -74,7 +75,10 @@ export function App() {
               </Route>
 
               <Route path="receipts" element={<ReceiptsList />} />
-              <Route path="documents/:id" element={<DocumentView />} />
+              <Route path="documents">
+                <Route index element={<DocumentsList />} />
+                <Route path=":id" element={<DocumentView />} />
+              </Route>
 
               <Route path="bikes">
                 <Route index element={<BikesList />} />

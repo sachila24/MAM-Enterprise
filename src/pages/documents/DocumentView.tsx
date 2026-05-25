@@ -67,7 +67,7 @@ export function DocumentView() {
       ? `/loans/${doc.loan_id}`
       : doc.bike_id
         ? `/bikes/${doc.bike_id}`
-        : '/';
+        : '/documents';
 
   const printLabel = getDocumentLabel('printDocument', language);
 

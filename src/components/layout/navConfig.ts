@@ -35,6 +35,7 @@ export const navGroups: NavGroup[] = [
       { nameKey: 'nav.loans', href: '/loans', icon: Banknote },
       { nameKey: 'nav.payments', href: '/payments', icon: CreditCard },
       { nameKey: 'nav.receipts', href: '/receipts', icon: Receipt },
+      { nameKey: 'nav.documents', href: '/documents', icon: FileText },
     ],
   },
   {

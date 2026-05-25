@@ -33,6 +33,15 @@ export function incrementDocumentPrintCount(
   const row = db.documents?.find((d) => d.id === id);
   if (!row) return undefined;
   row.print_count += 1;
+  row.last_printed_at = new Date().toISOString();
   saveDb(db);
   return row;
+}
+
+/** Alias for reprint workflow — same storage update as increment. */
+export function recordDocumentReprint(
+  id: string,
+  db: MamDemoDb = getDb()
+): DbDocument | undefined {
+  return incrementDocumentPrintCount(id, db);
 }
