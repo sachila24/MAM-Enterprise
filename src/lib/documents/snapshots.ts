@@ -76,11 +76,43 @@ export function buildLoanCreationSnapshot(
 
   const collateral = db.guarantees
     .filter((g) => g.loan_id === loan.id)
-    .map((g) => ({
-      description: g.description,
-      itemType: g.item_type,
-      storageLocation: g.storage_location,
-    }));
+    .map((g) => {
+      const fileNumber = g.file_number?.trim();
+      const vehicleNumber =
+        g.vehicle_number?.trim() || g.item_reference?.trim();
+      const guarantor1Name =
+        g.guarantor1_name?.trim() || g.owner_name_on_document?.trim();
+      const guarantor2Name = g.guarantor2_name?.trim();
+      const description = g.description?.trim();
+      const storageLocation = g.storage_location?.trim();
+      const hasNew =
+        fileNumber ||
+        vehicleNumber ||
+        guarantor1Name ||
+        guarantor2Name;
+      if (hasNew) {
+        return {
+          fileNumber: fileNumber || undefined,
+          vehicleNumber: vehicleNumber || undefined,
+          guarantor1Name: guarantor1Name || undefined,
+          guarantor2Name: guarantor2Name || undefined,
+        };
+      }
+      return {
+        description: description || undefined,
+        itemType: g.item_type,
+        storageLocation: storageLocation || undefined,
+      };
+    })
+    .filter(
+      (c) =>
+        c.fileNumber ||
+        c.vehicleNumber ||
+        c.guarantor1Name ||
+        c.guarantor2Name ||
+        c.description ||
+        c.storageLocation
+    );
 
   return {
     kind: 'LOAN_CREATION',

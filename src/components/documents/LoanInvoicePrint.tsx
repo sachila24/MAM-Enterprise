@@ -19,6 +19,17 @@ function Field({
   );
 }
 
+function OptionalField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  if (!value?.trim()) return null;
+  return <Field label={label} value={value.trim()} />;
+}
+
 export interface LoanInvoicePrintProps {
   documentNumber: string;
   createdAt: string;
@@ -157,24 +168,26 @@ export function LoanInvoicePrint({
           {snapshot.collateral.length > 0 && (
             <>
               <h3 className="doc-section-title">{L.collateralHeld}</h3>
-              <table className="doc-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>Type</th>
-                    <th>Storage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshot.collateral.map((c, i) => (
-                    <tr key={i}>
-                      <td>{c.description}</td>
-                      <td>{c.itemType}</td>
-                      <td>{c.storageLocation}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {snapshot.collateral.map((c, i) => (
+                <div key={i} className="doc-grid-2 doc-collateral-item">
+                  <OptionalField label={L.fileNumber} value={c.fileNumber} />
+                  <OptionalField
+                    label={L.vehicleNumber}
+                    value={c.vehicleNumber}
+                  />
+                  <OptionalField
+                    label={L.guarantor1}
+                    value={c.guarantor1Name}
+                  />
+                  <OptionalField
+                    label={L.guarantor2}
+                    value={c.guarantor2Name}
+                  />
+                  <OptionalField label="Description" value={c.description} />
+                  <OptionalField label="Type" value={c.itemType} />
+                  <OptionalField label="Storage" value={c.storageLocation} />
+                </div>
+              ))}
             </>
           )}
 

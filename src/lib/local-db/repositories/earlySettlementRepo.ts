@@ -3,6 +3,7 @@ import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import type { MamDemoDb } from '../types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
+import { autoReleaseGuaranteesForSettledLoan } from './guaranteeRelease';
 
 export interface ConfirmEarlySettlementInput {
   loanId: string;
@@ -90,6 +91,8 @@ export function confirmEarlySettlement(
       inst.updated_at = ts;
     }
   }
+
+  autoReleaseGuaranteesForSettledLoan(db, loan.id, input.settlementDate);
 
   db.audit_logs.push({
     id: generateId(),

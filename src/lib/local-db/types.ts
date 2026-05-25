@@ -188,11 +188,22 @@ export interface DbGuarantee {
   loan_id: string;
   customer_id: string;
   item_type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
-  /** Vehicle number / item reference */
+  /** Simplified guarantee fields (all optional) */
+  file_number?: string;
+  vehicle_number?: string;
+  guarantor1_name?: string;
+  guarantor1_address?: string;
+  guarantor1_phone?: string;
+  guarantor1_nic?: string;
+  guarantor2_name?: string;
+  guarantor2_address?: string;
+  guarantor2_phone?: string;
+  guarantor2_nic?: string;
+  /** Legacy fields — kept for existing saved rows */
   item_reference?: string;
   owner_name_on_document?: string;
-  description: string;
-  storage_location: string;
+  description?: string;
+  storage_location?: string;
   notes?: string;
   status: 'HELD' | 'RELEASED';
   received_at: string;

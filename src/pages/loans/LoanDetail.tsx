@@ -11,6 +11,11 @@ import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
+import {
+  guaranteeDetailLines,
+  guaranteePrimaryLabel,
+} from '../../lib/guarantee/guaranteeFields';
+import { getLabel } from '../../lib/i18n/simpleLabels';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
   getFixedLoanDisplayStatus,
@@ -717,6 +722,16 @@ function SectionTitle({
   );
 }
 
+function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
+  const labelKey =
+    status === 'returned' ? 'guaranteeStatusReleased' : 'guaranteeStatusHeld';
+  return (
+    <span className="inline-flex rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-800 ring-1 ring-inset ring-neutral-200">
+      {getLabel(labelKey, 'both')}
+    </span>
+  );
+}
+
 function GuaranteesSection({
   guarantees,
   loanId,
@@ -746,26 +761,48 @@ function GuaranteesSection({
         />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {guarantees.map((g) => (
-            <li
-              key={g.id}
-              className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
-            >
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
-                  <p className="font-medium text-neutral-900">
-                    {formatEnum(g.type)}
-                  </p>
+          {guarantees.map((g) => {
+            const lines = guaranteeDetailLines(g);
+            return (
+              <li
+                key={g.id}
+                className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
+                    <p className="font-medium text-neutral-900">
+                      {guaranteePrimaryLabel(g)}
+                    </p>
+                  </div>
+                  <GuaranteeStatusBadge status={g.status} />
                 </div>
-                <StatusChip status={g.status} />
-              </div>
-              <p className="mt-2 text-sm text-neutral-600">{g.description}</p>
-              <p className="mt-1 text-xs text-neutral-500">
-                {g.storageLocation} · Received {formatDate(g.receivedAt)}
-              </p>
-            </li>
-          ))}
+                {lines.length > 0 && (
+                  <dl className="mt-2 space-y-1 text-sm text-neutral-600">
+                    {lines.map((line) => (
+                      <div key={`${line.label}-${line.value}`}>
+                        <dt className="inline text-neutral-500 after:content-[':']">
+                          {line.label}
+                        </dt>{' '}
+                        <dd className="inline">{line.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {g.status === 'returned' && g.releasedAt && (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {getLabel('guaranteeReleasedDate', 'both')}:{' '}
+                    {formatDate(g.releasedAt)}
+                  </p>
+                )}
+                {g.status === 'held' && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Received {formatDate(g.receivedAt)}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

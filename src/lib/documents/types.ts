@@ -54,9 +54,14 @@ export interface LoanCreationDocumentSnapshot {
   firstDueDate: string;
   installmentPlan: DocumentInstallmentLineSnapshot[];
   collateral: Array<{
-    description: string;
-    itemType: string;
-    storageLocation: string;
+    fileNumber?: string;
+    vehicleNumber?: string;
+    guarantor1Name?: string;
+    guarantor2Name?: string;
+    /** Legacy snapshot rows */
+    description?: string;
+    itemType?: string;
+    storageLocation?: string;
   }>;
 }
 

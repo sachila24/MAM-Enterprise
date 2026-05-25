@@ -24,68 +24,13 @@ import {
   listCustomers,
   listInStockBikes,
 } from '../../lib/local-db/repositories';
-import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
+import {
+  emptyGuaranteeDraft,
+  mapGuaranteeDraftsToCreate,
+  type LocalGuaranteeDraft,
+} from '../../lib/guarantee/guaranteeFields';
+import { GuaranteeFieldsForm } from '../../components/guarantees/GuaranteeFieldsForm';
 import { useT } from '../../i18n/I18nProvider';
-import { uiError } from '../../lib/i18n/messages';
-
-type LocalGuaranteeDraft = {
-  key: string;
-  itemType: 'VEHICLE_BOOK' | 'BIKE' | 'OTHER';
-  itemReference: string;
-  ownerNameOnDocument: string;
-  description: string;
-  storageLocation: string;
-  receivedDate: string;
-  notes: string;
-};
-
-function isGuaranteeDraftStarted(g: LocalGuaranteeDraft): boolean {
-  return (
-    g.description.trim() !== '' ||
-    g.storageLocation.trim() !== '' ||
-    g.itemReference.trim() !== '' ||
-    g.ownerNameOnDocument.trim() !== '' ||
-    g.notes.trim() !== ''
-  );
-}
-
-function validateGuaranteeDrafts(drafts: LocalGuaranteeDraft[]): string | null {
-  for (let i = 0; i < drafts.length; i++) {
-    const g = drafts[i];
-    if (!isGuaranteeDraftStarted(g)) continue;
-    if (!g.description.trim()) {
-      return uiError('guaranteeDescRequired', { n: String(i + 1) });
-    }
-    if (!g.storageLocation.trim()) {
-      return uiError('guaranteeStorageRequired', { n: String(i + 1) });
-    }
-    if (!g.receivedDate) {
-      return uiError('guaranteeDateRequired', { n: String(i + 1) });
-    }
-  }
-  return null;
-}
-
-function mapCompleteGuarantees(
-  drafts: LocalGuaranteeDraft[]
-): CreateGuaranteeDraft[] {
-  return drafts
-    .filter(
-      (g) =>
-        g.description.trim() &&
-        g.storageLocation.trim() &&
-        g.receivedDate
-    )
-    .map((g) => ({
-      itemType: g.itemType,
-      itemReference: g.itemReference.trim() || undefined,
-      ownerNameOnDocument: g.ownerNameOnDocument.trim() || undefined,
-      description: g.description.trim(),
-      storageLocation: g.storageLocation.trim(),
-      receivedDate: g.receivedDate,
-      notes: g.notes.trim() || undefined,
-    }));
-}
 
 export function CreateLoan() {
   const { t } = useT();
@@ -229,10 +174,6 @@ export function CreateLoan() {
       if (currentStep === 3 && isBike && sellingPrice <= 0) {
         return t('enterBikeSellingPrice');
       }
-      if (currentStep >= 4) {
-        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
-        if (gErr) return gErr;
-      }
       if (currentStep === 4 && isBike && !bikeId)
         return t('selectInStockBikeInstallment');
       if (currentStep === steps.length - 1) {
@@ -240,8 +181,6 @@ export function CreateLoan() {
         if (isBike && !bikeId) return t('selectBikeBeforeConfirm');
         if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
           return t('financeAmountGreaterThanZero');
-        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
-        if (gErr) return gErr;
       }
       return null;
     })();
@@ -276,7 +215,7 @@ export function CreateLoan() {
           dueDay: isInterestOnly ? dueDay : undefined,
           bikeId: isBike ? bikeId : undefined,
           downPayment: isBike ? downPayment : undefined,
-          guarantees: mapCompleteGuarantees(guaranteeDrafts),
+          guarantees: mapGuaranteeDraftsToCreate(guaranteeDrafts),
         },
         db
       );
@@ -583,40 +522,28 @@ export function CreateLoan() {
                 <div className="rounded-xl bg-neutral-50 ring-1 ring-neutral-200 p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="text-lg font-medium text-neutral-900">
-                      Guarantee items
+                      {t('guaranteeItems')}
                     </h3>
                     <button
                       type="button"
                       onClick={() =>
                         setGuaranteeDrafts((prev) => [
                           ...prev,
-                          {
-                            key: crypto.randomUUID(),
-                            itemType: 'VEHICLE_BOOK',
-                            itemReference: '',
-                            ownerNameOnDocument: '',
-                            description: '',
-                            storageLocation: '',
-                            receivedDate:
-                              new Date().toISOString().split('T')[0],
-                            notes: '',
-                          },
+                          emptyGuaranteeDraft(),
                         ])
                       }
                       className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
                     >
-                      Add another guarantee
+                      {t('addAnotherGuarantee')}
                     </button>
                   </div>
                   <p className="text-sm text-neutral-600">
-                    {isBike
-                      ? 'Optional extra collateral in addition to the bike.'
-                      : 'Add one or more guarantee items held by the shop.'}
+                    {t('guaranteeOptionalHint')}
                   </p>
 
                   {guaranteeDrafts.length === 0 && (
                     <p className="text-sm text-neutral-500 italic">
-                      No items yet — use &quot;Add another guarantee&quot; to start.
+                      {t('noGuaranteeItemsHint')}
                     </p>
                   )}
 
@@ -642,156 +569,19 @@ export function CreateLoan() {
                             Remove
                           </button>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Guarantee type
-                          </label>
-                          <select
-                            value={g.itemType}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? {
-                                        ...x,
-                                        itemType: e.target.value as LocalGuaranteeDraft['itemType'],
-                                      }
-                                    : x
-                                )
+                        <GuaranteeFieldsForm
+                          values={g}
+                          onChange={(patch) =>
+                            setGuaranteeDrafts((prev) =>
+                              prev.map((x) =>
+                                x.key === g.key ? { ...x, ...patch } : x
                               )
-                            }
-                            className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 text-sm bg-white"
-                          >
-                            <option value="VEHICLE_BOOK">Vehicle book</option>
-                            <option value="BIKE">Bike</option>
-                            <option value="OTHER">Other valuable item</option>
-                          </select>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Vehicle number / item reference
-                            </label>
-                            <input
-                              type="text"
-                              value={g.itemReference}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? { ...x, itemReference: e.target.value }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Owner name on document
-                            </label>
-                            <input
-                              type="text"
-                              value={g.ownerNameOnDocument}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? {
-                                          ...x,
-                                          ownerNameOnDocument: e.target.value,
-                                        }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Description *
-                          </label>
-                          <textarea
-                            value={g.description}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, description: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                            rows={2}
-                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Storage location *
-                            </label>
-                            <input
-                              type="text"
-                              value={g.storageLocation}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? {
-                                          ...x,
-                                          storageLocation: e.target.value,
-                                        }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                          <DatePicker
-                            label="Received date *"
-                            value={g.receivedDate}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, receivedDate: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Notes
-                          </label>
-                          <input
-                            type="text"
-                            value={g.notes}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, notes: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                          />
-                        </div>
+                            )
+                          }
+                        />
                       </li>
                     ))}
                   </ul>
-                  <p className="text-xs text-neutral-500">
-                    Stored as Held when the loan is confirmed. Started rows must
-                    include description, storage location, and received date.
-                  </p>
                 </div>
               </div>
             )}

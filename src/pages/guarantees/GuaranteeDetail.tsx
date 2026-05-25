@@ -9,6 +9,11 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { useToast } from '../../components/ui/Toast';
 import { formatDate, formatEnum, formatLKR } from '../../lib/format';
+import {
+  guaranteeDetailLines,
+  guaranteePrimaryLabel,
+} from '../../lib/guarantee/guaranteeFields';
+import { getLabel } from '../../lib/i18n/simpleLabels';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   getGuarantee,
@@ -82,7 +87,7 @@ export function GuaranteeDetail() {
       </div>
 
       <PageHeader
-        title={guarantee.description}
+        title={guaranteePrimaryLabel(guarantee)}
         subtitle={
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
             <span className="tabular-nums font-medium text-neutral-900">
@@ -102,24 +107,17 @@ export function GuaranteeDetail() {
               Item details
             </h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 text-sm">
-              <div>
-                <dt className="text-neutral-500">Reference</dt>
-                <dd className="mt-0.5 font-medium text-neutral-900">
-                  {guarantee.itemReference || '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-neutral-500">Owner on document</dt>
-                <dd className="mt-0.5 font-medium text-neutral-900">
-                  {guarantee.ownerNameOnDocument || '—'}
-                </dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-neutral-500">Storage</dt>
-                <dd className="mt-0.5 font-medium text-neutral-900">
-                  {guarantee.storageLocation}
-                </dd>
-              </div>
+              {guaranteeDetailLines(guarantee).map((line) => (
+                <div key={`${line.label}-${line.value}`}>
+                  <dt className="text-neutral-500">{line.label}</dt>
+                  <dd className="mt-0.5 font-medium text-neutral-900">
+                    {line.value}
+                  </dd>
+                </div>
+              ))}
+              {guaranteeDetailLines(guarantee).length === 0 && (
+                <div className="sm:col-span-2 text-neutral-500">—</div>
+              )}
               <div>
                 <dt className="text-neutral-500">Received</dt>
                 <dd className="mt-0.5 tabular-nums text-neutral-900">

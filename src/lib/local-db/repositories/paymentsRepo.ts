@@ -28,6 +28,7 @@ import type { LoanPayment } from '../../../types/entities';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
 import { getSystemTimestamp, isDateBefore } from '../../time/systemTime';
+import { autoReleaseGuaranteesIfLoanJustSettled } from './guaranteeRelease';
 import {
   preserveLateFeeChargedAmount,
   summarizePaymentBreakdown,
@@ -370,6 +371,7 @@ function applyInterestOnlyAllocation(
   ts: string
 ) {
   const loan = db.loans.find((l) => l.id === loanId)!;
+  const wasSettled = loan.status === 'COMPLETED' || loan.status === 'SETTLED';
   const cycles = db.loan_interest_cycles
     .filter((c) => c.loan_id === loanId)
     .sort((a, b) => a.cycle_number - b.cycle_number);
@@ -411,6 +413,7 @@ function applyInterestOnlyAllocation(
     loan.balance_amount = 0;
   }
   loan.updated_at = ts;
+  autoReleaseGuaranteesIfLoanJustSettled(db, loan, wasSettled, paymentDate);
 
   persistInterestOnlyCycles(db, loanId, paymentDate);
 }
@@ -423,6 +426,7 @@ function applyFixedAllocation(
   ts: string
 ) {
   const loan = db.loans.find((l) => l.id === loanId)!;
+  const wasSettled = loan.status === 'COMPLETED' || loan.status === 'SETTLED';
   const installments = db.loan_installments.filter((i) => i.loan_id === loanId);
 
   const refreshLateFeeAmounts = () => {
@@ -492,6 +496,7 @@ function applyFixedAllocation(
   loan.status = hasOverdue ? 'OVERDUE' : 'ACTIVE';
   if (loan.balance_amount <= 0) loan.status = 'COMPLETED';
   loan.updated_at = ts;
+  autoReleaseGuaranteesIfLoanJustSettled(db, loan, wasSettled, paymentDate);
 
   syncFixedInstallmentLateFees(db, loanId, paymentDate);
 }

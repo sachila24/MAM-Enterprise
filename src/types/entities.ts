@@ -87,6 +87,17 @@ export interface Guarantee {
   guaranteeCode: string;
   loanId: string;
   type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  fileNumber?: string;
+  vehicleNumber?: string;
+  guarantor1Name?: string;
+  guarantor1Address?: string;
+  guarantor1Phone?: string;
+  guarantor1Nic?: string;
+  guarantor2Name?: string;
+  guarantor2Address?: string;
+  guarantor2Phone?: string;
+  guarantor2Nic?: string;
+  /** Legacy */
   itemReference?: string;
   ownerNameOnDocument?: string;
   description: string;

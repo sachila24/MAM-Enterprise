@@ -66,6 +66,10 @@ const pairs: Record<string, Bilingual> = {
     si: 'වාරික සැලසුම (සාරාංශය)',
   },
   collateralHeld: { en: 'Collateral held', si: 'ඇපකර භාණ්ඩ' },
+  fileNumber: { en: 'File number', si: 'ගොනු අංකය' },
+  vehicleNumber: { en: 'Vehicle number', si: 'වාහන අංකය' },
+  guarantor1: { en: 'Guarantor 1', si: 'ඇපකරු 1' },
+  guarantor2: { en: 'Guarantor 2', si: 'ඇපකරු 2' },
 };
 
 export type DocumentLabelKey = keyof typeof pairs;

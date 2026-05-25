@@ -17,13 +17,16 @@ import { createLoanCreationDocument } from '../../documents/documentService';
 export { getLoanDetailFromDb };
 
 export interface CreateGuaranteeDraft {
-  itemType: DbGuarantee['item_type'];
-  itemReference?: string;
-  ownerNameOnDocument?: string;
-  description: string;
-  storageLocation: string;
-  receivedDate: string;
-  notes?: string;
+  fileNumber?: string;
+  vehicleNumber?: string;
+  guarantor1Name?: string;
+  guarantor1Address?: string;
+  guarantor1Phone?: string;
+  guarantor1Nic?: string;
+  guarantor2Name?: string;
+  guarantor2Address?: string;
+  guarantor2Phone?: string;
+  guarantor2Nic?: string;
 }
 
 export interface CreateLoanInput {
@@ -84,16 +87,21 @@ function pushGuaranteesForNewLoan(
       guarantee_code: generateCode('GUA', db.counters),
       loan_id: loanId,
       customer_id: customerId,
-      item_type: g.itemType,
-      item_reference: g.itemReference,
-      owner_name_on_document: g.ownerNameOnDocument,
-      description: g.description,
-      storage_location: g.storageLocation,
-      notes: g.notes,
+      item_type: 'OTHER',
+      file_number: g.fileNumber,
+      vehicle_number: g.vehicleNumber,
+      guarantor1_name: g.guarantor1Name,
+      guarantor1_address: g.guarantor1Address,
+      guarantor1_phone: g.guarantor1Phone,
+      guarantor1_nic: g.guarantor1Nic,
+      guarantor2_name: g.guarantor2Name,
+      guarantor2_address: g.guarantor2Address,
+      guarantor2_phone: g.guarantor2Phone,
+      guarantor2_nic: g.guarantor2Nic,
+      description: '',
+      storage_location: '',
       status: 'HELD',
-      received_at: g.receivedDate.includes('T')
-        ? g.receivedDate
-        : `${g.receivedDate}T12:00:00.000Z`,
+      received_at: ts,
       created_at: ts,
     });
   }

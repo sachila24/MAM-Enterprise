@@ -6,6 +6,7 @@ import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { formatEnum, formatDate } from '../../lib/format';
+import { guaranteePrimaryLabel } from '../../lib/guarantee/guaranteeFields';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   listCustomers,
@@ -155,7 +156,7 @@ export function GuaranteesList() {
                       </span>
                     </div>
                     <div className="text-neutral-900 font-medium truncate max-w-xs">
-                      {g.description}
+                      {guaranteePrimaryLabel(g)}
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
