@@ -76,6 +76,8 @@ export function formatLedgerRowDescription(
     : '';
 
   switch (entry.entryType as LedgerEntryType) {
+    case 'LOAN_OPENING':
+      return t('ledgerDescLoanReleased');
     case 'INSTALLMENT':
       return month
         ? tf('ledgerDescMonthInstallment', { month })

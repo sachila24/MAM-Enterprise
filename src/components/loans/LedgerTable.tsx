@@ -48,12 +48,19 @@ function formatBalance(value: number): string {
   return formatLedgerAmount(value);
 }
 
+function formatLoanTotalBalance(value: number | undefined): string {
+  if (value == null) return '—';
+  return formatBalance(value);
+}
+
 function rowBackgroundClass(entryType: LedgerEntry['entryType']): string {
   switch (entryType) {
     case 'PAYMENT':
       return 'bg-success-50/70';
     case 'LATE_FEE':
       return 'bg-orange-50/80';
+    case 'LOAN_OPENING':
+      return 'bg-amber-50/50';
     case 'INSTALLMENT':
     case 'INTEREST':
     default:
@@ -178,7 +185,7 @@ export function LedgerTable({
     <>
       {/* Desktop / tablet */}
       <div className="hidden sm:block overflow-x-auto rounded-lg border border-amber-200/80 bg-amber-50/30 shadow-sm">
-        <table className="min-w-[40rem] w-full text-xs border-collapse">
+        <table className="min-w-[52rem] w-full text-xs border-collapse">
           <thead>
             <tr>
               <th className={`${thBase} text-left w-[6.5rem]`}>
@@ -196,8 +203,11 @@ export function LedgerTable({
               <th className={`${thBase} text-right w-[5.5rem]`}>
                 {t('ledgerColCredit')}
               </th>
-              <th className={`${thBase} text-right w-[6rem]`}>
+              <th className={`${thBase} text-right w-[6.5rem]`}>
                 {t('ledgerColBalance')}
+              </th>
+              <th className={`${thBase} text-right w-[6.5rem]`}>
+                {t('ledgerColLoanTotalBalance')}
               </th>
               <th className={`${thBase} text-center w-[5.5rem]`}>
                 {t('ledgerColStatus')}
@@ -264,7 +274,7 @@ function LedgerMonthSectionDesktop({
   return (
     <>
       <tr className="bg-amber-100/70 border-y border-amber-300/60">
-        <td colSpan={7} className="p-0">
+        <td colSpan={8} className="p-0">
           <button
             type="button"
             onClick={onToggle}
@@ -409,6 +419,9 @@ function LedgerDesktopRows({
         </td>
         <td className={`${tdBase} text-right font-semibold text-neutral-900`}>
           {formatBalance(row.balance)}
+        </td>
+        <td className={`${tdBase} text-right font-semibold text-neutral-800`}>
+          {formatLoanTotalBalance(row.loanTotalBalance)}
         </td>
         <td className={`${tdBase} text-center`}>
           <LedgerStatusCell row={row} showStatus={showStatus} t={t} />
@@ -575,7 +588,7 @@ function LedgerMobileCard({
         </div>
         <LedgerStatusCell row={row} showStatus={showStatus} t={t} />
       </div>
-      <dl className="grid grid-cols-3 gap-x-1.5 text-[10px] leading-tight">
+      <dl className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 text-[10px] leading-tight">
         <div>
           <dt className="text-neutral-500">{t('ledgerColDebit')}</dt>
           <dd className="font-medium text-neutral-900 tabular-nums">
@@ -588,10 +601,16 @@ function LedgerMobileCard({
             {formatDrCr(row.credit)}
           </dd>
         </div>
-        <div className="text-right">
+        <div>
           <dt className="text-neutral-500">{t('ledgerColBalance')}</dt>
           <dd className="font-semibold text-neutral-900 tabular-nums">
             {formatBalance(row.balance)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-neutral-500">{t('ledgerColLoanTotalBalance')}</dt>
+          <dd className="font-semibold text-neutral-800 tabular-nums">
+            {formatLoanTotalBalance(row.loanTotalBalance)}
           </dd>
         </div>
       </dl>

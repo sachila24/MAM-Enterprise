@@ -127,6 +127,7 @@ export function LoanDetail() {
       detail={detail}
       navigate={navigate}
       invoiceDocumentId={loanInvoiceDoc?.id}
+      loanInvoiceDocumentNumber={loanInvoiceDoc?.document_number}
     />
   );
 }
@@ -263,10 +264,12 @@ function FixedInstallmentLoanDetail({
   detail,
   navigate,
   invoiceDocumentId,
+  loanInvoiceDocumentNumber,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
   invoiceDocumentId?: string;
+  loanInvoiceDocumentNumber?: string;
 }) {
   const { t, language } = useT();
   const {
@@ -377,12 +380,18 @@ function FixedInstallmentLoanDetail({
         loan.totalPayable ?? loan.principalAmount,
         ledgerInstallmentsLive,
         ledgerPayments,
-        asOfDate
+        asOfDate,
+        {
+          loanOpeningRef:
+            loanInvoiceDocumentNumber ?? loan.loanCode ?? null,
+        }
       ),
     [
       loan.startDate,
       loan.totalPayable,
       loan.principalAmount,
+      loan.loanCode,
+      loanInvoiceDocumentNumber,
       ledgerInstallmentsLive,
       ledgerPayments,
       asOfDate,

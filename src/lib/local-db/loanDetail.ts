@@ -15,6 +15,7 @@ import {
   mapInstallmentsToLedgerSource,
   mapLedgerPaymentsFromDb,
 } from '../display/ledgerDisplay';
+import { findPaymentReceiptDocument } from '../documents/documentService';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -64,7 +65,14 @@ export function getLoanDetailFromDb(
 
   const loanPaymentRows = db.loan_payments.filter((p) => p.loan_id === loanId);
   const ledgerPayments = mapLedgerPaymentsFromDb(
-    loanPaymentRows,
+    loanPaymentRows.map((p) => {
+      const receiptDoc = findPaymentReceiptDocument(db, p.id);
+      return {
+        ...p,
+        receipt_number:
+          receiptDoc?.document_number?.trim() || p.receipt_number,
+      };
+    }),
     db.payment_allocations.filter((a) => a.loan_id === loanId),
     {
       installments: installments.map((i) => ({

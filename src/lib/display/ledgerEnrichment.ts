@@ -26,7 +26,7 @@ function monthKeyFromDate(isoDate: string): string {
 
 /** YYYY-MM bucket for ledger month sections. */
 export function ledgerEntryMonthKey(entry: LedgerEntry): string {
-  if (entry.entryType === 'PAYMENT') {
+  if (entry.entryType === 'LOAN_OPENING' || entry.entryType === 'PAYMENT') {
     return monthKeyFromDate(entry.date);
   }
   if (entry.periodDueDate) {
