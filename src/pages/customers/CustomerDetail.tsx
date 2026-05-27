@@ -19,6 +19,10 @@ import {
   listPayments,
 } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
+import {
+  buildLoanCodeById,
+  resolveLoanCode,
+} from '../../lib/display/loanDisplay';
 
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
 export function CustomerDetail() {
@@ -55,6 +59,7 @@ export function CustomerDetail() {
   const guarantees = id
     ? listGuarantees(db).filter((g) => g.loanId && loans.some((l) => l.id === g.loanId))
     : [];
+  const loanCodeById = buildLoanCodeById(loans);
   const tabs = [
   {
     id: 'overview',
@@ -378,7 +383,7 @@ export function CustomerDetail() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
                       <Link to={`/loans/${payment.loanId}`}>
-                        {payment.loanId}
+                        {resolveLoanCode(payment.loanId, loanCodeById, db)}
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
@@ -416,25 +421,19 @@ export function CustomerDetail() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                    {t('field.type')}
+                    {t('fileNumber')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    {t('field.description')}
+                    {t('vehicleNumber')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    {t('loanId')}
-                  </th>
-                  <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                  
-                    {t('storageLocation')}
+                    {t('colLoanNumber')}
                   </th>
                   <th
                   scope="col"
@@ -447,19 +446,16 @@ export function CustomerDetail() {
               <tbody className="divide-y divide-neutral-200 bg-white">
                 {guarantees.map((guarantee) =>
               <tr key={guarantee.id} className="hover:bg-neutral-50">
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
-                      {formatEnum(guarantee.type, language)}
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6 tabular-nums">
+                      {guarantee.fileNumber?.trim() || '—'}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {guarantee.description}
+                    <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-neutral-900 tabular-nums">
+                      {(guarantee.vehicleNumber ?? guarantee.itemReference)?.trim() || '—'}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
+                    <td className="whitespace-nowrap px-3 py-4 text-sm font-semibold text-brand-600 tabular-nums">
                       <Link to={`/loans/${guarantee.loanId}`}>
-                        {guarantee.loanId}
+                        {resolveLoanCode(guarantee.loanId, loanCodeById, db)}
                       </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {guarantee.storageLocation}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <StatusChip status={guarantee.status} />
@@ -469,7 +465,7 @@ export function CustomerDetail() {
                 {guarantees.length === 0 &&
               <tr>
                     <td
-                  colSpan={5}
+                  colSpan={4}
                   className="py-10 text-center text-sm text-neutral-500">
                   
                       {t('noGuaranteesFound')}

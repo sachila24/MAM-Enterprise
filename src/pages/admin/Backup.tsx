@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   CloudIcon,
   DownloadIcon,
@@ -7,7 +7,10 @@ import {
   DatabaseIcon,
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { useToast } from '../../components/ui/Toast';
 import { formatDateTime, formatEnum } from '../../lib/format';
+import { downloadFullDatabaseBackup } from '../../lib/local-db/downloadBackup';
+import { restoreDemoDbFromBackup } from '../../lib/local-db/localDb';
 import { useT } from '../../i18n/I18nProvider';
 
 const backupHistory = [
@@ -36,13 +39,62 @@ const backupHistory = [
 
 export function Backup() {
   const { t, language } = useT();
+  const { showToast } = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
   const handleDownload = () => {
     setIsDownloading(true);
-    setTimeout(() => {
+    try {
+      downloadFullDatabaseBackup();
+      showToast('Backup downloaded successfully', 'success');
+    } catch {
+      showToast('Backup download failed. Please try again.', 'error');
+    } finally {
       setIsDownloading(false);
-    }, 2000);
+    }
   };
+
+  const handleUploadClick = () => {
+    if (isUploading) return;
+    uploadRef.current?.click();
+  };
+
+  const handleUploadBackup = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    // Clear value so selecting the same file again retriggers onChange.
+    event.target.value = '';
+    if (!file) return;
+
+    const isJson = file.name.toLowerCase().endsWith('.json');
+    if (!isJson) {
+      showToast('Please select a .json backup file.', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const raw = await file.text();
+      if (!window.confirm('Restore backup and replace all current demo data?')) {
+        return;
+      }
+      restoreDemoDbFromBackup(raw);
+      showToast('Backup restored successfully', 'success');
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 150);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Backup restore failed.';
+      showToast(message, 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader title={t('nav.backup')} subtitle={t('backupSubtitle')} />
@@ -87,7 +139,7 @@ export function Backup() {
               <p className="text-sm text-neutral-500 mb-6">{t('manualBackupHint')}</p>
               <button
                 onClick={handleDownload}
-                disabled={isDownloading}
+                disabled={isDownloading || isUploading}
                 className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50"
               >
                 {isDownloading ? (
@@ -97,6 +149,26 @@ export function Backup() {
                 )}
                 {isDownloading ? t('preparingFiles') : t('downloadFullBackup')}
               </button>
+              <button
+                type="button"
+                onClick={handleUploadClick}
+                disabled={isUploading || isDownloading}
+                className="ml-3 inline-flex items-center gap-x-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <RefreshCwIcon className="-ml-0.5 h-5 w-5 animate-spin" />
+                ) : (
+                  <DownloadIcon className="-ml-0.5 h-5 w-5 rotate-180" />
+                )}
+                {isUploading ? 'Uploading...' : 'Upload Backup'}
+              </button>
+              <input
+                ref={uploadRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={handleUploadBackup}
+              />
             </div>
           </div>
         </div>
