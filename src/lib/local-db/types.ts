@@ -252,6 +252,28 @@ export interface DbAuditLog {
   created_at: string;
 }
 
+export type BusinessCurrency = 'LKR' | 'USD';
+export type BusinessLanguage = 'EN' | 'SI' | 'TA';
+
+export interface DbBusinessSettings {
+  business_name: string;
+  registration_number: string;
+  address: string;
+  contact_phone: string;
+  default_currency: BusinessCurrency;
+  default_language: BusinessLanguage;
+  receipt_footer_note: string;
+  staff_activity_log_access: boolean;
+  updated_at: string;
+}
+
+/** Local demo app sign-in password (PBKDF2 hash + salt). */
+export interface DbAppAuth {
+  password_hash: string;
+  password_salt: string;
+  updated_at: string;
+}
+
 export type DocumentType =
   | 'LOAN_CREATION'
   | 'LOAN_RELEASE'
@@ -294,6 +316,8 @@ export interface MamDemoDb {
   documents: DbDocument[];
   expenses: DbExpense[];
   audit_logs: DbAuditLog[];
+  business_settings: DbBusinessSettings;
+  app_auth: DbAppAuth;
   /** Next sequence per code prefix e.g. CUS: 3 */
   counters: Record<string, number>;
 }

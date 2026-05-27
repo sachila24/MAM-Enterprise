@@ -1,24 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useT } from '../../i18n/I18nProvider';
-import { Building2, Globe, Shield, Upload } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
-const defaultSettings = {
-  businessName: 'M A M Trading',
-  regNumber: '',
-  address: 'No.47, Galmaduwa, Mahailuppallama',
-  phone: '071 593 1681',
-  currency: 'LKR',
-  language: 'EN',
-  receiptFooter: '',
-  staffActivityLog: true,
-};
+import {
+  getBusinessSettingsForm,
+  saveBusinessSettings,
+  type BusinessSettingsForm,
+} from '../../lib/local-db/repositories/settingsRepo';
+import { changeAppPassword } from '../../lib/local-db/repositories/authRepo';
 
 export function Settings() {
   const { t } = useT();
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState(defaultSettings);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [formData, setFormData] = useState<BusinessSettingsForm>(() =>
+    getBusinessSettingsForm()
+  );
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  useEffect(() => {
+    setFormData(getBusinessSettingsForm());
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -31,11 +37,43 @@ export function Settings() {
 
   const handleSave = () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const saved = saveBusinessSettings(formData);
+      setFormData(saved);
       showToast(t('settingsSavedSuccess'), 'success');
-    }, 800);
+    } catch {
+      showToast('Failed to save settings. Please try again.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handlePasswordFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleChangePassword = async () => {
+    setIsChangingPassword(true);
+    try {
+      const result = await changeAppPassword(passwordForm);
+      if (!result.ok) {
+        showToast(t(result.errorKey), 'error');
+        return;
+      }
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      showToast(t('passwordChangeSuccess'), 'success');
+    } catch {
+      showToast(t('passwordChangeFailed'), 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto pb-24">
       <PageHeader
@@ -221,50 +259,85 @@ export function Settings() {
           </div>
         </div>
 
-        {/* Permissions */}
+        {/* Change Password */}
         <div className="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-3 pt-8">
           <div className="px-4 sm:px-0">
             <h2 className="text-base font-semibold leading-7 text-neutral-900">
-              {t('permissionsSection')}
+              {t('changePasswordSection')}
             </h2>
             <p className="mt-1 text-sm leading-6 text-neutral-500">
-              {t('permissionsHint')}
+              {t('changePasswordHint')}
             </p>
           </div>
 
           <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-xl md:col-span-2">
-            <div className="px-4 py-6 sm:p-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium leading-6 text-neutral-900">
-                    {t('staffActivityLogAccess')}
-                  </h3>
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {t('staffActivityLogHint')}
-                  </p>
-                </div>
+            <div className="px-4 py-6 sm:p-8 space-y-6">
+              <div>
+                <label
+                  htmlFor="currentPassword"
+                  className="block text-sm font-medium leading-6 text-neutral-900">
+                  {t('currentPassword')}
+                </label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  name="currentPassword"
+                  autoComplete="current-password"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordFieldChange}
+                  className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="newPassword"
+                  className="block text-sm font-medium leading-6 text-neutral-900">
+                  {t('newPassword')}
+                </label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  name="newPassword"
+                  autoComplete="new-password"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordFieldChange}
+                  className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium leading-6 text-neutral-900">
+                  {t('confirmPassword')}
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordFieldChange}
+                  className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
                 <button
                   type="button"
-                  onClick={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    staffActivityLog: !prev.staffActivityLog
-                  }))
-                  }
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 ${formData.staffActivityLog ? 'bg-brand-600' : 'bg-neutral-200'}`}
-                  role="switch"
-                  aria-checked={formData.staffActivityLog}>
-                  
-                  <span className="sr-only">{t('useSettingSr')}</span>
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.staffActivityLog ? 'translate-x-5' : 'translate-x-0'}`} />
-                  
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
+                  {isChangingPassword
+                    ? t('changingPassword')
+                    : t('changePasswordButton')}
                 </button>
               </div>
             </div>
           </div>
         </div>
+
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white border-t border-neutral-200 p-4 z-10">

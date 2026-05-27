@@ -28,7 +28,6 @@ import { ExpensesList } from './pages/expenses/ExpensesList';
 import { AddExpense } from './pages/expenses/AddExpense';
 import { Reports } from './pages/reports/Reports';
 import { Backup } from './pages/admin/Backup';
-import { Staff } from './pages/admin/Staff';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
 import { DevTimePanel } from './components/dev/DevTimePanel';
@@ -102,7 +101,6 @@ export function App() {
 
               <Route path="activity" element={<ActivityLog />} />
               <Route path="backup" element={<Backup />} />
-              <Route path="staff" element={<Staff />} />
               <Route path="settings" element={<Settings />} />
 
               <Route path="*" element={<Navigate to="/" replace />} />

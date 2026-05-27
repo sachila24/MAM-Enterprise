@@ -941,6 +941,50 @@ export const t = {
   ),
   useSettingSr: bi('Use setting', 'සැකසුම භාවිතා කරන්න'),
   saveSettings: bi('Save settings', 'සැකසුම් සුරකින්න'),
+  changePasswordSection: bi('Change Password', 'මුරපදය වෙනස් කරන්න'),
+  changePasswordHint: bi(
+    'Update the password used to sign in to this device. Stored in your local demo database.',
+    'මෙම උපාංගයට පිවිසීමට භාවිතා කරන මුරපදය යාවත්කාලීන කරන්න. දේශීය ඩෙමෝ දත්ත සමුදායේ සුරකිනු ලැබේ.'
+  ),
+  currentPassword: bi('Current Password', 'වර්තමාන මුරපදය'),
+  newPassword: bi('New Password', 'නව මුරපදය'),
+  confirmPassword: bi('Confirm Password', 'මුරපදය තහවුරු කරන්න'),
+  changePasswordButton: bi('Change password', 'මුරපදය වෙනස් කරන්න'),
+  changingPassword: bi('Changing password...', 'මුරපදය වෙනස් කරමින්...'),
+  passwordChangeSuccess: bi(
+    'Password changed successfully',
+    'මුරපදය සාර්ථකව වෙනස් කරන ලදී'
+  ),
+  passwordChangeFailed: bi(
+    'Failed to change password. Please try again.',
+    'මුරපදය වෙනස් කිරීම අසාර්ථක විය. නැවත උත්සාහ කරන්න.'
+  ),
+  passwordCurrentRequired: bi(
+    'Enter your current password',
+    'වර්තමාන මුරපදය ඇතුළත් කරන්න'
+  ),
+  passwordNewRequired: bi('Enter a new password', 'නව මුරපදය ඇතුළත් කරන්න'),
+  passwordConfirmRequired: bi(
+    'Confirm your new password',
+    'නව මුරපදය තහවුරු කරන්න'
+  ),
+  passwordMismatch: bi('New passwords do not match', 'නව මුරපද නොගැලපේ'),
+  passwordTooShort: bi(
+    'Password must be at least 6 characters',
+    'මුරපදය අක්ෂර 6කට වඩා දිගු විය යුතුය'
+  ),
+  passwordCurrentIncorrect: bi(
+    'Current password is incorrect',
+    'වර්තමාන මුරපදය වැරදියි'
+  ),
+  passwordSameAsCurrent: bi(
+    'New password must be different from the current password',
+    'නව මුරපදය වර්තමාන මුරපදයට වඩා වෙනස් විය යුතුය'
+  ),
+  passwordSignInFailed: bi(
+    'Incorrect password. Please try again.',
+    'මුරපදය වැරදියි. නැවත උත්සාහ කරන්න.'
+  ),
 
   // Early settlement
   backToLoans: bi('Back to loans', 'ණය වෙත ආපසු'),

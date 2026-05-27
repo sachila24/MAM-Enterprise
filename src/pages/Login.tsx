@@ -4,8 +4,12 @@ import { BikeIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { useT } from '../i18n/I18nProvider';
 import { signIn, isAuthenticated } from '../lib/auth';
+import { useToast } from '../components/ui/Toast';
+import { verifyLoginPassword } from '../lib/local-db/repositories/authRepo';
+
 export function Login() {
   const { t } = useT();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,15 +20,22 @@ export function Login() {
     return <Navigate to="/" replace />;
   }
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate network request
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const valid = await verifyLoginPassword(password);
+      if (!valid) {
+        showToast(t('passwordSignInFailed'), 'error');
+        return;
+      }
       signIn();
       navigate('/');
-    }, 1200);
+    } catch {
+      showToast(t('passwordSignInFailed'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
   return (
     <div className="flex min-h-screen w-full bg-brand-50">

@@ -12,3 +12,5 @@ export * from './expensesRepo';
 export * from './dashboardRepo';
 export * from './earlySettlementRepo';
 export * from './documentsRepo';
+export * from './settingsRepo';
+export * from './authRepo';

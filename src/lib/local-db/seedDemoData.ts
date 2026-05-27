@@ -7,6 +7,8 @@ import { addMonthsSameDay, computeFirstDueDate } from '../finance/dueDates';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../finance/constants';
 import { roundLKR } from '../finance/money';
 import type { MamDemoDb } from './types';
+import { createDefaultBusinessSettings } from './businessSettings';
+import { createDefaultAppAuth } from './appAuth';
 import {
   getSystemTimestamp,
   getSystemToday,
@@ -541,6 +543,8 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    business_settings: createDefaultBusinessSettings(),
+    app_auth: createDefaultAppAuth(),
     counters: {
       CUS: 3,
       BIK: 4,

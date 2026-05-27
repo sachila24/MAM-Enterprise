@@ -10,7 +10,6 @@ import {
   ReceiptText,
   Settings,
   Shield,
-  UserCog,
   Users,
 } from 'lucide-react';
 import type { DictionaryKey } from '../../i18n/I18nProvider';
@@ -57,7 +56,6 @@ export const navGroups: NavGroup[] = [
     labelKey: 'navGroup.admin',
     items: [
       { nameKey: 'nav.backup', href: '/backup', icon: Database },
-      { nameKey: 'nav.staff', href: '/staff', icon: UserCog },
       { nameKey: 'nav.settings', href: '/settings', icon: Settings },
     ],
   },

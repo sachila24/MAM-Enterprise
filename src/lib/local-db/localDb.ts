@@ -6,6 +6,11 @@
 import type { MamDemoDb } from './types';
 import { buildSeedDatabase } from './seedDemoData';
 import { roundLKR } from '../finance/money';
+import {
+  isValidBusinessSettings,
+  normalizeBusinessSettings,
+} from './businessSettings';
+import { DEFAULT_APP_AUTH, isValidAppAuth, normalizeAppAuth } from './appAuth';
 
 export const STORAGE_KEY = 'mam_demo_db_v1';
 
@@ -34,6 +39,18 @@ const SSR_SNAPSHOT: MamDemoDb = {
   documents: [],
   expenses: [],
   audit_logs: [],
+  business_settings: {
+    business_name: 'M A M Trading',
+    registration_number: '',
+    address: 'No.47, Galmaduwa, Mahailuppallama',
+    contact_phone: '071 593 1681',
+    default_currency: 'LKR',
+    default_language: 'EN',
+    receipt_footer_note: '',
+    staff_activity_log_access: true,
+    updated_at: '1970-01-01T00:00:00.000Z',
+  },
+  app_auth: DEFAULT_APP_AUTH,
   counters: {},
 };
 
@@ -57,6 +74,8 @@ function seedAndPersist(): MamDemoDb {
   normalizeDemoGuarantees(db);
   normalizeDemoDocuments(db);
   normalizeDemoBikes(db);
+  normalizeBusinessSettings(db);
+  normalizeAppAuth(db);
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
@@ -132,6 +151,8 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeDemoGuarantees(cachedDb);
   normalizeDemoDocuments(cachedDb);
   normalizeDemoBikes(cachedDb);
+  normalizeBusinessSettings(cachedDb);
+  normalizeAppAuth(cachedDb);
   cachedRaw = raw;
   return cachedDb;
 }
@@ -302,7 +323,21 @@ export function parseBackupJson(raw: string): MamDemoDb {
     throw new Error('Backup is missing required table: counters.');
   }
 
-  return candidate as MamDemoDb;
+  if (
+    candidate.business_settings !== undefined &&
+    !isValidBusinessSettings(candidate.business_settings)
+  ) {
+    throw new Error('Backup has invalid business settings.');
+  }
+
+  if (candidate.app_auth !== undefined && !isValidAppAuth(candidate.app_auth)) {
+    throw new Error('Backup has invalid app password data.');
+  }
+
+  const db = candidate as MamDemoDb;
+  normalizeBusinessSettings(db);
+  normalizeAppAuth(db);
+  return db;
 }
 
 /** Replace the entire local demo DB from a validated backup JSON payload. */
