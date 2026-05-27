@@ -93,6 +93,12 @@ export interface Loan {
   daysOverdue?: number;
   /** Denormalized sum of unpaid interest cycles (interest-only) */
   pendingInterestAmount?: number;
+  serviceFee?: number;
+  registrationFee?: number;
+  /** Gross cash received from customer at origination */
+  initialPayment?: number;
+  /** Initial payment − service − registration; reduces financed principal */
+  netAdvancePayment?: number;
 }
 
 /** Receipt / payment preview — interest-only */

@@ -79,8 +79,32 @@ export interface DbLoan {
   status: 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED' | 'SETTLED';
   notes?: string;
   pending_interest_amount: number;
+  /** Business income at creation — not principal */
+  service_fee?: number;
+  registration_fee?: number;
+  /** Initial payment (gross cash from customer at creation) */
+  customer_paid_amount?: number;
+  /** Net advance: initial − service − registration */
+  advance_payment?: number;
   created_at: string;
   updated_at: string;
+}
+
+export type CashTransactionType =
+  | 'LOAN_ADVANCE_PAYMENT'
+  | 'SERVICE_FEE_INCOME'
+  | 'REGISTRATION_FEE_INCOME';
+
+export interface DbCashTransaction {
+  id: string;
+  transaction_code: string;
+  loan_id: string;
+  customer_id: string;
+  transaction_type: CashTransactionType;
+  amount: number;
+  transaction_date: string;
+  notes?: string;
+  created_at: string;
 }
 
 export interface DbLoanInstallment {
@@ -315,6 +339,7 @@ export interface MamDemoDb {
   receipts: DbReceipt[];
   documents: DbDocument[];
   expenses: DbExpense[];
+  cash_transactions: DbCashTransaction[];
   audit_logs: DbAuditLog[];
   business_settings: DbBusinessSettings;
   app_auth: DbAppAuth;

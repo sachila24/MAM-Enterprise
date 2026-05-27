@@ -319,6 +319,59 @@ export const t = {
   selectInStockBike: bi('-- Select in-stock bike --', '-- තොග ඇති බයික් තෝරන්න --'),
   bikeSellingPrice: bi('Bike selling price', 'බයික් විකිණීම් මිල'),
   downPayment: bi('Down payment', 'මුදල් තැන්පතු'),
+  initialPayment: bi('Initial payment', 'ආරම්භක ගෙවීම'),
+  netAdvancePayment: bi('Net advance payment', 'ශුද්ධ අග්‍රිම ගෙවීම'),
+  serviceFee: bi('Service fee', 'සේවා ගාස්තුව'),
+  registrationFee: bi('Registration fee', 'ලියාපදිංචි ගාස්තුව'),
+  financedPrincipal: bi('Financed principal', 'මුල්‍යමය ප්‍රධාන මුදල'),
+  remainingLoanBalance: bi('Remaining loan balance', 'ඉතිරි ණය ශේෂය'),
+  financedPrincipalMustBePositive: bi(
+    'Net advance cannot equal or exceed the loan amount',
+    'ශුද්ධ අග්‍රිම ණය මුදලට සමාන හෝ වැඩි විය නොහැක'
+  ),
+  originationPaymentSection: bi(
+    'Upfront payment (optional)',
+    'ආරම්භක ගෙවීම (අනිවාර්ය නොවේ)'
+  ),
+  tabAssets: bi('Assets', 'වත්කම්'),
+  colOriginalAmount: bi('Original amount', 'මුල් මුදල'),
+  colLoanType: bi('Loan type', 'ණය වර්ගය'),
+  colEngineNumber: bi('Engine number', 'එන්ජින් අංකය'),
+  colChassisNumber: bi('Chassis number', 'චේසිස් අංකය'),
+  invalidExpenseDate: bi(
+    'Please select a valid expense date',
+    'වලංගු වියදම් දිනයක් තෝරන්න'
+  ),
+  initialPaymentLessThanFees: bi(
+    'Initial payment must cover service and registration fees',
+    'ආරම්භක ගෙවීම සේවා සහ ලියාපදිංචි ගාස්තු ආවරණය කළ යුතුය'
+  ),
+  netAdvanceExceedsLoanAmount: bi(
+    'Net advance payment cannot exceed the loan amount',
+    'ශුද්ධ අග්‍රිම ගෙවීම ණය මුදලට වඩා වැඩි විය නොහැක'
+  ),
+  reportCategoryIncome: bi('Income', 'ආදායම'),
+  dailyIncomeReport: bi('Daily income summary', 'දෛනික ආදායම් සාරාංශය'),
+  dailyIncomeReportHint: bi(
+    'Loan repayments, advance payments, and fee income for a selected day',
+    'තෝරාගත් දිනයේ ණය ගෙවීම්, අග්‍රිම ගෙවීම් සහ ගාස්තු ආදායම'
+  ),
+  monthlyIncomeReport: bi('Monthly income summary', 'මාසික ආදායම් සාරාංශය'),
+  monthlyIncomeReportHint: bi(
+    'Collections and business fee income for a selected month',
+    'තෝරාගත් මාසයේ එකතු කිරීම් සහ ගාස්තු ආදායම'
+  ),
+  incomeSummaryReport: bi('Income summary (CSV)', 'ආදායම් සාරාංශය (CSV)'),
+  incomeSummaryReportHint: bi(
+    'Service fee and registration fee income — not loan repayments',
+    'සේවා සහ ලියාපදිංචි ගාස්තු ආදායම — ණය ගෙවීම් නොවේ'
+  ),
+  incomeLoanRepayment: bi('Loan repayment', 'ණය ගෙවීම'),
+  incomeLoanAdvance: bi('Loan advance payment', 'ණය අග්‍රිම ගෙවීම'),
+  incomeServiceFee: bi('Service fee income', 'සේවා ගාස්තු ආදායම'),
+  incomeRegistrationFee: bi('Registration fee income', 'ලියාපදිංචි ගාස්තු ආදායම'),
+  csvIncomeType: bi('Income type', 'ආදායම් වර්ගය'),
+  csvReference: bi('Reference', 'යොමුව'),
   termMonths: bi('Term (months)', 'කාලය (මාස)'),
   monthlyFlatRate: bi('Monthly flat rate (%)', 'මාසික සමතල අනුපාතය (%)'),
   lateFeeRateField: bi('Late fee rate (%)', 'ප්‍රමාද ගාස්තු (%)'),
@@ -1120,6 +1173,14 @@ export const t = {
     'Finance amount must be greater than zero',
     'මුල්‍ය මුදල ශුන්‍යයට වඩා වැඩි විය යුතුයි'
   ),
+  feeAmountInvalid: bi(
+    'Fee amounts cannot be negative',
+    'ගාස්තු මුදල් ඍණ නොවිය යුතුය'
+  ),
+  initialPaymentInvalid: bi(
+    'Initial payment cannot be negative',
+    'ආරම්භක ගෙවීම ඍණ නොවිය යුතුය'
+  ),
   guaranteeDescRequired: bi(
     'Guarantee item {n}: description is required',
     'ඇපකර අයිතම {n}: විස්තරය අවශ්‍යයි'
@@ -1508,4 +1569,8 @@ export const ENUM_LABEL_KEYS: Record<string, LabelKey> = {
   inactive: 'statusInactive',
   Auto: 'backupTypeAuto',
   Manual: 'backupTypeManual',
+  LOAN_REPAYMENT: 'incomeLoanRepayment',
+  LOAN_ADVANCE_PAYMENT: 'incomeLoanAdvance',
+  SERVICE_FEE_INCOME: 'incomeServiceFee',
+  REGISTRATION_FEE_INCOME: 'incomeRegistrationFee',
 };

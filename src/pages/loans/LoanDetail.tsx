@@ -53,6 +53,7 @@ import { LedgerTable } from '../../components/loans/LedgerTable';
 import { findLoanCreationDocument } from '../../lib/documents/documentService';
 import { LinkedBikeSummary } from '../../components/guarantees/LinkedBikeSummary';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
+import { listCashTransactionsForLoan } from '../../lib/local-db/repositories/cashTransactionsRepo';
 
 function formatOverdueLabel(
   daysOverdue: number,
@@ -266,6 +267,8 @@ function InterestOnlyLoanDetail({
           value={`${loan.interestRate}%`}
         />
       </div>
+
+      <LoanOriginationSection loan={loan} />
 
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
@@ -588,6 +591,8 @@ function FixedInstallmentLoanDetail({
         </div>
       )}
 
+      <LoanOriginationSection loan={loan} />
+
       <section className="mb-8">
         <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
         <LedgerTable
@@ -858,6 +863,87 @@ function GuaranteesSection({
           })}
         </ul>
       )}
+    </section>
+  );
+}
+
+function LoanOriginationSection({ loan }: { loan: Loan }) {
+  const { t, language } = useT();
+  const db = useDemoDb();
+  const originationTxns = listCashTransactionsForLoan(loan.id, db);
+  const showOrigination =
+    (loan.initialPayment ?? 0) > 0 ||
+    (loan.netAdvancePayment ?? 0) > 0 ||
+    originationTxns.length > 0;
+  if (!showOrigination) return null;
+
+  return (
+    <section className="mb-8">
+      <SectionTitle icon={BanknoteIcon} title={t('originationPaymentSection')} />
+      <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 text-sm border-b border-neutral-200">
+          <div>
+            <dt className="text-neutral-500">{t('initialPayment')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.initialPayment ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('serviceFee')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.serviceFee ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('registrationFee')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.registrationFee ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('netAdvancePayment')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.netAdvancePayment ?? 0)}
+            </dd>
+          </div>
+        </dl>
+        {originationTxns.length > 0 && (
+          <table className="min-w-full divide-y divide-neutral-200 text-sm">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="py-2 pl-4 text-left font-semibold text-neutral-900">
+                  {t('csvReference')}
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-neutral-900">
+                  {t('csvIncomeType')}
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-neutral-900">
+                  {t('field.date')}
+                </th>
+                <th className="py-2 pr-4 text-right font-semibold text-neutral-900">
+                  {t('colAmount')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200">
+              {originationTxns.map((txn) => (
+                <tr key={txn.id}>
+                  <td className="py-2 pl-4 tabular-nums">{txn.transactionCode}</td>
+                  <td className="py-2 px-3">
+                    {formatEnum(txn.transactionType, language)}
+                  </td>
+                  <td className="py-2 px-3 tabular-nums">
+                    {formatDate(txn.transactionDate, 'short', language)}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-medium tabular-nums">
+                    {formatLKR(txn.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   );
 }

@@ -503,6 +503,7 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    cash_transactions: [],
     expenses: [
       // {
       //   id: 'exp-00001',

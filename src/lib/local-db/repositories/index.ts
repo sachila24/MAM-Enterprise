@@ -9,6 +9,7 @@ export type {
 export * from './guaranteesRepo';
 export * from './receiptsRepo';
 export * from './expensesRepo';
+export * from './cashTransactionsRepo';
 export * from './dashboardRepo';
 export * from './earlySettlementRepo';
 export * from './documentsRepo';

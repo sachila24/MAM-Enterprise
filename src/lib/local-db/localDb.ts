@@ -38,6 +38,7 @@ const SSR_SNAPSHOT: MamDemoDb = {
   receipts: [],
   documents: [],
   expenses: [],
+  cash_transactions: [],
   audit_logs: [],
   business_settings: {
     business_name: 'M A M Trading',
@@ -74,6 +75,7 @@ function seedAndPersist(): MamDemoDb {
   normalizeDemoGuarantees(db);
   normalizeDemoDocuments(db);
   normalizeDemoBikes(db);
+  normalizeDemoLoans(db);
   normalizeBusinessSettings(db);
   normalizeAppAuth(db);
   cachedDb = db;
@@ -131,6 +133,20 @@ function normalizeDemoBikes(db: MamDemoDb) {
   }
 }
 
+function normalizeDemoLoans(db: MamDemoDb) {
+  if (!Array.isArray(db.cash_transactions)) {
+    db.cash_transactions = [];
+  }
+  for (const loan of db.loans) {
+    if (typeof loan.service_fee !== 'number') loan.service_fee = 0;
+    if (typeof loan.registration_fee !== 'number') loan.registration_fee = 0;
+    if (typeof loan.customer_paid_amount !== 'number') {
+      loan.customer_paid_amount = 0;
+    }
+    if (typeof loan.advance_payment !== 'number') loan.advance_payment = 0;
+  }
+}
+
 /** Stable snapshot for useSyncExternalStore — same reference until storage changes. */
 export function getDbSnapshot(): MamDemoDb {
   if (typeof window === 'undefined') {
@@ -151,6 +167,7 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeDemoGuarantees(cachedDb);
   normalizeDemoDocuments(cachedDb);
   normalizeDemoBikes(cachedDb);
+  normalizeDemoLoans(cachedDb);
   normalizeBusinessSettings(cachedDb);
   normalizeAppAuth(cachedDb);
   cachedRaw = raw;
@@ -222,6 +239,12 @@ function removeOrphanedDemoRecords(db: MamDemoDb): void {
   db.guarantees = db.guarantees.filter(
     (g) => validLoanIds.has(g.loan_id) && validCustomerIds.has(g.customer_id)
   );
+  if (db.cash_transactions) {
+    db.cash_transactions = db.cash_transactions.filter(
+      (t) =>
+        validLoanIds.has(t.loan_id) && validCustomerIds.has(t.customer_id)
+    );
+  }
 
   // Recompute IDs after filtering.
   const validInstallmentIds = new Set(db.loan_installments.map((i) => i.id));

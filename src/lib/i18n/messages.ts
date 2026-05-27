@@ -88,6 +88,9 @@ export function buildAuditSummary(
 export type ReportCsvType =
   | 'dailyCollections'
   | 'monthlyCollections'
+  | 'dailyIncome'
+  | 'monthlyIncome'
+  | 'incomeSummary'
   | 'activeLoans'
   | 'overdueLoans'
   | 'completedLoans'
@@ -114,6 +117,17 @@ export function getReportCsvHeaders(
         h('csvDiscount'),
         h('csvMethod'),
         h('csvStatus'),
+      ];
+    case 'dailyIncome':
+    case 'monthlyIncome':
+    case 'incomeSummary':
+      return [
+        h('csvDate'),
+        h('csvIncomeType'),
+        h('csvCustomer'),
+        h('csvLoan'),
+        h('csvReference'),
+        h('csvAmount'),
       ];
     case 'activeLoans':
     case 'overdueLoans':

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/ui/Toast';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
@@ -10,7 +10,6 @@ import type { LoanPurpose, RepaymentMethod } from '../../types/loan';
 import { defaultRepaymentMethod } from '../../types/loan';
 import {
   calculateFixedInstallmentTotals,
-  calculateBikeFinanceAmount,
   calculateLateFeePerMonth,
 } from '../../lib/finance/fixedInstallment';
 import { parsePercentInput, sanitizePercentInput } from '../../lib/finance/parsePercent';
@@ -34,10 +33,16 @@ import { GuaranteeFieldsForm } from '../../components/guarantees/GuaranteeFields
 import { GuaranteeDraftSummary } from '../../components/guarantees/GuaranteeDraftSummary';
 import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
+import {
+  computeOriginationFees,
+  validateOriginationFees,
+} from '../../lib/finance/loanOriginationFees';
+import { LoanOriginationSummaryCard } from '../../components/loans/LoanOriginationSummaryCard';
 
 export function CreateLoan() {
   const { t, tf } = useT();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
 
   const steps = [
@@ -84,7 +89,9 @@ export function CreateLoan() {
 
   const [bikeId, setBikeId] = useState('');
   const [sellingPrice, setSellingPrice] = useState(0);
-  const [downPayment, setDownPayment] = useState(0);
+  const [initialPayment, setInitialPayment] = useState(0);
+  const [serviceFee, setServiceFee] = useState(0);
+  const [registrationFee, setRegistrationFee] = useState(0);
 
   const customers = listCustomers(db);
   const bikes = listInStockBikes(db);
@@ -99,31 +106,54 @@ export function CreateLoan() {
     }
   }, [isBike, repaymentMethod]);
 
+  useEffect(() => {
+    const prefill = searchParams.get('customerId');
+    if (prefill) setCustomerId(prefill);
+  }, [searchParams]);
+
   const effectiveFinanceAmount = useMemo(() => {
-    if (isBike) {
-      return calculateBikeFinanceAmount(sellingPrice, downPayment);
-    }
+    if (isBike) return sellingPrice;
     return isInterestOnly ? loanAmount : financeAmount;
-  }, [isBike, isInterestOnly, sellingPrice, downPayment, loanAmount, financeAmount]);
+  }, [isBike, isInterestOnly, sellingPrice, loanAmount, financeAmount]);
+
+  const loanPrincipalAmount = effectiveFinanceAmount || 0;
+
+  const origination = useMemo(
+    () =>
+      computeOriginationFees(
+        {
+          initialPayment,
+          serviceFee,
+          registrationFee,
+        },
+        loanPrincipalAmount
+      ),
+    [initialPayment, serviceFee, registrationFee, loanPrincipalAmount]
+  );
 
   const interestOnlyCalc = useMemo(() => {
-    const principal = effectiveFinanceAmount || 0;
+    const principal = origination.financedPrincipal;
     const monthlyInterestDue = calculateMonthlyInterestDue(
       principal,
       monthlyInterestRate || 0
     );
     return { principal, monthlyInterestDue };
-  }, [effectiveFinanceAmount, monthlyInterestRate]);
+  }, [origination.financedPrincipal, monthlyInterestRate]);
 
   const fixedCalc = useMemo(
     () =>
       calculateFixedInstallmentTotals({
-        financeAmount: effectiveFinanceAmount || 0,
+        financeAmount: origination.financedPrincipal,
         termMonths: termMonths || 1,
         monthlyFlatRatePercent: monthlyFlatRate || 0,
         discountAmount,
       }),
-    [effectiveFinanceAmount, termMonths, monthlyFlatRate, discountAmount]
+    [
+      origination.financedPrincipal,
+      termMonths,
+      monthlyFlatRate,
+      discountAmount,
+    ]
   );
 
   const lateFeePerMonth = useMemo(
@@ -181,6 +211,15 @@ export function CreateLoan() {
         if (isBike && !bikeId) return t('selectBikeBeforeConfirm');
         if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
           return t('financeAmountGreaterThanZero');
+        const feeErr = validateOriginationFees(
+          {
+            initialPayment: origination.initialPayment,
+            serviceFee: origination.serviceFee,
+            registrationFee: origination.registrationFee,
+          },
+          loanPrincipalAmount
+        );
+        if (feeErr) return t(feeErr);
       }
       return null;
     })();
@@ -215,7 +254,9 @@ export function CreateLoan() {
             firstDueDate ||
             computeFirstDueDate(startDate),
           bikeId: isBike ? bikeId : undefined,
-          downPayment: isBike ? downPayment : undefined,
+          initialPayment: origination.initialPayment,
+          serviceFee: origination.serviceFee,
+          registrationFee: origination.registrationFee,
           guarantees: mapGuaranteeDraftsToCreate(guaranteeDrafts),
         },
         db
@@ -342,6 +383,39 @@ export function CreateLoan() {
                   placeholder="e.g. 100,000"
                   disabled={isBike}
                 />
+                <div className="space-y-3">
+                  <CurrencyInput
+                    label={t('initialPayment')}
+                    value={initialPayment}
+                    onChange={setInitialPayment}
+                  />
+                  <CurrencyInput
+                    label={t('serviceFee')}
+                    value={serviceFee}
+                    onChange={setServiceFee}
+                  />
+                  <CurrencyInput
+                    label={t('registrationFee')}
+                    value={registrationFee}
+                    onChange={setRegistrationFee}
+                  />
+                  <div className="flex justify-between text-sm border-t border-neutral-200 pt-3">
+                    <span className="text-neutral-600">
+                      {t('netAdvancePayment')}
+                    </span>
+                    <span className="font-semibold text-neutral-900 tabular-nums">
+                      {formatLKR(origination.netAdvancePayment)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-neutral-600">
+                      {t('financedPrincipal')}
+                    </span>
+                    <span className="font-semibold text-neutral-900 tabular-nums">
+                      {formatLKR(origination.financedPrincipal)}
+                    </span>
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
                     {t('monthlyInterestRate')} *
@@ -382,27 +456,52 @@ export function CreateLoan() {
                       placeholder={t('selectInStockBike')}
                     />
                     <CurrencyInput
-                      label={`${t('bikeSellingPrice')} *`}
+                      label={`${t('loanAmountField')} *`}
                       value={sellingPrice}
                       onChange={setSellingPrice}
                     />
-                    <CurrencyInput
-                      label={`${t('downPayment')} *`}
-                      value={downPayment}
-                      onChange={setDownPayment}
-                    />
-                    <p className="text-sm text-neutral-600">
-                      {t('financeAmountInline')}{' '}
-                      <strong>{formatLKR(effectiveFinanceAmount)}</strong>
-                    </p>
                   </div>
                 )}
-                <CurrencyInput
-                  label={`${t('financeAmount')} *`}
-                  value={effectiveFinanceAmount}
-                  onChange={(v) => !isBike && setFinanceAmount(v)}
-                  disabled={isBike}
-                />
+                {!isBike && (
+                  <CurrencyInput
+                    label={`${t('financeAmount')} *`}
+                    value={effectiveFinanceAmount}
+                    onChange={setFinanceAmount}
+                  />
+                )}
+                <div className="space-y-3">
+                  <CurrencyInput
+                    label={t('initialPayment')}
+                    value={initialPayment}
+                    onChange={setInitialPayment}
+                  />
+                  <CurrencyInput
+                    label={t('serviceFee')}
+                    value={serviceFee}
+                    onChange={setServiceFee}
+                  />
+                  <CurrencyInput
+                    label={t('registrationFee')}
+                    value={registrationFee}
+                    onChange={setRegistrationFee}
+                  />
+                  <div className="flex justify-between text-sm border-t border-neutral-200 pt-3">
+                    <span className="text-neutral-600">
+                      {t('netAdvancePayment')}
+                    </span>
+                    <span className="font-semibold text-neutral-900 tabular-nums">
+                      {formatLKR(origination.netAdvancePayment)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-neutral-600">
+                      {t('financedPrincipal')}
+                    </span>
+                    <span className="font-semibold text-neutral-900 tabular-nums">
+                      {formatLKR(origination.financedPrincipal)}
+                    </span>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
@@ -484,9 +583,9 @@ export function CreateLoan() {
                       })()}
                     </p>
                     <p>
-                      Selling {formatLKR(sellingPrice)} · Down{' '}
-                      {formatLKR(downPayment)} · Finance{' '}
-                      {formatLKR(effectiveFinanceAmount)}
+                      {t('loanAmountField')}: {formatLKR(sellingPrice)} ·{' '}
+                      {t('financedPrincipal')}:{' '}
+                      {formatLKR(origination.financedPrincipal)}
                     </p>
                   </div>
                 )}
@@ -627,38 +726,36 @@ export function CreateLoan() {
             </h3>
             {isInterestOnly ? (
               <dl className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('currentPrincipal')}</dt>
-                  <dd className="font-medium tabular-nums">
-                    {formatLKR(interestOnlyCalc.principal)}
-                  </dd>
-                </div>
+                <LoanOriginationSummaryCard
+                  loanAmount={loanPrincipalAmount}
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                />
                 <div className="flex justify-between">
                   <dt className="text-brand-200">{t('monthlyInterestDueLabel')}</dt>
                   <dd className="font-medium tabular-nums">
                     {formatLKR(interestOnlyCalc.monthlyInterestDue)}
                   </dd>
                 </div>
-                <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">{t('principalBalance')}</dt>
-                  <dd className="text-xl font-bold tabular-nums">
-                    {formatLKR(interestOnlyCalc.principal)}
-                  </dd>
-                </div>
               </dl>
             ) : (
               <dl className="space-y-3 text-sm">
+                <LoanOriginationSummaryCard
+                  loanAmount={loanPrincipalAmount}
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                />
                 {isBike && (
-                  <>
-                    <div className="flex justify-between">
-                      <dt className="text-brand-200">{t('sellingPriceLabel')}</dt>
-                      <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-brand-200">{t('downPayment')}</dt>
-                      <dd className="tabular-nums">{formatLKR(downPayment)}</dd>
-                    </div>
-                  </>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-200">{t('sellingPriceLabel')}</dt>
+                    <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
+                  </div>
                 )}
                 <div className="flex justify-between">
                   <dt className="text-brand-200">{t('financeAmount')}</dt>

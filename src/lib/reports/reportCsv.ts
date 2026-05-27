@@ -6,6 +6,8 @@ import { listExpenses } from '../local-db/repositories/expensesRepo';
 import { listGuarantees } from '../local-db/repositories/guaranteesRepo';
 import { listLoans } from '../local-db/repositories/loansRepo';
 import { listLoanPayments } from '../local-db/repositories/paymentsRepo';
+import { listCashTransactions } from '../local-db/repositories/cashTransactionsRepo';
+import type { CashTransactionType } from '../local-db/types';
 import { formatEnum } from '../format';
 import type { DisplayMode } from '../i18n/simpleLabels';
 import { normalizeDate } from '../time/systemTime';
@@ -69,6 +71,129 @@ function paymentMatchesMonth(paymentDate: string, month: string): boolean {
 
 function expenseMatchesMonth(expenseDate: string, month: string): boolean {
   return normalizeDate(expenseDate).startsWith(month);
+}
+
+function cashTxnMatchesDay(txnDate: string, day: string): boolean {
+  return normalizeDate(txnDate) === normalizeDate(day);
+}
+
+function cashTxnMatchesMonth(txnDate: string, month: string): boolean {
+  return normalizeDate(txnDate).startsWith(month);
+}
+
+function incomeTypeLabel(
+  type: CashTransactionType | 'LOAN_REPAYMENT',
+  language: DisplayMode
+): string {
+  const key =
+    type === 'LOAN_ADVANCE_PAYMENT'
+      ? 'LOAN_ADVANCE_PAYMENT'
+      : type === 'SERVICE_FEE_INCOME'
+        ? 'SERVICE_FEE_INCOME'
+        : type === 'REGISTRATION_FEE_INCOME'
+          ? 'REGISTRATION_FEE_INCOME'
+          : 'LOAN_REPAYMENT';
+  return label(key, language);
+}
+
+function generateDailyIncome(
+  db: MamDemoDb,
+  date: string,
+  language: DisplayMode
+): string[] {
+  const day = normalizeDate(date);
+  const paymentRows = listLoanPayments(db)
+    .filter(
+      (p) => p.status === 'CONFIRMED' && paymentMatchesDay(p.paymentDate, day)
+    )
+    .map((p) =>
+      csvRow([
+        normalizeDate(p.paymentDate),
+        incomeTypeLabel('LOAN_REPAYMENT', language),
+        customerName(db, p.customerId),
+        loanCode(db, p.loanId),
+        p.receiptNumber,
+        p.amount,
+      ])
+    );
+
+  const feeRows = listCashTransactions(db)
+    .filter((t) => cashTxnMatchesDay(t.transactionDate, day))
+    .map((t) =>
+      csvRow([
+        normalizeDate(t.transactionDate),
+        incomeTypeLabel(t.transactionType, language),
+        customerName(db, t.customerId),
+        loanCode(db, t.loanId),
+        t.transactionCode,
+        t.amount,
+      ])
+    );
+
+  return [...paymentRows, ...feeRows].sort((a, b) => a.localeCompare(b));
+}
+
+function generateMonthlyIncome(
+  db: MamDemoDb,
+  month: string,
+  language: DisplayMode
+): string[] {
+  const paymentRows = listLoanPayments(db)
+    .filter(
+      (p) =>
+        p.status === 'CONFIRMED' && paymentMatchesMonth(p.paymentDate, month)
+    )
+    .map((p) =>
+      csvRow([
+        normalizeDate(p.paymentDate),
+        incomeTypeLabel('LOAN_REPAYMENT', language),
+        customerName(db, p.customerId),
+        loanCode(db, p.loanId),
+        p.receiptNumber,
+        p.amount,
+      ])
+    );
+
+  const feeRows = listCashTransactions(db)
+    .filter((t) => cashTxnMatchesMonth(t.transactionDate, month))
+    .map((t) =>
+      csvRow([
+        normalizeDate(t.transactionDate),
+        incomeTypeLabel(t.transactionType, language),
+        customerName(db, t.customerId),
+        loanCode(db, t.loanId),
+        t.transactionCode,
+        t.amount,
+      ])
+    );
+
+  return [...paymentRows, ...feeRows].sort((a, b) => a.localeCompare(b));
+}
+
+/** Service and registration fee income only — not loan repayments. */
+function generateIncomeSummary(
+  db: MamDemoDb,
+  month: string,
+  language: DisplayMode
+): string[] {
+  return listCashTransactions(db)
+    .filter(
+      (t) =>
+        cashTxnMatchesMonth(t.transactionDate, month) &&
+        (t.transactionType === 'SERVICE_FEE_INCOME' ||
+          t.transactionType === 'REGISTRATION_FEE_INCOME')
+    )
+    .sort((a, b) => a.transactionDate.localeCompare(b.transactionDate))
+    .map((t) =>
+      csvRow([
+        normalizeDate(t.transactionDate),
+        incomeTypeLabel(t.transactionType, language),
+        customerName(db, t.customerId),
+        loanCode(db, t.loanId),
+        t.transactionCode,
+        t.amount,
+      ])
+    );
 }
 
 function generateDailyCollections(
@@ -238,6 +363,24 @@ export function generateReportCsvRows(
       );
     case 'monthlyCollections':
       return generateMonthlyCollections(
+        db,
+        options.month ?? normalizeDate(new Date()).slice(0, 7),
+        language
+      );
+    case 'dailyIncome':
+      return generateDailyIncome(
+        db,
+        options.date ?? normalizeDate(new Date()),
+        language
+      );
+    case 'monthlyIncome':
+      return generateMonthlyIncome(
+        db,
+        options.month ?? normalizeDate(new Date()).slice(0, 7),
+        language
+      );
+    case 'incomeSummary':
+      return generateIncomeSummary(
         db,
         options.month ?? normalizeDate(new Date()).slice(0, 7),
         language

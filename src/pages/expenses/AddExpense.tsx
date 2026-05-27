@@ -49,7 +49,10 @@ export function AddExpense() {
     showToast(t('expenseAddedSuccess'), 'success');
     navigate('/expenses');
   };
-  const isValid = formData.amount > 0 && formData.notes.trim() !== '';
+  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(formData.date) &&
+    !Number.isNaN(new Date(`${formData.date}T12:00:00`).getTime());
+  const isValid =
+    formData.amount > 0 && formData.notes.trim() !== '' && isValidDate;
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <PageHeader
@@ -126,14 +129,20 @@ export function AddExpense() {
                 {t('field.date')}
               </label>
               <DatePicker
+                id="expense-date"
                 value={formData.date}
-                onChange={(val) =>
+                onChange={(e) =>
                   setFormData({
                     ...formData,
-                    date: val,
+                    date: e.target.value,
                   })
                 }
               />
+              {!isValidDate && formData.date !== '' && (
+                <p className="mt-1 text-sm text-danger-600">
+                  {t('invalidExpenseDate')}
+                </p>
+              )}
             </div>
           </div>
         </div>

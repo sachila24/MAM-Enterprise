@@ -20,6 +20,7 @@ import {
 
 const REPORT_CATEGORY_IDS = [
   'collections',
+  'income',
   'loans',
   'bikes',
   'guarantees',
@@ -45,7 +46,9 @@ export function Reports() {
         label:
           id === 'collections'
             ? t('reportCategoryCollections')
-            : id === 'loans'
+            : id === 'income'
+              ? t('reportCategoryIncome')
+              : id === 'loans'
               ? t('reportCategoryLoans')
               : id === 'bikes'
                 ? t('reportCategoryBikes')
@@ -61,6 +64,7 @@ export function Reports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [collectionsMonth, setCollectionsMonth] = useState(currentMonthValue);
+  const [incomeMonth, setIncomeMonth] = useState(currentMonthValue);
   const [expensesMonth, setExpensesMonth] = useState(currentMonthValue);
 
   const downloadCsv = (
@@ -188,6 +192,91 @@ export function Reports() {
                       handleGenerate('monthlyCollections', {
                         month: collectionsMonth,
                       })
+                    }
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              {activeCategory === 'income' &&
+              <div className="space-y-8">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('dailyIncomeReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('dailyIncomeReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectDate')}
+                      </label>
+                      <DatePicker
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                      />
+                    </div>
+                    <button
+                    onClick={() => handleGenerate('dailyIncome', { date })}
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+
+                  <div className="border-t border-neutral-200 pt-8">
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('monthlyIncomeReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('monthlyIncomeReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectMonth')}
+                      </label>
+                      <input
+                      type="month"
+                      value={incomeMonth}
+                      onChange={(e) => setIncomeMonth(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
+                    </div>
+                    <button
+                    onClick={() =>
+                      handleGenerate('monthlyIncome', { month: incomeMonth })
+                    }
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+
+                  <div className="border-t border-neutral-200 pt-8">
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('incomeSummaryReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('incomeSummaryReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectMonth')}
+                      </label>
+                      <input
+                      type="month"
+                      value={incomeMonth}
+                      onChange={(e) => setIncomeMonth(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
+                    </div>
+                    <button
+                    onClick={() =>
+                      handleGenerate('incomeSummary', { month: incomeMonth })
                     }
                     disabled={isGenerating}
                     className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">

@@ -100,6 +100,10 @@ export function mapLoan(l: DbLoan): Loan {
     status: l.status,
     notes: l.notes,
     pendingInterestAmount: l.pending_interest_amount,
+    serviceFee: l.service_fee ?? 0,
+    registrationFee: l.registration_fee ?? 0,
+    initialPayment: l.customer_paid_amount ?? 0,
+    netAdvancePayment: l.advance_payment ?? 0,
     createdAt: l.created_at,
     updatedAt: l.updated_at,
   };
