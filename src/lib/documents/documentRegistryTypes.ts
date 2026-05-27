@@ -20,6 +20,7 @@ export type DocumentPrintStatus = 'ORIGINAL' | 'REPRINTED';
 
 const STORAGE_TO_REGISTRY: Record<StorageDocumentType, RegistryDocumentType> = {
   LOAN_CREATION: 'LOAN_INVOICE',
+  LOAN_RELEASE: 'SETTLEMENT',
   PAYMENT_RECEIPT: 'PAYMENT_RECEIPT',
   CASH_SALE: 'CASH_SALE',
 };

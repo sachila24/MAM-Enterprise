@@ -23,7 +23,7 @@ export function BikeForm() {
     registrationNo: '',
     chassisNo: '',
     engineNo: '',
-    year: new Date().getFullYear(),
+    year: 0,
     color: '',
     costPrice: 0,
     sellingPrice: 0,
@@ -63,16 +63,30 @@ export function BikeForm() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'year' ? Number(value) : value,
+      [name]:
+        name === 'year' ? (value === '' ? 0 : Number(value)) : value,
     }));
+  };
+
+  const validateForm = (): boolean => {
+    if (!formData.model.trim()) {
+      showToast(t('bikeFormRequiredFields'), 'error');
+      return false;
+    }
+    if (!formData.registrationNo.trim()) {
+      showToast(t('registrationRequired'), 'error');
+      return false;
+    }
+    if (formData.costPrice <= 0 || formData.sellingPrice <= 0) {
+      showToast(t('bikePricesRequired'), 'error');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.model.trim() || !formData.chassisNo.trim()) {
-      showToast(t('modelChassisRequired'), 'error');
-      return;
-    }
+    if (!validateForm()) return;
     if (isSubmittingRef.current) return;
 
     if (!isEdit && !clientSubmitIdRef.current) {
@@ -88,11 +102,11 @@ export function BikeForm() {
           id,
           {
             model: formData.model.trim(),
-            registration_no: formData.registrationNo.trim() || undefined,
+            registration_no: formData.registrationNo.trim(),
             chassis_no: formData.chassisNo.trim(),
             engine_no: formData.engineNo.trim(),
             color: formData.color.trim(),
-            year: formData.year,
+            year: formData.year || 0,
             cost_price: formData.costPrice,
             selling_price: formData.sellingPrice,
             repair_cost: formData.repairCost,
@@ -110,11 +124,11 @@ export function BikeForm() {
         const bike = createBike(
           {
             model: formData.model.trim(),
-            registrationNo: formData.registrationNo.trim() || undefined,
-            chassisNo: formData.chassisNo.trim(),
-            engineNo: formData.engineNo.trim(),
-            color: formData.color.trim(),
-            year: formData.year,
+            registrationNo: formData.registrationNo.trim(),
+            chassisNo: formData.chassisNo.trim() || undefined,
+            engineNo: formData.engineNo.trim() || undefined,
+            color: formData.color.trim() || undefined,
+            year: formData.year || undefined,
             costPrice: formData.costPrice,
             sellingPrice: formData.sellingPrice,
             repairCost: formData.repairCost,
@@ -168,12 +182,13 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="registrationNo" className="block text-sm font-medium text-neutral-900">
-              {t('registrationNo')}
+              {t('registrationNo')} *
             </label>
             <input
               type="text"
               name="registrationNo"
               id="registrationNo"
+              required
               value={formData.registrationNo}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
@@ -182,13 +197,12 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="chassisNo" className="block text-sm font-medium text-neutral-900">
-              {t('chassisNumber')} *
+              {t('chassisNumber')}
             </label>
             <input
               type="text"
               name="chassisNo"
               id="chassisNo"
-              required
               value={formData.chassisNo}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 font-mono ring-1 ring-inset ring-neutral-300 sm:text-sm"
@@ -217,7 +231,7 @@ export function BikeForm() {
               type="number"
               name="year"
               id="year"
-              value={formData.year}
+              value={formData.year || ''}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
             />
@@ -257,14 +271,14 @@ export function BikeForm() {
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label={t('boughtPrice')}
+              label={`${t('boughtPrice')} *`}
               value={formData.costPrice}
               onChange={(costPrice) => setFormData((p) => ({ ...p, costPrice }))}
             />
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label={`${t('listSellingPrice')} *`}
+              label={`${t('sellingPriceLabel')} *`}
               value={formData.sellingPrice}
               onChange={(sellingPrice) =>
                 setFormData((p) => ({ ...p, sellingPrice }))

@@ -61,6 +61,13 @@ function snapshotFields(doc: DbDocument): {
         loanNumber: snap.loanCode,
       };
     }
+    if (snap.kind === 'LOAN_RELEASE') {
+      return {
+        customerName: snap.customer.name,
+        customerNic: snap.customer.nic,
+        loanNumber: snap.loanCode,
+      };
+    }
     if (snap.kind === 'PAYMENT_RECEIPT') {
       return {
         customerName: snap.customerName,

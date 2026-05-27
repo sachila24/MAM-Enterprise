@@ -12,7 +12,10 @@ import { getLoanDetailFromDb } from '../loanDetail';
 import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import { getSystemToday } from '../../time/systemTime';
-import { createLoanCreationDocument } from '../../documents/documentService';
+import {
+  createLoanCreationDocument,
+  createLoanReleaseDocument,
+} from '../../documents/documentService';
 
 export { getLoanDetailFromDb };
 
@@ -276,6 +279,12 @@ export function createLoan(
     downPayment: input.downPayment,
     createdBy: db.profiles[0]?.id,
   });
+
+  if (isInterestOnly) {
+    createLoanReleaseDocument(db, id, {
+      createdBy: db.profiles[0]?.id,
+    });
+  }
 
   saveDb(db);
   return mapLoan(dbLoan);

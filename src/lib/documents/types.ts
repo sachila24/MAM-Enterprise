@@ -2,6 +2,7 @@
 
 export type DocumentType =
   | 'LOAN_CREATION'
+  | 'LOAN_RELEASE'
   | 'PAYMENT_RECEIPT'
   | 'CASH_SALE';
 
@@ -88,6 +89,17 @@ export interface PaymentReceiptDocumentSnapshot {
   };
 }
 
+export interface LoanReleaseDocumentSnapshot {
+  kind: 'LOAN_RELEASE';
+  releaseNoteNumber: string;
+  releaseDate: string;
+  customer: DocumentPartySnapshot;
+  loanCode: string;
+  principalAmount: number;
+  releasedBy: string;
+  remarks: string;
+}
+
 export interface CashSaleDocumentSnapshot {
   kind: 'CASH_SALE';
   soldDate: string;
@@ -100,5 +112,6 @@ export interface CashSaleDocumentSnapshot {
 
 export type DocumentMetadataSnapshot =
   | LoanCreationDocumentSnapshot
+  | LoanReleaseDocumentSnapshot
   | PaymentReceiptDocumentSnapshot
   | CashSaleDocumentSnapshot;

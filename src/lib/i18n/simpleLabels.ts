@@ -373,7 +373,10 @@ export const t = {
   inStock: bi('In stock', 'තොගයේ'),
   sold: bi('Sold', 'විකිණූ'),
   heldAsGuarantee: bi('Held as guarantee', 'ඇපකර ලෙස'),
-  searchBikes: bi('Search model, chassis, engine...', 'මාදිලිය, රථ, එන්ජින්...'),
+  searchBikes: bi(
+    'Search registration or model...',
+    'ලියාපදිංචි අංකය හෝ මාදිලිය සොයන්න...'
+  ),
   noBikesFound: bi(
     'No bikes found matching your criteria.',
     'බයික් හමු නොවීය.'
@@ -518,6 +521,51 @@ export const t = {
   colCash: bi('Cash', 'මුදල්'),
   colDiscount: bi('Discount', 'වට්ටම'),
   colCodeModel: bi('Code / model', 'කේතය / මාදිලිය'),
+  colModel: bi('Model', 'මාදිලිය'),
+  colRegistration: bi('Registration Number', 'ලියාපදිංචි අංකය'),
+  notRegistered: bi('Not registered', 'ලියාපදිංචි නොවේ'),
+  selectedBikeLabel: bi('Selected bike', 'තෝරාගත් බයික්'),
+  changeBike: bi('Change bike', 'බයික් වෙනස් කරන්න'),
+  linkedBike: bi('Linked Bike', 'සම්බන්ධ බයික්'),
+  loanReleaseNote: bi('Loan Release Note', 'ණය නිකුත් කිරීමේ සටහන'),
+  viewReleaseNote: bi('View Release Note', 'නිකුත් සටහන බලන්න'),
+  printReleaseNote: bi('Print Release Note', 'නිකුත් සටහන මුද්‍රණය'),
+  principalSettlement: bi('Principal Settlement', 'මුල්‍ය නිරාකරණය'),
+  halfSettlement: bi('Half Settlement', 'අර්ධ නිරාකරණය'),
+  fullSettlement: bi('Full Settlement', 'සම්පූර්ණ නිරාකරණය'),
+  releasedBy: bi('Released By', 'නිකුත් කළේ'),
+  remarks: bi('Remarks', 'සටහන්'),
+  colLinkedBike: bi('Linked Bike', 'සම්බන්ධ බයික්'),
+  ledgerPrincipalSettlementHalf: bi(
+    'Principal Settlement (50%)',
+    'මුල්‍ය නිරාකරණය (50%)'
+  ),
+  ledgerPrincipalSettlementFull: bi(
+    'Principal Settlement (Full)',
+    'මුල්‍ය නිරාකරණය (සම්පූර්ණ)'
+  ),
+  interestOnlySettlementOnly: bi(
+    'Principal settlement is only for interest-only loans.',
+    'මුල්‍ය නිරාකරණය පොලිය-පමණ ණය සඳහා පමණයි.'
+  ),
+  loanAlreadyCompleted: bi(
+    'This loan is already completed.',
+    'මෙම ණය දැනටමත් අවසන්.'
+  ),
+  ioPrincipalSettlementAuditSummary: bi(
+    'Principal settlement ({kind}) · loan {loanCode}',
+    'මුල්‍ය නිරාකරණය ({kind}) · ණය {loanCode}'
+  ),
+  colCustomer: bi('Customer', 'ගනුදෙනුකරු'),
+  colLoanNumber: bi('Loan', 'ණය'),
+  linkedLoanInformation: bi('Linked Loan Information', 'සම්බන්ධ ණය තොරතුරු'),
+  returnReleaseInformation: bi('Return / Release Information', 'ආපසු දීම / නිදහස් කිරීම'),
+  currentlyHeldByCompany: bi(
+    'Currently held by company',
+    'දැනට සමාගම විසින් තබාගෙන ඇත'
+  ),
+  totalLoanAmount: bi('Total Loan Amount', 'මුළු ණය මුදල'),
+  currentDueBalance: bi('Current Due Balance', 'වර්තමාන ණය ශේෂය'),
   colLinkedTo: bi('Linked To', 'සම්බන්ධ'),
   colLocation: bi('Location', 'ස්ථානය'),
   colReceived: bi('Received', 'ලැබුණු'),
@@ -594,6 +642,18 @@ export const t = {
   modelChassisRequired: bi(
     'Model and chassis number are required',
     'මාදිලිය සහ රථ අංකය අවශ්‍යයි'
+  ),
+  bikeFormRequiredFields: bi(
+    'Model, registration number, bought price, and selling price are required.',
+    'මාදිලිය, ලියාපදිංචි අංකය, මිලදී ගත් මිල සහ විකිණීම් මිල අවශ්‍යයි.'
+  ),
+  registrationRequired: bi(
+    'Registration number is required',
+    'ලියාපදිංචි අංකය අවශ්‍යයි'
+  ),
+  bikePricesRequired: bi(
+    'Bought price and selling price must be greater than zero',
+    'මිලදී ගත් මිල සහ විකිණීම් මිල ශුන්‍යයට වඩා වැඩි වෙන්න ඕන'
   ),
   repairCostOptional: bi('Repair cost (optional)', 'අලුත්වැඩියා (අවශ්‍ය නම්)'),
   otherCostOptional: bi('Other cost (optional)', 'වෙනත් (අවශ්‍ය නම්)'),

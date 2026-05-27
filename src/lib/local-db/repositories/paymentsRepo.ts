@@ -500,3 +500,178 @@ function applyFixedAllocation(
 
   syncFixedInstallmentLateFees(db, loanId, paymentDate);
 }
+
+export type InterestOnlyPrincipalSettlementKind = 'HALF' | 'FULL';
+
+export interface RecordInterestOnlyPrincipalSettlementInput {
+  loanId: string;
+  customerId: string;
+  kind: InterestOnlyPrincipalSettlementKind;
+  paymentDate: string;
+  paymentMethod?: PaymentMethod;
+  clientSubmitId?: string;
+}
+
+function ioSettlementNote(kind: InterestOnlyPrincipalSettlementKind): string {
+  return kind === 'HALF' ? 'IO_SETTLEMENT:HALF' : 'IO_SETTLEMENT:FULL';
+}
+
+function principalSettlementAmount(
+  currentPrincipal: number,
+  kind: InterestOnlyPrincipalSettlementKind
+): number {
+  if (kind === 'FULL') return roundLKR(currentPrincipal);
+  return roundLKR(currentPrincipal / 2);
+}
+
+/** Interest-only principal settlement — half (50%) or full (100%) of current balance. */
+export function recordInterestOnlyPrincipalSettlement(
+  input: RecordInterestOnlyPrincipalSettlementInput,
+  db: MamDemoDb = getDb()
+): RecordPaymentResult {
+  if (input.clientSubmitId) {
+    const existing = findPaymentBySubmitId(db, input.clientSubmitId);
+    if (existing) {
+      return {
+        payment: mapLoanPayment(existing),
+        receiptNumber: existing.receipt_number,
+        allocation: rebuildAllocationFromPayment(db, existing.id),
+      };
+    }
+    if (inFlightPaymentSubmits.has(input.clientSubmitId)) {
+      throw new Error(uiError('paymentSaveInProgress'));
+    }
+    inFlightPaymentSubmits.add(input.clientSubmitId);
+  }
+
+  try {
+    const loan = db.loans.find((l) => l.id === input.loanId);
+    if (!loan) throw new Error(uiError('loanNotFound'));
+    if (loan.repayment_method !== 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+      throw new Error(uiError('interestOnlySettlementOnly'));
+    }
+    if (loan.status === 'COMPLETED' || loan.status === 'SETTLED') {
+      throw new Error(uiError('loanAlreadyCompleted'));
+    }
+
+    persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
+
+    const balanceBefore = loan.current_principal_balance;
+    const cashAmount = principalSettlementAmount(balanceBefore, input.kind);
+    if (cashAmount <= 0) {
+      throw new Error(uiError('enterPaymentAmount'));
+    }
+
+    const newPrincipal = roundLKR(balanceBefore - cashAmount);
+    const merged: PaymentAllocationResult = {
+      allocations: [
+        {
+          allocationType: 'PRINCIPAL',
+          amount: cashAmount,
+        },
+      ],
+      totalAllocated: cashAmount,
+      unallocated: 0,
+      summary: {
+        lateFeesPaid: 0,
+        installmentsPaid: 0,
+        currentMonthPaid: 0,
+        advanceAmount: 0,
+        interestPaid: 0,
+        principalPaid: cashAmount,
+        newPrincipal,
+        pendingInterestRemaining: loan.pending_interest_amount ?? 0,
+        loanBalanceAfter: newPrincipal,
+      },
+    };
+
+    applyInterestOnlyAllocation(db, loan.id, merged, input.paymentDate, getSystemTimestamp());
+
+    const paymentId = generateId();
+    const paymentCode = generateCode('PAY', db.counters);
+    const receiptNumber = generateCode('RCP', db.counters);
+    const ts = getSystemTimestamp();
+    const method = input.paymentMethod ?? 'CASH';
+
+    const paymentRow = {
+      id: paymentId,
+      payment_code: paymentCode,
+      loan_id: loan.id,
+      customer_id: input.customerId,
+      amount: cashAmount,
+      discount_amount: 0,
+      applied_amount: cashAmount,
+      payment_method: methodToDb(method),
+      payment_date: input.paymentDate,
+      receipt_number: receiptNumber,
+      client_submit_id: input.clientSubmitId,
+      notes: ioSettlementNote(input.kind),
+      status: 'CONFIRMED' as const,
+      installment_paid: 0,
+      late_fee_paid: 0,
+      interest_paid: 0,
+      principal_paid: cashAmount,
+      created_at: ts,
+      updated_at: ts,
+    };
+    db.loan_payments.push(paymentRow);
+
+    for (const line of merged.allocations) {
+      db.payment_allocations.push({
+        id: generateId(),
+        payment_id: paymentId,
+        loan_id: loan.id,
+        allocation_type: line.allocationType,
+        amount: line.amount,
+        created_at: ts,
+      });
+    }
+
+    const receiptBreakdown = buildInterestOnlyReceipt(
+      merged,
+      loan.interest_rate,
+      balanceBefore,
+      cashAmount,
+      0
+    );
+
+    db.receipts.push({
+      id: generateId(),
+      receipt_number: receiptNumber,
+      payment_id: paymentId,
+      loan_id: loan.id,
+      customer_id: input.customerId,
+      amount: cashAmount,
+      issued_at: input.paymentDate,
+      breakdown: { ...merged.summary, receipt: receiptBreakdown },
+      created_at: ts,
+    });
+
+    createPaymentReceiptDocument(db, paymentId, receiptBreakdown);
+
+    db.audit_logs.push({
+      id: generateId(),
+      user_id: db.profiles[0]?.id ?? 'system',
+      action: 'PAYMENT',
+      entity_type: 'payment',
+      entity_id: paymentId,
+      summary: buildAuditSummary('ioPrincipalSettlementAuditSummary', {
+        kind: input.kind,
+        loanCode: loan.loan_code,
+      }),
+      created_at: ts,
+    });
+
+    saveDb(db);
+
+    return {
+      payment: mapLoanPayment(paymentRow),
+      receiptNumber,
+      allocation: merged,
+    };
+  } finally {
+    if (input.clientSubmitId) {
+      inFlightPaymentSubmits.delete(input.clientSubmitId);
+    }
+  }
+}

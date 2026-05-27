@@ -33,6 +33,8 @@ export interface LedgerPaymentRecord {
   principalPaid: number;
   /** Per-line allocations in stored order (when available). */
   allocationLines?: LedgerAllocationLine[];
+  ioSettlementKind?: IoPrincipalSettlementKind;
+  ioSettlementLabel?: string;
 }
 
 /** Installment snapshot for ledger (persisted + optional live engine totals). */
@@ -70,6 +72,18 @@ export interface LedgerAllocationLine {
   allocationType: AllocationType;
   /** Installment/cycle due date for month prefix (display only). */
   dueDate?: string;
+  /** Overrides default allocation phrase (e.g. principal settlement). */
+  customLabel?: string;
+}
+
+export type IoPrincipalSettlementKind = 'HALF' | 'FULL';
+
+export function parseIoPrincipalSettlementKind(
+  notes: string | undefined
+): IoPrincipalSettlementKind | undefined {
+  if (notes === 'IO_SETTLEMENT:HALF') return 'HALF';
+  if (notes === 'IO_SETTLEMENT:FULL') return 'FULL';
+  return undefined;
 }
 
 /** Classic running-ledger row (display only). */
@@ -118,6 +132,11 @@ type LedgerDraft = Omit<LedgerEntry, 'balance' | 'loanTotalBalance'> & {
 
 export interface FixedInstallmentLedgerOptions {
   /** Official loan invoice document number (e.g. LN-2026-000001). */
+  loanOpeningRef?: string | null;
+}
+
+export interface InterestOnlyLedgerOptions {
+  /** Loan creation invoice (LN-…). Not Loan Release Note (RLN). */
   loanOpeningRef?: string | null;
 }
 
@@ -267,7 +286,15 @@ function paymentAllocationLines(p: LedgerPaymentRecord): LedgerAllocationLine[] 
   if (p.allocationLines && p.allocationLines.length > 0) {
     return p.allocationLines;
   }
-  return groupedLedgerAllocationFallback(p);
+  const fallback = groupedLedgerAllocationFallback(p);
+  if (p.ioSettlementKind && p.ioSettlementLabel) {
+    return fallback.map((line) =>
+      line.allocationType === 'PRINCIPAL'
+        ? { ...line, customLabel: p.ioSettlementLabel }
+        : line
+    );
+  }
+  return fallback;
 }
 
 /** Installment + installment-discount allocations only (total loan balance). */
@@ -285,6 +312,23 @@ function paymentLoanBalanceCredit(p: LedgerPaymentRecord): number {
     if (sum > 0) return roundLKR(sum);
   }
   return roundLKR(p.installmentPaid);
+}
+
+/** Principal reductions for interest-only total loan balance column. */
+function paymentInterestOnlyLoanBalanceCredit(p: LedgerPaymentRecord): number {
+  if (p.allocationLines && p.allocationLines.length > 0) {
+    let sum = 0;
+    for (const line of p.allocationLines) {
+      if (
+        line.allocationType === 'PRINCIPAL' ||
+        line.allocationType === 'PRINCIPAL_DISCOUNT'
+      ) {
+        sum += line.amount;
+      }
+    }
+    if (sum > 0) return roundLKR(sum);
+  }
+  return roundLKR(p.principalPaid);
 }
 
 /** Amount applied to schedule/arrears (excludes principal prepayment and advance). */
@@ -445,17 +489,37 @@ export function buildFixedInstallmentLedgerEntries(
   return attachRunningBalances(events, trackLoanTotalBalance);
 }
 
-/** Interest-only loan ledger from persisted cycles + payments. */
+/**
+ * Interest-only loan ledger (display only).
+ * Opening principal (Loan released, LN ref) → interest → payments / settlements.
+ * Loan Release Note (RLN) is document-only and must not be used as opening ref.
+ */
 export function buildInterestOnlyLedgerEntries(
-  _loanStartDate: string,
-  _principalAmount: number,
+  loanStartDate: string,
+  originalPrincipal: number,
   cycles: LoanInterestCycle[],
   payments: LedgerPaymentRecord[],
-  asOfDate: string
+  asOfDate: string,
+  options?: InterestOnlyLedgerOptions
 ): LedgerEntry[] {
   const asOf = normalizeDate(asOfDate);
   const events: LedgerDraft[] = [];
   let order = 0;
+
+  const principalR = roundLKR(originalPrincipal);
+  const trackLoanTotalBalance = principalR > 0;
+
+  if (trackLoanTotalBalance) {
+    const openingRef = options?.loanOpeningRef?.trim() || null;
+    events.push(
+      buildLoanOpeningDraft(
+        loanStartDate,
+        openingRef ?? '—',
+        principalR,
+        order++
+      )
+    );
+  }
 
   for (const c of cycles) {
     if (!isDateOnOrBefore(c.dueDate, asOf)) continue;
@@ -484,15 +548,34 @@ export function buildInterestOnlyLedgerEntries(
   }
 
   payments.forEach((p, i) => {
-    events.push(buildPaymentDraft(p, order++, i));
+    const draft = buildPaymentDraft(p, order++, i);
+    if (trackLoanTotalBalance) {
+      draft.loanBalanceCredit = paymentInterestOnlyLoanBalanceCredit(p);
+    }
+    events.push(draft);
   });
 
-  return attachRunningBalances(events);
+  return attachRunningBalances(events, trackLoanTotalBalance);
 }
 
 export type { LedgerAllocationLookup };
 
 /** Map confirmed payments with permanent breakdown (stored fields or allocations). */
+function applyIoSettlementLabels(
+  lines: LedgerAllocationLine[] | undefined,
+  settlementKind: IoPrincipalSettlementKind | undefined,
+  labelHalf: string,
+  labelFull: string
+): LedgerAllocationLine[] | undefined {
+  if (!lines?.length || !settlementKind) return lines;
+  const customLabel = settlementKind === 'HALF' ? labelHalf : labelFull;
+  return lines.map((line) =>
+    line.allocationType === 'PRINCIPAL'
+      ? { ...line, customLabel }
+      : line
+  );
+}
+
 export function mapLedgerPaymentsFromDb(
   payments: Array<{
     id: string;
@@ -502,13 +585,15 @@ export function mapLedgerPaymentsFromDb(
     payment_code: string;
     receipt_number?: string;
     status: string;
+    notes?: string;
     installment_paid?: number;
     late_fee_paid?: number;
     interest_paid?: number;
     principal_paid?: number;
   }>,
   allocations: DbPaymentAllocation[],
-  lookup?: LedgerAllocationLookup
+  lookup?: LedgerAllocationLookup,
+  ioSettlementLabels?: { half: string; full: string }
 ): LedgerPaymentRecord[] {
   return payments
     .filter((p) => p.status === 'CONFIRMED')
@@ -536,10 +621,19 @@ export function mapLedgerPaymentsFromDb(
       const breakdown =
         stored ?? breakdownFromDbAllocations(paymentAllocations);
 
-      const detailLines =
+      const settlementKind = parseIoPrincipalSettlementKind(p.notes);
+      let detailLines =
         lookup && paymentAllocations.length > 0
           ? mapDbAllocationsToLedgerLines(p.id, allocations, lookup)
           : undefined;
+      if (ioSettlementLabels && settlementKind) {
+        detailLines = applyIoSettlementLabels(
+          detailLines,
+          settlementKind,
+          ioSettlementLabels.half,
+          ioSettlementLabels.full
+        );
+      }
 
       const cashReceived = roundLKR(p.amount);
       const discountAmount = roundLKR(p.discount_amount ?? 0);
@@ -555,6 +649,13 @@ export function mapLedgerPaymentsFromDb(
         interestPaid: breakdown.interestPaid,
         principalPaid: breakdown.principalPaid,
         allocationLines: detailLines,
+        ioSettlementKind: settlementKind,
+        ioSettlementLabel:
+          settlementKind && ioSettlementLabels
+            ? settlementKind === 'HALF'
+              ? ioSettlementLabels.half
+              : ioSettlementLabels.full
+            : undefined,
       };
     });
 }

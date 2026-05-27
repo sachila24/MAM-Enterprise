@@ -15,7 +15,11 @@ import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { usePaymentComputation, type PaymentFormState } from './usePaymentComputation';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
-import { recordPayment } from '../../lib/local-db/repositories';
+import {
+  recordInterestOnlyPrincipalSettlement,
+  recordPayment,
+} from '../../lib/local-db/repositories';
+import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
 import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 
@@ -48,6 +52,9 @@ export function RecordPayment() {
     initialLoanId
   );
   const [loanSearch, setLoanSearch] = useState('');
+  const [ioPaymentMode, setIoPaymentMode] = useState<'interest' | 'principal'>(
+    'interest'
+  );
 
   const [form, setForm] = useState<PaymentFormState>({
     amount: 0,
@@ -109,6 +116,13 @@ export function RecordPayment() {
       case 1:
         return !!selectedLoanId;
       case 2:
+        if (
+          selectedLoan &&
+          isInterestOnlyLoan(selectedLoan) &&
+          ioPaymentMode === 'principal'
+        ) {
+          return false;
+        }
         return form.amount > 0 || (form.discountAmount ?? 0) > 0;
       default:
         return true;
@@ -316,6 +330,155 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('enterPayment')}
               </h3>
+              {isInterestOnlyLoan(selectedLoan) &&
+                selectedLoan.currentPrincipalBalance > 0 &&
+                selectedLoan.status !== 'COMPLETED' && (
+                  <div className="flex gap-2 p-1 rounded-lg bg-neutral-100">
+                    <button
+                      type="button"
+                      onClick={() => setIoPaymentMode('interest')}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
+                        ioPaymentMode === 'interest'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-600'
+                      }`}
+                    >
+                      {t('allocInterest')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIoPaymentMode('principal')}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
+                        ioPaymentMode === 'principal'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-600'
+                      }`}
+                    >
+                      {t('principalSettlement')}
+                    </button>
+                  </div>
+                )}
+              {isInterestOnlyLoan(selectedLoan) &&
+              ioPaymentMode === 'principal' ? (
+                <div className="space-y-4 pt-2">
+                  <p className="text-sm text-neutral-600">
+                    {t('ledgerAllocPrincipalPayment')}:{' '}
+                    <span className="font-semibold tabular-nums">
+                      {formatLKR(selectedLoan.currentPrincipalBalance)}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        if (!selectedCustomer || isSubmittingRef.current) return;
+                        isSubmittingRef.current = true;
+                        setIsSubmitting(true);
+                        try {
+                          const half = roundLKR(
+                            selectedLoan.currentPrincipalBalance / 2
+                          );
+                          const result = recordInterestOnlyPrincipalSettlement(
+                            {
+                              loanId: selectedLoan.id,
+                              customerId: selectedCustomer.id,
+                              kind: 'HALF',
+                              paymentDate: form.paymentDate,
+                              clientSubmitId: crypto.randomUUID(),
+                            },
+                            db
+                          );
+                          navigate('/payments/success', {
+                            replace: true,
+                            state: {
+                              loanCode: selectedLoan.loanCode,
+                              loanId: selectedLoan.id,
+                              customerName: selectedCustomer.name,
+                              amount: half,
+                              paymentMethod: 'CASH',
+                              paymentDate: form.paymentDate,
+                              repaymentMethod: selectedLoan.repaymentMethod,
+                              receipt: result.allocation,
+                              receiptNumber: result.receiptNumber,
+                              supabasePending: false,
+                            },
+                          });
+                        } catch (err) {
+                          showToast(
+                            err instanceof Error
+                              ? err.message
+                              : t('paymentSaveFailed'),
+                            'error'
+                          );
+                          isSubmittingRef.current = false;
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="rounded-md bg-white px-4 py-2.5 text-sm font-semibold ring-1 ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      {t('halfSettlement')}
+                      <span className="block text-xs font-normal text-neutral-500 tabular-nums">
+                        {formatLKR(
+                          roundLKR(selectedLoan.currentPrincipalBalance / 2)
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        if (!selectedCustomer || isSubmittingRef.current) return;
+                        isSubmittingRef.current = true;
+                        setIsSubmitting(true);
+                        try {
+                          const result = recordInterestOnlyPrincipalSettlement(
+                            {
+                              loanId: selectedLoan.id,
+                              customerId: selectedCustomer.id,
+                              kind: 'FULL',
+                              paymentDate: form.paymentDate,
+                              clientSubmitId: crypto.randomUUID(),
+                            },
+                            db
+                          );
+                          navigate('/payments/success', {
+                            replace: true,
+                            state: {
+                              loanCode: selectedLoan.loanCode,
+                              loanId: selectedLoan.id,
+                              customerName: selectedCustomer.name,
+                              amount: selectedLoan.currentPrincipalBalance,
+                              paymentMethod: 'CASH',
+                              paymentDate: form.paymentDate,
+                              repaymentMethod: selectedLoan.repaymentMethod,
+                              receipt: result.allocation,
+                              receiptNumber: result.receiptNumber,
+                              supabasePending: false,
+                            },
+                          });
+                        } catch (err) {
+                          showToast(
+                            err instanceof Error
+                              ? err.message
+                              : t('paymentSaveFailed'),
+                            'error'
+                          );
+                          isSubmittingRef.current = false;
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
+                    >
+                      {t('fullSettlement')}
+                      <span className="block text-xs font-normal text-brand-100 tabular-nums">
+                        {formatLKR(selectedLoan.currentPrincipalBalance)}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <CurrencyInput
                 label={t('cashReceivedRequired')}
                 value={form.amount}
@@ -484,6 +647,8 @@ export function RecordPayment() {
                   className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
                 />
               </div>
+                </>
+              )}
             </div>
           )}
 

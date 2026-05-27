@@ -33,10 +33,7 @@ import {
 } from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
-import {
-  getNextDueDateForFixedInstallments,
-  getNextDueDateForInterestOnly,
-} from '../../lib/finance/loanNextDue';
+import { getNextDueDateForFixedInstallments } from '../../lib/finance/loanNextDue';
 import {
   resolveLoanDetailPreview,
   LOAN_DETAIL_PREVIEW_LINKS,
@@ -56,6 +53,7 @@ import { roundLKR } from '../../lib/finance/money';
 import { useSystemToday } from '../../lib/time/systemTime';
 import { LedgerTable } from '../../components/loans/LedgerTable';
 import { findLoanCreationDocument } from '../../lib/documents/documentService';
+import { LinkedBikeSummary } from '../../components/guarantees/LinkedBikeSummary';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 
 export function LoanDetail() {
@@ -123,6 +121,7 @@ export function LoanDetail() {
         detail={detail}
         navigate={navigate}
         invoiceDocumentId={loanInvoiceDoc?.id}
+        loanInvoiceDocumentNumber={loanInvoiceDoc?.document_number}
       />
     );
   }
@@ -141,10 +140,12 @@ function InterestOnlyLoanDetail({
   detail,
   navigate,
   invoiceDocumentId,
+  loanInvoiceDocumentNumber,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
   invoiceDocumentId?: string;
+  loanInvoiceDocumentNumber?: string;
 }) {
   const { t, language } = useT();
   const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
@@ -176,21 +177,8 @@ function InterestOnlyLoanDetail({
     [loan.startDate, loan.interestRate, loan.currentPrincipalBalance, cycleAlloc, asOf]
   );
 
-  const nextDueIo = useMemo(
-    () =>
-      getNextDueDateForInterestOnly(loan.startDate, cycleAlloc, asOf),
-    [loan.startDate, cycleAlloc, asOf]
-  );
-
   const pendingInterest =
     loan.pendingInterestAmount ?? summary.pendingInterest;
-
-  const nextDueLabel =
-    loan.status === 'COMPLETED'
-      ? 'Completed'
-      : nextDueIo.dueDate
-        ? formatDate(nextDueIo.dueDate)
-        : nextDueIo.label;
 
   const ledgerEntries = useMemo(
     () =>
@@ -199,11 +187,17 @@ function InterestOnlyLoanDetail({
         loan.originalPrincipalAmount,
         interestCycles,
         ledgerPayments,
-        asOf
+        asOf,
+        {
+          loanOpeningRef:
+            loanInvoiceDocumentNumber ?? loan.loanCode ?? null,
+        }
       ),
     [
       loan.startDate,
       loan.originalPrincipalAmount,
+      loan.loanCode,
+      loanInvoiceDocumentNumber,
       interestCycles,
       ledgerPayments,
       asOf,
@@ -240,15 +234,10 @@ function InterestOnlyLoanDetail({
         />
         <KpiCard label="Pending interest due" value={formatLKR(pendingInterest)} />
         <KpiCard
-          label="Interest cycles due"
-          value={String(summary.cyclesDueCount)}
-        />
-        <KpiCard
           label="Next estimated interest"
           value={formatLKR(summary.nextEstimatedInterest)}
         />
         <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
-        <KpiCard label="Next due date" value={nextDueLabel} />
       </div>
 
       <section className="mb-8">
@@ -561,6 +550,7 @@ function FixedInstallmentLoanDetail({
       <GuaranteesSection
         guarantees={guarantees}
         loanId={loan.id}
+        linkedBike={bike}
         navigate={navigate}
       />
     </div>
@@ -735,10 +725,12 @@ function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
 function GuaranteesSection({
   guarantees,
   loanId,
+  linkedBike,
   navigate,
 }: {
   guarantees: Guarantee[];
   loanId: string;
+  linkedBike?: import('../../types/entities').Bike;
   navigate: ReturnType<typeof useNavigate>;
 }) {
   return (
@@ -770,10 +762,17 @@ function GuaranteesSection({
               >
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
-                    <p className="font-medium text-neutral-900">
-                      {guaranteePrimaryLabel(g)}
+                    <p className="text-xs text-neutral-500 tabular-nums">
+                      {g.fileNumber || g.guaranteeCode}
+                      {g.vehicleNumber || g.itemReference
+                        ? ` · ${g.vehicleNumber ?? g.itemReference}`
+                        : ''}
                     </p>
+                    {linkedBike && (
+                      <div className="mt-2">
+                        <LinkedBikeSummary bike={linkedBike} />
+                      </div>
+                    )}
                   </div>
                   <GuaranteeStatusBadge status={g.status} />
                 </div>

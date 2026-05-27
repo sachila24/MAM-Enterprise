@@ -12,6 +12,7 @@ import type {
   CashSaleDocumentSnapshot,
   DocumentPartySnapshot,
   LoanCreationDocumentSnapshot,
+  LoanReleaseDocumentSnapshot,
   PaymentReceiptDocumentSnapshot,
 } from './types';
 
@@ -209,6 +210,25 @@ export function buildPaymentReceiptSnapshot(
   };
 }
 
+export function buildLoanReleaseSnapshot(
+  db: MamDemoDb,
+  loan: DbLoan,
+  options?: { releasedBy?: string; remarks?: string }
+): LoanReleaseDocumentSnapshot {
+  const customer = partyFromCustomer(db, loan.customer_id);
+  const profile = db.profiles[0];
+  return {
+    kind: 'LOAN_RELEASE',
+    releaseNoteNumber: '',
+    releaseDate: loan.start_date,
+    customer,
+    loanCode: loan.loan_code,
+    principalAmount: loan.principal_amount,
+    releasedBy: options?.releasedBy?.trim() || profile?.full_name?.trim() || 'Staff',
+    remarks: options?.remarks?.trim() || '',
+  };
+}
+
 export function buildCashSaleSnapshot(
   db: MamDemoDb,
   bikeId: string,
@@ -234,7 +254,11 @@ export function buildCashSaleSnapshot(
 
 export function readDocumentSnapshot(
   doc: DbDocument
-): LoanCreationDocumentSnapshot | PaymentReceiptDocumentSnapshot | CashSaleDocumentSnapshot {
+):
+  | LoanCreationDocumentSnapshot
+  | LoanReleaseDocumentSnapshot
+  | PaymentReceiptDocumentSnapshot
+  | CashSaleDocumentSnapshot {
   const meta = doc.metadata_json as LoanCreationDocumentSnapshot;
   if (meta?.kind) return meta;
   throw new Error('Invalid document snapshot');

@@ -30,11 +30,11 @@ export function bikeProfit(bike: Bike): number {
 
 export interface CreateBikeInput {
   model: string;
-  registrationNo?: string;
-  chassisNo: string;
-  engineNo: string;
-  color: string;
-  year: number;
+  registrationNo: string;
+  chassisNo?: string;
+  engineNo?: string;
+  color?: string;
+  year?: number;
   costPrice: number;
   sellingPrice: number;
   repairCost?: number;
@@ -58,15 +58,24 @@ export function createBike(
     inFlightBikeCreates.add(input.clientSubmitId);
   }
 
-  if (!input.model.trim() || !input.chassisNo.trim()) {
-    throw new Error(uiError('modelChassisRequired'));
+  if (!input.model.trim()) {
+    throw new Error(uiError('bikeFormRequiredFields'));
+  }
+  if (!input.registrationNo.trim()) {
+    throw new Error(uiError('registrationRequired'));
+  }
+  if (input.costPrice <= 0 || input.sellingPrice <= 0) {
+    throw new Error(uiError('bikePricesRequired'));
   }
 
-  const duplicateChassis = db.bikes.some(
-    (b) => b.chassis_no.toLowerCase() === input.chassisNo.trim().toLowerCase()
-  );
-  if (duplicateChassis) {
-    throw new Error(uiError('chassisExists'));
+  const chassis = input.chassisNo?.trim() ?? '';
+  if (chassis) {
+    const duplicateChassis = db.bikes.some(
+      (b) => b.chassis_no.trim().toLowerCase() === chassis.toLowerCase()
+    );
+    if (duplicateChassis) {
+      throw new Error(uiError('chassisExists'));
+    }
   }
 
   try {
@@ -79,11 +88,11 @@ export function createBike(
       created_at: ts,
       updated_at: ts,
       model: input.model.trim(),
-      registration_no: input.registrationNo?.trim() || undefined,
-      chassis_no: input.chassisNo.trim(),
-      engine_no: input.engineNo.trim(),
-      color: input.color.trim(),
-      year: input.year,
+      registration_no: input.registrationNo.trim(),
+      chassis_no: chassis,
+      engine_no: input.engineNo?.trim() ?? '',
+      color: input.color?.trim() ?? '',
+      year: input.year ?? 0,
       cost_price: input.costPrice,
       selling_price: input.sellingPrice,
       repair_cost: input.repairCost ?? 0,

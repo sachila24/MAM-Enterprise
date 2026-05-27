@@ -2,8 +2,10 @@ import { generateDocumentNumber } from './documentNumber';
 import {
   buildCashSaleSnapshot,
   buildLoanCreationSnapshot,
+  buildLoanReleaseSnapshot,
   buildPaymentReceiptSnapshot,
 } from './snapshots';
+import type { LoanReleaseDocumentSnapshot } from './types';
 import { generateId } from '../local-db/localDb';
 import type { DbDocument, MamDemoDb } from '../local-db/types';
 import type {
@@ -26,6 +28,37 @@ function pushDocument(
   if (!db.documents) db.documents = [];
   db.documents.push(doc);
   return doc;
+}
+
+/** Document only — does not create ledger rows or payments. */
+export function createLoanReleaseDocument(
+  db: MamDemoDb,
+  loanId: string,
+  options?: { releasedBy?: string; remarks?: string; createdBy?: string }
+): DbDocument {
+  const loan = db.loans.find((l) => l.id === loanId);
+  if (!loan) throw new Error('Loan not found for release document');
+
+  const existing = db.documents?.find(
+    (d) => d.loan_id === loanId && d.document_type === 'LOAN_RELEASE'
+  );
+  if (existing) return existing;
+
+  const documentNumber = generateDocumentNumber('LOAN_RELEASE', db.counters);
+  const snapshot: LoanReleaseDocumentSnapshot = {
+    ...buildLoanReleaseSnapshot(db, loan, options),
+    releaseNoteNumber: documentNumber,
+  };
+
+  return pushDocument(db, {
+    document_number: documentNumber,
+    document_type: 'LOAN_RELEASE',
+    loan_id: loanId,
+    customer_id: loan.customer_id,
+    created_by: options?.createdBy ?? db.profiles[0]?.id,
+    total_amount: snapshot.principalAmount,
+    metadata_json: snapshot,
+  });
 }
 
 export function createLoanCreationDocument(
@@ -134,6 +167,15 @@ export function findLoanCreationDocument(
 ): DbDocument | undefined {
   return db.documents?.find(
     (d) => d.loan_id === loanId && d.document_type === 'LOAN_CREATION'
+  );
+}
+
+export function findLoanReleaseDocument(
+  db: MamDemoDb,
+  loanId: string
+): DbDocument | undefined {
+  return db.documents?.find(
+    (d) => d.loan_id === loanId && d.document_type === 'LOAN_RELEASE'
   );
 }
 

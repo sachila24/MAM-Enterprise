@@ -2,6 +2,7 @@ import type { DocumentType } from './types';
 
 const PREFIX: Record<DocumentType, string> = {
   LOAN_CREATION: 'LN',
+  LOAN_RELEASE: 'RLN',
   PAYMENT_RECEIPT: 'RCPT',
   CASH_SALE: 'CS',
 };

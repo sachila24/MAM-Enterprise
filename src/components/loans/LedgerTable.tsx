@@ -746,12 +746,14 @@ function LedgerPaymentBreakdownVertical({
       <p className={breakdownHeaderClass}>{appliedLabel}:</p>
       <ul className={breakdownListClass}>
         {lines.map((line) => {
-          const label = formatLedgerAllocationLabel(
-            line.allocationType,
-            line.dueDate,
-            t,
-            language
-          );
+          const label =
+            line.customLabel ??
+            formatLedgerAllocationLabel(
+              line.allocationType,
+              line.dueDate,
+              t,
+              language
+            );
           return (
             <LedgerVerticalBreakdownLine
               key={line.key}

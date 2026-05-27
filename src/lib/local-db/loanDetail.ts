@@ -16,6 +16,7 @@ import {
   mapLedgerPaymentsFromDb,
 } from '../display/ledgerDisplay';
 import { findPaymentReceiptDocument } from '../documents/documentService';
+import { getLabel } from '../i18n/simpleLabels';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -85,6 +86,10 @@ export function getLoanDetailFromDb(
         cycleNumber: c.cycleNumber,
         dueDate: c.dueDate,
       })),
+    },
+    {
+      half: getLabel('ledgerPrincipalSettlementHalf', 'en'),
+      full: getLabel('ledgerPrincipalSettlementFull', 'en'),
     }
   );
   const ledgerInstallments = mapInstallmentsToLedgerSource(installments);

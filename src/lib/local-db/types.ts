@@ -254,6 +254,7 @@ export interface DbAuditLog {
 
 export type DocumentType =
   | 'LOAN_CREATION'
+  | 'LOAN_RELEASE'
   | 'PAYMENT_RECEIPT'
   | 'CASH_SALE';
 

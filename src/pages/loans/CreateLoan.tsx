@@ -29,7 +29,10 @@ import {
   mapGuaranteeDraftsToCreate,
   type LocalGuaranteeDraft,
 } from '../../lib/guarantee/guaranteeFields';
+import { BikeSearchSelect } from '../../components/bikes/BikeSearchSelect';
 import { GuaranteeFieldsForm } from '../../components/guarantees/GuaranteeFieldsForm';
+import { GuaranteeDraftSummary } from '../../components/guarantees/GuaranteeDraftSummary';
+import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
 
 export function CreateLoan() {
@@ -58,8 +61,6 @@ export function CreateLoan() {
 
   const [loanAmount, setLoanAmount] = useState(0);
   const [monthlyInterestInput, setMonthlyInterestInput] = useState('5');
-  const [dueDay, setDueDay] = useState(1);
-
   const [financeAmount, setFinanceAmount] = useState(0);
   const [termMonths, setTermMonths] = useState(36);
   const [monthlyFlatInput, setMonthlyFlatInput] = useState('2.5');
@@ -160,7 +161,6 @@ export function CreateLoan() {
       if (currentStep === 3 && isInterestOnly) {
         if (!isBike && (!loanAmount || loanAmount <= 0))
           return t('enterLoanAmount');
-        if (!firstDueDate) return t('setFirstDueDate');
       }
       if (currentStep === 3 && !isInterestOnly) {
         if (!isBike && (!financeAmount || financeAmount <= 0))
@@ -211,8 +211,9 @@ export function CreateLoan() {
           lateFeeRate: isInterestOnly ? 0 : lateFeeRate,
           discountAmount,
           startDate,
-          firstDueDate: firstDueDate || computeFirstDueDate(startDate),
-          dueDay: isInterestOnly ? dueDay : undefined,
+          firstDueDate:
+            firstDueDate ||
+            computeFirstDueDate(startDate),
           bikeId: isBike ? bikeId : undefined,
           downPayment: isBike ? downPayment : undefined,
           guarantees: mapGuaranteeDraftsToCreate(guaranteeDrafts),
@@ -363,26 +364,6 @@ export function CreateLoan() {
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Due day (1–28) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(parseInt(e.target.value, 10) || 1)}
-                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
-                  />
-                </div>
-                <DatePicker
-                  label="First due date *"
-                  value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)}
-                />
-                <p className="text-xs text-neutral-500">
-                  Same day each month (e.g. start May 15 → first due June 15).
-                </p>
                 <p className="text-sm text-info-700 bg-info-50 rounded-md p-3">
                   {t('guaranteeRequiredHint')}
                 </p>
@@ -396,18 +377,12 @@ export function CreateLoan() {
                 </h3>
                 {isBike && (
                   <div className="space-y-4 pb-6 border-b border-neutral-200">
-                    <select
-                      value={bikeId}
-                      onChange={(e) => handleBikeSelect(e.target.value)}
-                      className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
-                    >
-                      <option value="">-- Select in-stock bike --</option>
-                      {bikes.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.bikeCode} · {b.model} — {b.engineNo}
-                        </option>
-                      ))}
-                    </select>
+                    <BikeSearchSelect
+                      bikes={bikes}
+                      selectedBikeId={bikeId || null}
+                      onSelect={(id) => handleBikeSelect(id ?? '')}
+                      placeholder={t('selectInStockBike')}
+                    />
                     <CurrencyInput
                       label="Bike selling price *"
                       value={sellingPrice}
@@ -501,10 +476,14 @@ export function CreateLoan() {
               <div className="space-y-8">
                 {isBike && bikeId && (
                   <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-1">
-                    <p className="font-semibold text-neutral-900">Selected bike</p>
+                    <p className="font-semibold text-neutral-900">{t('selectedBikeLabel')}</p>
                     <p>
-                      {bikes.find((b) => b.id === bikeId)?.bikeCode ?? '—'} ·{' '}
-                      {bikes.find((b) => b.id === bikeId)?.model ?? '—'}
+                      {(() => {
+                        const b = bikes.find((x) => x.id === bikeId);
+                        return b
+                          ? formatBikeSelectLabel(b, t('notRegistered'))
+                          : '—';
+                      })()}
                     </p>
                     <p>
                       Selling {formatLKR(sellingPrice)} · Down{' '}
@@ -577,6 +556,14 @@ export function CreateLoan() {
                                 x.key === g.key ? { ...x, ...patch } : x
                               )
                             )
+                          }
+                        />
+                        <GuaranteeDraftSummary
+                          draft={g}
+                          linkedBike={
+                            isBike && bikeId
+                              ? bikes.find((b) => b.id === bikeId)
+                              : null
                           }
                         />
                       </li>

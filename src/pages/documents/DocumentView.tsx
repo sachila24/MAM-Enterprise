@@ -3,12 +3,14 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeftIcon, PrinterIcon } from 'lucide-react';
 import { CashSaleInvoicePrint } from '../../components/documents/CashSaleInvoicePrint';
 import { LoanInvoicePrint } from '../../components/documents/LoanInvoicePrint';
+import { LoanReleaseNotePrint } from '../../components/documents/LoanReleaseNotePrint';
 import { PaymentReceiptDocumentPrint } from '../../components/documents/PaymentReceiptDocumentPrint';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { readDocumentSnapshot } from '../../lib/documents/snapshots';
 import type {
   CashSaleDocumentSnapshot,
   LoanCreationDocumentSnapshot,
+  LoanReleaseDocumentSnapshot,
   PaymentReceiptDocumentSnapshot,
 } from '../../lib/documents/types';
 import { getDocument } from '../../lib/local-db/repositories/documentsRepo';
@@ -78,6 +80,15 @@ export function DocumentView() {
         documentNumber={doc.document_number}
         createdAt={doc.created_at}
         snapshot={snapshot as LoanCreationDocumentSnapshot}
+        language={language}
+      />
+    );
+  } else if (snapshot.kind === 'LOAN_RELEASE') {
+    body = (
+      <LoanReleaseNotePrint
+        documentNumber={doc.document_number}
+        createdAt={doc.created_at}
+        snapshot={snapshot as LoanReleaseDocumentSnapshot}
         language={language}
       />
     );
