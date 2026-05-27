@@ -230,14 +230,14 @@ export function BikeDetail() {
           label={bike.status === 'sold' ? t('soldDateLabel') : t('purchaseDateLabel')}
           value={
             bike.status === 'sold' && bike.soldDate
-              ? formatDate(bike.soldDate)
-              : formatDate(bike.purchaseDate)
+              ? formatDate(bike.soldDate, 'short', language)
+              : formatDate(bike.purchaseDate, 'short', language)
           }
         />
       </div>
 
       <div className="border-b border-neutral-200 mb-6">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-8" aria-label={t('ariaTabs')}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -330,7 +330,7 @@ export function BikeDetail() {
                     <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                       <p className="text-sm text-neutral-500">{t('addedToStockHistory')}</p>
                       <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
-                        {formatDate(bike.purchaseDate)}
+                        {formatDate(bike.purchaseDate, 'short', language)}
                       </p>
                     </div>
                   </div>
@@ -348,7 +348,7 @@ export function BikeDetail() {
                       <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                         <p className="text-sm text-neutral-500">{t('markedAsSoldHistory')}</p>
                         <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
-                          {formatDate(bike.soldDate)}
+                          {formatDate(bike.soldDate, 'short', language)}
                         </p>
                       </div>
                     </div>
@@ -376,7 +376,7 @@ export function BikeDetail() {
                         {loan.loanCode}
                       </p>
                       <p className="mt-1 text-sm text-neutral-500 tabular-nums">
-                        {formatDate(loan.startDate)}
+                        {formatDate(loan.startDate, 'short', language)}
                       </p>
                     </div>
                     <div className="flex flex-col items-end">

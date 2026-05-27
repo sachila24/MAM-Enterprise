@@ -29,7 +29,7 @@ export function DocumentView() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const db = useDemoDb();
-  const { language } = useT();
+  const { t, language } = useT();
 
   const doc = id ? getDocument(id, db) : undefined;
 
@@ -54,8 +54,8 @@ export function DocumentView() {
     return (
       <div className="max-w-lg mx-auto pt-12">
         <EmptyState
-          title="Document not found"
-          description="This invoice or receipt may have been removed."
+          title={t('documentNotFound')}
+          description={t('documentNotFoundHint')}
         />
         <Link to="/" className="mt-4 inline-block text-sm font-semibold text-brand-600">
           {getDocumentLabel('back', language)}

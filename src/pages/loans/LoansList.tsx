@@ -16,7 +16,7 @@ import {
 } from '../../lib/display/ledgerDisplay';
 
 export function LoansList() {
-  const { t } = useT();
+  const { t, language } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
@@ -183,7 +183,7 @@ export function LoansList() {
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
                     {loan.lastPaymentDate
-                      ? formatDate(loan.lastPaymentDate)
+                      ? formatDate(loan.lastPaymentDate, 'short', language)
                       : '—'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">

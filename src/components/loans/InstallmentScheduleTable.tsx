@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDate, formatLKR } from '../../lib/format';
 import { StatusChip } from '../ui/StatusChip';
+import { useT } from '../../i18n/I18nProvider';
 
 export interface InstallmentScheduleRow {
   id: string;
@@ -27,13 +28,16 @@ const tdBase =
 
 export function InstallmentScheduleTable({
   rows,
-  emptyMessage = 'No installments on this loan.',
+  emptyMessage,
   showMonthsLate = true,
 }: InstallmentScheduleTableProps) {
+  const { t } = useT();
+  const empty = emptyMessage ?? t('noInstallmentsOnLoan');
+
   if (rows.length === 0) {
     return (
       <p className="text-sm text-neutral-500 py-8 text-center bg-white rounded-xl ring-1 ring-neutral-200">
-        {emptyMessage}
+        {empty}
       </p>
     );
   }
@@ -43,16 +47,18 @@ export function InstallmentScheduleTable({
       <table className="min-w-full text-sm border-collapse">
         <thead className="bg-neutral-50 border-b border-neutral-200">
           <tr>
-            <th className={`${thBase} text-center w-14`}>No.</th>
-            <th className={`${thBase} text-left`}>Due date</th>
-            <th className={`${thBase} text-right`}>Installment</th>
-            <th className={`${thBase} text-right`}>Paid</th>
+            <th className={`${thBase} text-center w-14`}>{t('scheduleColNo')}</th>
+            <th className={`${thBase} text-left`}>{t('scheduleColDueDate')}</th>
+            <th className={`${thBase} text-right`}>{t('scheduleColInstallment')}</th>
+            <th className={`${thBase} text-right`}>{t('scheduleColPaid')}</th>
             {showMonthsLate && (
-              <th className={`${thBase} text-center w-24`}>Months late</th>
+              <th className={`${thBase} text-center w-24`}>
+                {t('scheduleColMonthsLate')}
+              </th>
             )}
-            <th className={`${thBase} text-right`}>Late fee</th>
-            <th className={`${thBase} text-right`}>Remaining</th>
-            <th className={`${thBase} text-center w-32`}>Status</th>
+            <th className={`${thBase} text-right`}>{t('scheduleColLateFee')}</th>
+            <th className={`${thBase} text-right`}>{t('scheduleColRemaining')}</th>
+            <th className={`${thBase} text-center w-32`}>{t('field.status')}</th>
           </tr>
         </thead>
         <tbody>

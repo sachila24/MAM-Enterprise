@@ -22,7 +22,7 @@ import { useT } from '../../i18n/I18nProvider';
 
 type Tab = 'overview' | 'loans' | 'payments' | 'guarantees';
 export function CustomerDetail() {
-  const { t } = useT();
+  const { t, tf, language } = useT();
   const { id } = useParams<{
     id: string;
   }>();
@@ -89,7 +89,7 @@ export function CustomerDetail() {
             <StatusChip status={customer.status} />
           </h1>
           <p className="mt-1 text-sm text-neutral-500 tabular-nums">
-            {customer.id} · NIC: {customer.nic}
+            {customer.id} · {t('customerNicLabel')}: {customer.nic}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex gap-3">
@@ -112,7 +112,7 @@ export function CustomerDetail() {
 
       {/* Tabs */}
       <div className="border-b border-neutral-200">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-8" aria-label={t('ariaTabs')}>
           {tabs.map((tab) =>
           <button
             key={tab.id}
@@ -135,13 +135,13 @@ export function CustomerDetail() {
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
                 <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider mb-4">
-                  Contact Info
+                  {t('contactInfo')}
                 </h3>
                 <dl className="space-y-4">
                   <div className="flex items-start gap-3">
                     <PhoneIcon className="h-5 w-5 text-neutral-400 shrink-0 mt-0.5" />
                     <div>
-                      <dt className="sr-only">Phone</dt>
+                      <dt className="sr-only">{t('field.phone')}</dt>
                       <dd className="text-sm font-medium text-neutral-900 tabular-nums">
                         {customer.phone}
                       </dd>
@@ -150,7 +150,7 @@ export function CustomerDetail() {
                   <div className="flex items-start gap-3">
                     <MapPinIcon className="h-5 w-5 text-neutral-400 shrink-0 mt-0.5" />
                     <div>
-                      <dt className="sr-only">Address</dt>
+                      <dt className="sr-only">{t('field.address')}</dt>
                       <dd className="text-sm text-neutral-900">
                         {customer.address}
                       </dd>
@@ -161,27 +161,27 @@ export function CustomerDetail() {
 
               <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
                 <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider mb-4">
-                  Account Summary
+                  {t('accountSummary')}
                 </h3>
                 <dl className="space-y-4">
                   <div className="flex justify-between">
                     <dt className="text-sm text-neutral-500">
-                      Total Outstanding
+                      {t('totalOutstanding')}
                     </dt>
                     <dd className="text-sm font-semibold text-neutral-900 tabular-nums">
                       {formatLKR(customer.outstandingBalance)}
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-sm text-neutral-500">Active Loans</dt>
+                    <dt className="text-sm text-neutral-500">{t('activeLoans')}</dt>
                     <dd className="text-sm font-medium text-neutral-900 tabular-nums">
                       {customer.activeLoans}
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-sm text-neutral-500">Customer Since</dt>
+                    <dt className="text-sm text-neutral-500">{t('customerSince')}</dt>
                     <dd className="text-sm font-medium text-neutral-900 tabular-nums">
-                      {formatDate(customer.createdAt)}
+                      {formatDate(customer.createdAt, 'short', language)}
                     </dd>
                   </div>
                 </dl>
@@ -192,7 +192,7 @@ export function CustomerDetail() {
               <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
                 <div className="border-b border-neutral-200 px-4 py-5 sm:px-6">
                   <h3 className="text-base font-semibold leading-6 text-neutral-900">
-                    Active Loans
+                    {t('activeLoans')}
                   </h3>
                 </div>
                 {loans.filter((l) => !['COMPLETED', 'SETTLED'].includes(l.status)).length > 0 ?
@@ -211,7 +211,10 @@ export function CustomerDetail() {
                                 {loan.loanCode}
                               </p>
                               <p className="text-sm text-neutral-500 mt-1">
-                                {formatEnum(loan.loanPurpose)} · {loan.termMonths ?? '—'} months
+                                {formatEnum(loan.loanPurpose, language)}
+                                {loan.termMonths != null
+                                  ? ` · ${tf('termMonthsCount', { count: loan.termMonths })}`
+                                  : ''}
                               </p>
                             </div>
                             <div className="text-right">
@@ -228,7 +231,7 @@ export function CustomerDetail() {
                   </ul> :
 
               <div className="px-4 py-8 text-center text-sm text-neutral-500">
-                    No active loans.
+                    {t('noActiveLoans')}
                   </div>
               }
               </div>
@@ -245,37 +248,37 @@ export function CustomerDetail() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                    Loan ID
+                    {t('loanId')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Type
+                    {t('field.type')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Start Date
+                    {t('startDateCol')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Status
+                    {t('field.status')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                    Amount
+                    {t('colAmount')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                    Balance
+                    {t('field.balance')}
                   </th>
                 </tr>
               </thead>
@@ -290,10 +293,10 @@ export function CustomerDetail() {
                       {loan.loanCode}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {formatEnum(loan.loanPurpose)}
+                      {formatEnum(loan.loanPurpose, language)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
-                      {formatDate(loan.startDate)}
+                      {formatDate(loan.startDate, 'short', language)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <StatusChip status={loan.status} />
@@ -312,7 +315,7 @@ export function CustomerDetail() {
                   colSpan={6}
                   className="py-10 text-center text-sm text-neutral-500">
                   
-                      No loans found.
+                      {t('noLoansFound')}
                     </td>
                   </tr>
               }
@@ -330,37 +333,37 @@ export function CustomerDetail() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                    Receipt No
+                    {t('colReceiptNo')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Date
+                    {t('field.date')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Loan ID
+                    {t('loanId')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Method
+                    {t('paymentMethod')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Status
+                    {t('field.status')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
                   
-                    Amount
+                    {t('colAmount')}
                   </th>
                 </tr>
               </thead>
@@ -371,7 +374,7 @@ export function CustomerDetail() {
                       {payment.receiptNo}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
-                      {formatDate(payment.paidAt)}
+                      {formatDate(payment.paidAt, 'short', language)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-brand-600 tabular-nums">
                       <Link to={`/loans/${payment.loanId}`}>
@@ -379,7 +382,7 @@ export function CustomerDetail() {
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                      {payment.method.replace('_', ' ')}
+                      {formatEnum(payment.method, language)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <StatusChip status={payment.status} />
@@ -395,7 +398,7 @@ export function CustomerDetail() {
                   colSpan={6}
                   className="py-10 text-center text-sm text-neutral-500">
                   
-                      No payments found.
+                      {t('noPaymentsFound')}
                     </td>
                   </tr>
               }
@@ -413,31 +416,31 @@ export function CustomerDetail() {
                   scope="col"
                   className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
                   
-                    Type
+                    {t('field.type')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Description
+                    {t('field.description')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Loan ID
+                    {t('loanId')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Location
+                    {t('storageLocation')}
                   </th>
                   <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   
-                    Status
+                    {t('field.status')}
                   </th>
                 </tr>
               </thead>
@@ -445,7 +448,7 @@ export function CustomerDetail() {
                 {guarantees.map((guarantee) =>
               <tr key={guarantee.id} className="hover:bg-neutral-50">
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
-                      {guarantee.type.replace('_', ' ')}
+                      {formatEnum(guarantee.type, language)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                       {guarantee.description}
@@ -469,7 +472,7 @@ export function CustomerDetail() {
                   colSpan={5}
                   className="py-10 text-center text-sm text-neutral-500">
                   
-                      No guarantees found.
+                      {t('noGuaranteesFound')}
                     </td>
                   </tr>
               }

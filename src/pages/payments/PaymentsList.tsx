@@ -16,7 +16,7 @@ import {
 import { useSystemToday } from '../../lib/time/systemTime';
 
 export function PaymentsList() {
-  const { t } = useT();
+  const { t, language } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
@@ -130,7 +130,7 @@ export function PaymentsList() {
                 className="hover:bg-neutral-50 transition-colors">
                 
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-neutral-500 sm:pl-6 tabular-nums">
-                    {formatDate(p.paymentDate)}
+                    {formatDate(p.paymentDate, 'short', language)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-brand-600 tabular-nums">
                     {p.receiptNumber}
@@ -148,7 +148,7 @@ export function PaymentsList() {
                     {p.discountAmount > 0 ? formatLKR(p.discountAmount) : '—'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                    {formatEnum(p.paymentMethod)}
+                    {formatEnum(p.paymentMethod, language)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">
                     <StatusChip

@@ -67,7 +67,7 @@ export function AppShell() {
                 className="-m-2.5 p-2.5 text-neutral-500 hover:text-neutral-700"
                 onClick={() => setMobileMenuOpen(false)}>
                 
-                  <span className="sr-only">Close sidebar</span>
+                  <span className="sr-only">{t('closeSidebar')}</span>
                   <X className="h-6 w-6" aria-hidden="true" />
                 </button>
               </div>

@@ -8,6 +8,7 @@ import {
 } from '../../finance/paymentAllocation';
 import { runLateFeeEngine } from '../../finance/fixedInstallmentStatus';
 import { getLateFeeLineByInstallmentId } from '../../finance/lateFeeEngineV3';
+import { deriveInterestCycleStatus } from '../../finance/interestOnly';
 import { roundLKR } from '../../finance/money';
 import {
   splitAllocationsCashAndDiscount,
@@ -385,8 +386,10 @@ function applyInterestOnlyAllocation(
       const cycle = cycles.find((c) => c.id === line.interestCycleId);
       if (cycle) {
         cycle.interest_paid = roundLKR(cycle.interest_paid + line.amount);
-        cycle.status =
-          cycle.interest_paid >= cycle.interest_due ? 'PAID' : 'PARTIAL';
+        cycle.status = deriveInterestCycleStatus(
+          cycle.interest_due,
+          cycle.interest_paid
+        );
         cycle.updated_at = ts;
       }
     }

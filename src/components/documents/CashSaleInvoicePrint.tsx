@@ -67,8 +67,8 @@ export function CashSaleInvoicePrint({
           <h3 className="doc-section-title">{L.financeDetails}</h3>
           <div className="doc-grid-2">
             <Field label={L.salePrice} value={formatLKR(snapshot.soldPrice)} />
-            <Field label="Repair" value={formatLKR(snapshot.repairCost)} />
-            <Field label="Other cost" value={formatLKR(snapshot.otherCost)} />
+            <Field label={L.repairCost} value={formatLKR(snapshot.repairCost)} />
+            <Field label={L.otherCost} value={formatLKR(snapshot.otherCost)} />
           </div>
           <p className="doc-locked-banner">{snapshot.buyerNote}</p>
 

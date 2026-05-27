@@ -13,7 +13,7 @@ export function KpiCard({ label, value, delta, icon: Icon }: KpiCardProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200 sm:p-6">
       <div className="flex items-center justify-between">
-        <dt className="truncate text-sm font-medium text-neutral-500 uppercase tracking-wider">
+        <dt className="min-w-0 text-xs sm:text-sm font-medium text-neutral-500 leading-snug whitespace-normal break-words">
           {label}
         </dt>
         {Icon &&

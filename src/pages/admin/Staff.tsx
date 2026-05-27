@@ -24,15 +24,15 @@ export function Staff() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Staff"
-        subtitle="Manage users who can sign in to this system"
+        title={t('nav.staff')}
+        subtitle={t('staffSubtitle')}
         actions={
         <button
           onClick={() => setIsInviteModalOpen(true)}
           className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
           
             <UserPlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
-            Invite staff
+            {t('inviteStaff')}
           </button>
         } />
       
@@ -42,19 +42,19 @@ export function Staff() {
           <thead className="bg-neutral-50">
             <tr>
               <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                Name & Email
+                {t('nameAndEmail')}
               </th>
               <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                Role
+                {t('roleLabel')}
               </th>
               <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                Status
+                {t('field.status')}
               </th>
               <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                Last Sign In
+                {t('lastSignIn')}
               </th>
               <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t('colActions')}</span>
               </th>
             </tr>
           </thead>
@@ -64,7 +64,7 @@ export function Staff() {
                 <td
                   colSpan={5}
                   className="py-10 text-center text-sm text-neutral-500">
-                  No staff members yet. Invite someone to get started.
+                  {t('noStaffYet')}
                 </td>
               </tr>
             )}
@@ -99,7 +99,7 @@ export function Staff() {
                 <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                   {user.role !== 'OWNER' &&
                 <button className="text-danger-600 hover:text-danger-900">
-                      Deactivate
+                      {t('deactivate')}
                     </button>
                 }
                 </td>
@@ -127,7 +127,7 @@ export function Staff() {
                   onClick={() => setIsInviteModalOpen(false)}
                   className="rounded-md bg-white text-neutral-400 hover:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
                   
-                    <span className="sr-only">Close</span>
+                    <span className="sr-only">{t('action.close')}</span>
                     <XIcon className="h-6 w-6" aria-hidden="true" />
                   </button>
                 </div>
@@ -143,12 +143,11 @@ export function Staff() {
                     className="text-base font-semibold leading-6 text-neutral-900"
                     id="modal-title">
                     
-                      Invite Staff Member
+                      {t('inviteStaffMember')}
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-neutral-500">
-                        They will receive an email invitation to set their
-                        password and sign in.
+                        {t('inviteStaffHint')}
                       </p>
                     </div>
 
@@ -158,7 +157,7 @@ export function Staff() {
                         htmlFor="email"
                         className="block text-sm font-medium leading-6 text-neutral-900">
                         
-                          Email address
+                          {t('emailAddress')}
                         </label>
                         <input
                         type="email"
@@ -173,15 +172,15 @@ export function Staff() {
                         htmlFor="role"
                         className="block text-sm font-medium leading-6 text-neutral-900">
                         
-                          Role
+                          {t('roleLabel')}
                         </label>
                         <select
                         id="role"
                         className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6">
                         
-                          <option value="STAFF">Staff (Standard access)</option>
+                          <option value="STAFF">{t('roleStaffStandard')}</option>
                           <option value="MANAGER">
-                            Manager (Can approve loans)
+                            {t('roleManagerApprove')}
                           </option>
                         </select>
                       </div>
@@ -192,14 +191,14 @@ export function Staff() {
                         disabled={isSubmitting}
                         className="inline-flex w-full justify-center rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 sm:ml-3 sm:w-auto disabled:opacity-50">
                         
-                          {isSubmitting ? 'Sending...' : 'Send invitation'}
+                          {isSubmitting ? t('sending') : t('sendInvitation')}
                         </button>
                         <button
                         type="button"
                         onClick={() => setIsInviteModalOpen(false)}
                         className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 sm:mt-0 sm:w-auto">
                         
-                          Cancel
+                          {t('action.cancel')}
                         </button>
                       </div>
                     </form>

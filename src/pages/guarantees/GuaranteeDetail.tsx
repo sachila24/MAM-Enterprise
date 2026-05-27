@@ -12,7 +12,6 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { useToast } from '../../components/ui/Toast';
 import { formatDate, formatLKR } from '../../lib/format';
-import { getLabel } from '../../lib/i18n/simpleLabels';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { LinkedBikeSummary } from '../../components/guarantees/LinkedBikeSummary';
 import {
@@ -42,6 +41,7 @@ function guaranteeTitle(g: Guarantee): string {
 }
 
 function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
+  const { t } = useT();
   const held = status === 'held';
   return (
     <span
@@ -51,7 +51,7 @@ function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
           : 'bg-success-50 text-success-800 ring-success-200'
       }`}
     >
-      {getLabel(held ? 'guaranteeStatusHeld' : 'guaranteeStatusReleased', 'both')}
+      {t(held ? 'guaranteeStatusHeld' : 'guaranteeStatusReleased')}
     </span>
   );
 }
@@ -215,9 +215,8 @@ export function GuaranteeDetail() {
             <InfoMiniCard label={t('vehicleNumber')} value={vehicleNumber} emphasize />
             <InfoMiniCard
               label={t('field.status')}
-              value={getLabel(
-                isHeld ? 'guaranteeStatusHeld' : 'guaranteeStatusReleased',
-                'both'
+              value={t(
+                isHeld ? 'guaranteeStatusHeld' : 'guaranteeStatusReleased'
               )}
             />
             <InfoMiniCard

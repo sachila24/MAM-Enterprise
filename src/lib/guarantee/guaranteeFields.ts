@@ -1,5 +1,6 @@
 import type { CreateGuaranteeDraft } from '../local-db/repositories/loansRepo';
 import type { Guarantee } from '../../types/entities';
+import type { LabelKey } from '../i18n/simpleLabels';
 
 /** Simplified guarantee form / persistence fields (all optional). */
 export interface GuaranteeFieldValues {
@@ -98,27 +99,28 @@ export function guaranteePrimaryLabel(g: Guarantee): string {
 }
 
 export function guaranteeDetailLines(
-  g: Guarantee
+  g: Guarantee,
+  label: (key: LabelKey) => string
 ): Array<{ label: string; value: string }> {
   const lines: Array<{ label: string; value: string }> = [];
-  const add = (label: string, value: string | undefined) => {
-    if (value?.trim()) lines.push({ label, value: value.trim() });
+  const add = (key: LabelKey, value: string | undefined) => {
+    if (value?.trim()) lines.push({ label: label(key), value: value.trim() });
   };
-  add('File number', g.fileNumber);
-  add('Vehicle number', g.vehicleNumber ?? g.itemReference);
-  add('Guarantor 1', g.guarantor1Name ?? g.ownerNameOnDocument);
-  add('Address', g.guarantor1Address);
-  add('Phone', g.guarantor1Phone);
-  add('NIC', g.guarantor1Nic);
-  add('Guarantor 2', g.guarantor2Name);
-  add('Address', g.guarantor2Address);
-  add('Phone', g.guarantor2Phone);
-  add('NIC', g.guarantor2Nic);
+  add('fileNumber', g.fileNumber);
+  add('vehicleNumber', g.vehicleNumber ?? g.itemReference);
+  add('guarantor1', g.guarantor1Name ?? g.ownerNameOnDocument);
+  add('guarantorAddress', g.guarantor1Address);
+  add('guarantorPhone', g.guarantor1Phone);
+  add('guarantorNic', g.guarantor1Nic);
+  add('guarantor2', g.guarantor2Name);
+  add('guarantorAddress', g.guarantor2Address);
+  add('guarantorPhone', g.guarantor2Phone);
+  add('guarantorNic', g.guarantor2Nic);
   if (lines.length === 0 && g.description.trim()) {
-    lines.push({ label: 'Description', value: g.description });
+    lines.push({ label: label('csvDescription'), value: g.description });
   }
   if (g.storageLocation.trim()) {
-    lines.push({ label: 'Storage', value: g.storageLocation });
+    lines.push({ label: label('storageLocation'), value: g.storageLocation });
   }
   return lines;
 }

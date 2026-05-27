@@ -72,7 +72,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         className="-m-2.5 p-2.5 text-neutral-700 lg:hidden"
         onClick={onMenuClick}>
         
-        <span className="sr-only">Open sidebar</span>
+        <span className="sr-only">{t('openSidebar')}</span>
         <MenuIcon className="h-6 w-6" aria-hidden="true" />
       </button>
 
@@ -87,7 +87,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             type="button"
             className="-m-2.5 p-2.5 text-neutral-400 hover:text-neutral-500 relative">
             
-            <span className="sr-only">View notifications</span>
+            <span className="sr-only">{t('viewNotifications')}</span>
             <BellIcon className="h-6 w-6" aria-hidden="true" />
             <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-white" />
           </button>

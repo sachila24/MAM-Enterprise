@@ -13,9 +13,8 @@ import { isInterestOnlyLoan, type Loan } from '../../types/loan';
 import type { Guarantee } from '../../types/entities';
 import {
   guaranteeDetailLines,
-  guaranteePrimaryLabel,
 } from '../../lib/guarantee/guaranteeFields';
-import { getLabel } from '../../lib/i18n/simpleLabels';
+import type { LabelKey } from '../../lib/i18n/simpleLabels';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
   getFixedLoanDisplayStatus,
@@ -29,7 +28,6 @@ import {
   buildFixedInstallmentLedgerEntries,
   buildInterestOnlyLedgerEntries,
   enrichLedgerInstallmentsWithLiveLateFees,
-  formatOverdueHuman,
 } from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
@@ -55,6 +53,18 @@ import { LedgerTable } from '../../components/loans/LedgerTable';
 import { findLoanCreationDocument } from '../../lib/documents/documentService';
 import { LinkedBikeSummary } from '../../components/guarantees/LinkedBikeSummary';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
+
+function formatOverdueLabel(
+  daysOverdue: number,
+  tf: (key: LabelKey, params?: Record<string, string | number>) => string
+): string {
+  if (daysOverdue <= 0) return '';
+  const months = Math.floor(daysOverdue / 30);
+  const days = daysOverdue % 30;
+  if (months === 0) return tf('overdueDaysOnly', { days });
+  if (days === 0) return tf('overdueMonthsOnly', { months });
+  return tf('overdueMonthsAndDays', { months, days });
+}
 
 export function LoanDetail() {
   const { t } = useT();
@@ -84,8 +94,8 @@ export function LoanDetail() {
       <div className="max-w-3xl mx-auto pt-8">
         <EmptyState
           icon={AlertCircleIcon}
-          title="Loan not found"
-          description="Choose a demo loan below."
+          title={t('loanNotFound')}
+          description={t('chooseDemoLoanBelow')}
           action={
             <ul className="mt-4 space-y-2 text-sm">
               {demoLinks.map((link) => (
@@ -209,7 +219,7 @@ function InterestOnlyLoanDetail({
       <LoanHeader
         loan={loan}
         customerName={customer.name}
-        subtitle={formatEnum(loan.repaymentMethod)}
+        subtitle={formatEnum(loan.repaymentMethod, language)}
         actions={
           <LoanActionBar
             loanId={loan.id}
@@ -218,26 +228,43 @@ function InterestOnlyLoanDetail({
             monthsCompleted={detail.monthsCompleted}
             minimumMonths={loan.minimumMonthsBeforeSettlement}
             invoiceDocumentId={invoiceDocumentId}
-            language={language}
           />
         }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
         <KpiCard
-          label="Original principal"
+          label={t('kpiOriginalPrincipal')}
           value={formatLKR(loan.originalPrincipalAmount)}
         />
         <KpiCard
-          label="Current principal balance"
+          label={
+            language === 'si'
+              ? t('kpiCurrentPrincipalShort')
+              : t('kpiCurrentPrincipalBalance')
+          }
           value={formatLKR(loan.currentPrincipalBalance)}
         />
-        <KpiCard label="Pending interest due" value={formatLKR(pendingInterest)} />
         <KpiCard
-          label="Next estimated interest"
+          label={
+            language === 'si'
+              ? t('kpiPendingInterestShort')
+              : t('kpiPendingInterestDue')
+          }
+          value={formatLKR(pendingInterest)}
+        />
+        <KpiCard
+          label={
+            language === 'si'
+              ? t('kpiNextInterestShort')
+              : t('kpiNextEstimatedInterest')
+          }
           value={formatLKR(summary.nextEstimatedInterest)}
         />
-        <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
+        <KpiCard
+          label={t('kpiMonthlyRate')}
+          value={`${loan.interestRate}%`}
+        />
       </div>
 
       <section className="mb-8">
@@ -265,7 +292,7 @@ function FixedInstallmentLoanDetail({
   invoiceDocumentId?: string;
   loanInvoiceDocumentNumber?: string;
 }) {
-  const { t, language } = useT();
+  const { t, language, tf } = useT();
   const {
     loan,
     customer,
@@ -338,10 +365,12 @@ function FixedInstallmentLoanDetail({
 
   const nextDueLabel =
     loan.status === 'COMPLETED'
-      ? 'Completed'
+      ? t('statusCompleted')
       : nextFixed.dueDate
-        ? formatDate(nextFixed.dueDate)
-        : nextFixed.label;
+        ? formatDate(nextFixed.dueDate, 'short', language)
+        : nextFixed.label === 'No due payments'
+          ? t('noDuePayments')
+          : nextFixed.label;
 
   const ledgerInstallmentsLive = useMemo(() => {
     const liveByNumber = new Map(
@@ -401,11 +430,13 @@ function FixedInstallmentLoanDetail({
     if (!oldest) return null;
     const days = daysBetweenDates(oldest, asOfDate);
     if (days <= 0) return null;
-    return formatOverdueHuman(days);
-  }, [loan.status, installments, asOfDate]);
+    return formatOverdueLabel(days, tf);
+  }, [loan.status, installments, asOfDate, tf]);
 
   const financeLabel =
-    loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
+    loan.loanPurpose === 'BIKE_INSTALLMENT'
+      ? t('financeAmount')
+      : t('loanAmount');
 
   const downPaymentHint =
     bike && loan.principalAmount <= bike.sellingPrice
@@ -423,7 +454,7 @@ function FixedInstallmentLoanDetail({
         loan={loan}
         displayStatus={displayLoanStatus}
         customerName={customer.name}
-        subtitle={`${formatEnum(loan.loanPurpose)} · ${formatEnum(loan.repaymentMethod)}`}
+        subtitle={`${formatEnum(loan.loanPurpose, language)} · ${formatEnum(loan.repaymentMethod, language)}`}
         actions={
           <LoanActionBar
             loanId={loan.id}
@@ -433,7 +464,6 @@ function FixedInstallmentLoanDetail({
             monthsCompleted={detail.monthsCompleted}
             minimumMonths={loan.minimumMonthsBeforeSettlement}
             invoiceDocumentId={invoiceDocumentId}
-            language={language}
           />
         }
       />
@@ -443,12 +473,22 @@ function FixedInstallmentLoanDetail({
           label={financeLabel}
           value={formatLKR(loan.principalAmount)}
         />
-        <KpiCard label="Total interest" value={formatLKR(loan.totalInterestAmount ?? 0)} />
-        <KpiCard label="Total payable" value={formatLKR(loan.totalPayable ?? 0)} />
-        <KpiCard label="Paid" value={formatLKR(loan.paidAmount)} />
-        <KpiCard label="Balance" value={formatLKR(loan.balanceAmount)} />
         <KpiCard
-          label="Monthly installment"
+          label={t('totalInterest')}
+          value={formatLKR(loan.totalInterestAmount ?? 0)}
+        />
+        <KpiCard
+          label={t('totalPayable')}
+          value={formatLKR(loan.totalPayable ?? 0)}
+        />
+        <KpiCard label={t('paid')} value={formatLKR(loan.paidAmount)} />
+        <KpiCard label={t('loanBalance')} value={formatLKR(loan.balanceAmount)} />
+        <KpiCard
+          label={
+            language === 'si'
+              ? t('monthlyInstallmentShort')
+              : t('monthlyInstallment')
+          }
           value={formatLKR(loan.installmentAmount ?? 0)}
         />
       </div>
@@ -457,16 +497,19 @@ function FixedInstallmentLoanDetail({
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Linked bike
+              {t('linkedBike')}
             </p>
             <p className="mt-1 font-semibold text-neutral-900">{bike.model}</p>
             <p className="text-sm text-neutral-600">
-              Stock ref {bike.bikeCode} · Engine {bike.engineNo}
+              {tf('bikeStockRefEngine', {
+                code: bike.bikeCode,
+                engine: bike.engineNo,
+              })}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Bike selling price
+              {t('bikeSellingPrice')}
             </p>
             <p className="mt-1 tabular-nums font-semibold text-neutral-900">
               {formatLKR(bike.sellingPrice)}
@@ -475,13 +518,13 @@ function FixedInstallmentLoanDetail({
           {downPaymentHint !== undefined ? (
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                Estimated down payment
+                {t('estimatedDownPayment')}
               </p>
               <p className="mt-1 tabular-nums font-semibold text-neutral-900">
                 {formatLKR(downPaymentHint)}
               </p>
               <p className="mt-2 text-xs text-neutral-500">
-                Selling price minus finance amount
+                {t('sellingPriceMinusFinanceHint')}
               </p>
             </div>
           ) : null}
@@ -490,17 +533,24 @@ function FixedInstallmentLoanDetail({
               to={`/bikes/${bike.id}`}
               className="text-sm font-semibold text-brand-600 hover:text-brand-500"
             >
-              Open bike detail
+              {t('openBikeDetail')}
             </Link>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-        <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
-        <KpiCard label="Next due" value={nextDueLabel} />
         <KpiCard
-          label="Balance"
+          label={t('loanTerm')}
+          value={
+            loan.termMonths != null
+              ? tf('termMonthsCount', { count: loan.termMonths })
+              : '—'
+          }
+        />
+        <KpiCard label={t('loanNextDue')} value={nextDueLabel} />
+        <KpiCard
+          label={t('loanBalance')}
           value={
             loan.status === 'COMPLETED' || loan.balanceAmount <= 0
               ? formatLKR(0)
@@ -512,21 +562,21 @@ function FixedInstallmentLoanDetail({
       {loan.status !== 'COMPLETED' && arrearsSummary.hasArrears && (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard
-            label="Overdue amount (live)"
+            label={t('overdueAmountLive')}
             value={formatLKR(arrearsSummary.totalArrearsDue)}
           />
           <KpiCard
-            label="Late fee accrued"
+            label={t('lateFeeAccruedLabel')}
             value={formatLKR(lateFeeEngine.totalLateFee)}
           />
           <KpiCard
-            label="Late fee paid"
+            label={t('lateFeePaid')}
             value={formatLKR(
               installments.reduce((sum, i) => sum + i.lateFeePaid, 0)
             )}
           />
           <KpiCard
-            label="Late fee remaining"
+            label={t('lateFeeRemainingLabel')}
             value={formatLKR(lateFeeEngine.totalLateFeeOutstanding)}
           />
         </div>
@@ -603,7 +653,6 @@ function LoanActionBar({
   monthsCompleted,
   minimumMonths,
   invoiceDocumentId,
-  language = 'both',
 }: {
   loanId: string;
   navigate: ReturnType<typeof useNavigate>;
@@ -612,8 +661,8 @@ function LoanActionBar({
   monthsCompleted: number;
   minimumMonths: number;
   invoiceDocumentId?: string;
-  language?: 'en' | 'si' | 'both';
 }) {
+  const { t, tf, language } = useT();
   const viewInvoiceLabel = getDocumentLabel('viewInvoice', language);
   const printInvoiceLabel = getDocumentLabel('printInvoice', language);
 
@@ -640,30 +689,31 @@ function LoanActionBar({
           primary
           onClick={() => navigate(`/payments/new?loanId=${loanId}`)}
         >
-          Record Payment
+          {t('recordPaymentAction')}
         </ActionButton>
         <ActionButton onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}>
-          Add Guarantee
+          {t('addGuarantee')}
         </ActionButton>
         {showEarlySettlement && (
           <ActionButton
             disabled={!settlementEligible}
             onClick={() => navigate(`/loans/${loanId}/early-settlement`)}
           >
-            Early Settlement
+            {t('earlySettlement')}
           </ActionButton>
         )}
         <ActionButton
           variant="danger"
-          onClick={() => window.alert('Cancel loan — available after Supabase migration.')}
+          onClick={() => window.alert(t('cancelLoanSupabaseSoon'))}
         >
-          Cancel Loan
+          {t('cancelLoan')}
         </ActionButton>
       </div>
       {showEarlySettlement && !settlementEligible && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
-          Early settlement is allowed after {minimumMonths} completed months.
-          {monthsCompleted > 0 && ` (${monthsCompleted} completed so far.)`}
+          {tf('earlySettlementMonthsRequired', { months: minimumMonths })}
+          {monthsCompleted > 0 &&
+            ` ${tf('earlySettlementMonthsProgress', { completed: monthsCompleted })}`}
         </p>
       )}
     </div>
@@ -713,11 +763,12 @@ function SectionTitle({
 }
 
 function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
+  const { t } = useT();
   const labelKey =
     status === 'returned' ? 'guaranteeStatusReleased' : 'guaranteeStatusHeld';
   return (
     <span className="inline-flex rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-800 ring-1 ring-inset ring-neutral-200">
-      {getLabel(labelKey, 'both')}
+      {t(labelKey)}
     </span>
   );
 }
@@ -733,28 +784,30 @@ function GuaranteesSection({
   linkedBike?: import('../../types/entities').Bike;
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  const { t, language } = useT();
+
   return (
     <section>
-      <SectionTitle icon={ShieldIcon} title="Guarantees" />
+      <SectionTitle icon={ShieldIcon} title={t('guarantees')} />
       {guarantees.length === 0 ? (
         <EmptyState
           icon={FileTextIcon}
-          title="No guarantees"
-          description="Add a guarantee item linked to this loan."
+          title={t('noGuarantees')}
+          description={t('noGuaranteesOnLoanHint')}
           action={
             <button
               type="button"
               onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}
               className="mt-4 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
             >
-              Add Guarantee
+              {t('addGuarantee')}
             </button>
           }
         />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {guarantees.map((g) => {
-            const lines = guaranteeDetailLines(g);
+            const lines = guaranteeDetailLines(g, t);
             return (
               <li
                 key={g.id}
@@ -790,13 +843,14 @@ function GuaranteesSection({
                 )}
                 {g.status === 'returned' && g.releasedAt && (
                   <p className="mt-2 text-xs text-neutral-500">
-                    {getLabel('guaranteeReleasedDate', 'both')}:{' '}
-                    {formatDate(g.releasedAt)}
+                    {t('guaranteeReleasedDate')}:{' '}
+                    {formatDate(g.releasedAt, 'short', language)}
                   </p>
                 )}
                 {g.status === 'held' && (
                   <p className="mt-1 text-xs text-neutral-500">
-                    Received {formatDate(g.receivedAt)}
+                    {t('guaranteeReceivedOn')}{' '}
+                    {formatDate(g.receivedAt, 'short', language)}
                   </p>
                 )}
               </li>

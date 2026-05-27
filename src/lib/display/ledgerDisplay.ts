@@ -12,11 +12,15 @@ import {
   type LedgerAllocationLookup,
 } from './ledgerAllocationLabels';
 import { getLateFeeStartDate } from '../finance/lateFeeEngineV3';
+import { interestOutstandingOnCycle } from '../finance/interestOnly';
 import {
   isDateBefore,
   isDateOnOrBefore,
   normalizeDate,
 } from '../time/systemTime';
+import { formatMessage } from '../i18n/messages';
+import type { DisplayMode } from '../i18n/simpleLabels';
+import { getFormatDisplayMode } from '../format';
 
 export interface LedgerPaymentRecord {
   paymentDate: string;
@@ -162,7 +166,11 @@ function ledgerStatusFromPaidAndDue(
 ): LedgerRowStatus {
   const paidR = roundLKR(paid);
   const dueR = roundLKR(due);
-  if (dueR <= 0 || paidR >= dueR) return 'PAID';
+  const outstanding = interestOutstandingOnCycle({
+    interestDue: dueR,
+    interestPaid: paidR,
+  });
+  if (dueR <= 0 || outstanding <= 0) return 'PAID';
   if (paidR > 0) return 'PARTIAL';
   if (isDateBefore(dueDate, asOf)) return 'OVERDUE';
   return 'PARTIAL';
@@ -368,18 +376,21 @@ function buildPaymentDraft(
   };
 }
 
-/** Human-readable overdue: "2 months 22 days overdue" */
-export function formatOverdueHuman(daysOverdue: number): string {
+/** Human-readable overdue (localized). */
+export function formatOverdueHuman(
+  daysOverdue: number,
+  mode: DisplayMode = getFormatDisplayMode()
+): string {
   if (daysOverdue <= 0) return '';
   const months = Math.floor(daysOverdue / 30);
   const days = daysOverdue % 30;
   if (months === 0) {
-    return `${days} day${days === 1 ? '' : 's'} overdue`;
+    return formatMessage('overdueDaysOnly', { days }, mode);
   }
   if (days === 0) {
-    return `${months} month${months === 1 ? '' : 's'} overdue`;
+    return formatMessage('overdueMonthsOnly', { months }, mode);
   }
-  return `${months} month${months === 1 ? '' : 's'} ${days} day${days === 1 ? '' : 's'} overdue`;
+  return formatMessage('overdueMonthsAndDays', { months, days }, mode);
 }
 
 function compareLedgerEvents(a: LedgerDraft, b: LedgerDraft): number {

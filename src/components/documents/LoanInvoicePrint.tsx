@@ -136,7 +136,7 @@ export function LoanInvoicePrint({
                   <tr>
                     <th>#</th>
                     <th>{L.paymentDate}</th>
-                    <th className="num">Amount (LKR)</th>
+                    <th className="num">{L.amountLkr}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -183,9 +183,9 @@ export function LoanInvoicePrint({
                     label={L.guarantor2}
                     value={c.guarantor2Name}
                   />
-                  <OptionalField label="Description" value={c.description} />
-                  <OptionalField label="Type" value={c.itemType} />
-                  <OptionalField label="Storage" value={c.storageLocation} />
+                  <OptionalField label={L.description} value={c.description} />
+                  <OptionalField label={L.itemType} value={c.itemType} />
+                  <OptionalField label={L.storage} value={c.storageLocation} />
                 </div>
               ))}
             </>

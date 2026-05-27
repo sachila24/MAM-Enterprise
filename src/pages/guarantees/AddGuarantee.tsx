@@ -185,8 +185,8 @@ export function AddGuarantee() {
                 </div>
                 {selectedLoan && (
                   <div className="rounded-lg bg-brand-50 p-4 border border-brand-100 text-sm">
-                    <p className="text-brand-700">Loan <span className="font-semibold text-brand-900 tabular-nums">{selectedLoan.loanCode}</span></p>
-                    <p className="text-brand-700 mt-1">Balance <span className="font-medium tabular-nums">{formatLKR(selectedLoan.balanceAmount)}</span></p>
+                    <p className="text-brand-700">{t('loanSummaryPrefix')} <span className="font-semibold text-brand-900 tabular-nums">{selectedLoan.loanCode}</span></p>
+                    <p className="text-brand-700 mt-1">{t('loanBalanceSummary')} <span className="font-medium tabular-nums">{formatLKR(selectedLoan.balanceAmount)}</span></p>
                   </div>
                 )}
               </div>
@@ -211,11 +211,11 @@ export function AddGuarantee() {
               <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
                 <h4 className="text-sm font-medium text-neutral-900 mb-4 flex items-center gap-2">
                   <CheckCircleIcon className="h-5 w-5 text-success-500" />
-                  Summary
+                  {t('summaryTitle')}
                 </h4>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <dt className="text-neutral-500">Loan</dt>
+                    <dt className="text-neutral-500">{t('field.loan')}</dt>
                     <dd className="font-semibold text-neutral-900 tabular-nums">
                       {selectedLoan?.loanCode ?? '—'}
                     </dd>

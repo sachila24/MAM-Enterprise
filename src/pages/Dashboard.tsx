@@ -51,9 +51,9 @@ export function Dashboard() {
     const now = getSystemTime();
     const period = getGreetingPeriod(now);
     const greeting = `${t(greetingKey(period))}, Sachila`;
-    const timestamp = formatDateTime(now);
+    const timestamp = formatDateTime(now, language);
     return `${greeting} — ${timestamp}`;
-  }, [t, asOfToday]);
+  }, [t, language, asOfToday]);
 
   const quickActions = (
     <div className="flex gap-2">
@@ -142,7 +142,12 @@ export function Dashboard() {
             </div>
             <ul role="list" className="divide-y divide-neutral-200">
               {overdueLoans.map((loan) => (
-                <OverdueQueueRow key={loan.id} loan={loan} t={t} />
+                <OverdueQueueRow
+                  key={loan.id}
+                  loan={loan}
+                  t={t}
+                  language={language}
+                />
               ))}
               {overdueLoans.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-neutral-500">
@@ -267,9 +272,11 @@ export function Dashboard() {
 function OverdueQueueRow({
   loan,
   t,
+  language,
 }: {
   loan: DashboardOverdueLoan;
   t: ReturnType<typeof useT>['t'];
+  language: ReturnType<typeof useT>['language'];
 }) {
   return (
     <li className="px-4 py-4 sm:px-6 hover:bg-neutral-50">
@@ -284,7 +291,7 @@ function OverdueQueueRow({
             </span>
           </p>
           <p className="text-sm text-danger-600 font-medium mt-1">
-            {formatOverdueHuman(loan.daysOverdue)}
+            {formatOverdueHuman(loan.daysOverdue, language)}
           </p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
@@ -298,14 +305,14 @@ function OverdueQueueRow({
             <a
               href={`tel:${loan.customer?.phone}`}
               className="rounded-full bg-white p-2 text-neutral-400 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
-              title="Call customer"
+              title={t('callCustomer')}
             >
               <PhoneIcon className="h-4 w-4" />
             </a>
             <Link
               to={`/payments/new?loanId=${loan.id}`}
               className="rounded-full bg-white p-2 text-brand-600 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-brand-50"
-              title="Record payment"
+              title={t('recordPaymentShortcut')}
             >
               <CreditCardIcon className="h-4 w-4" />
             </Link>

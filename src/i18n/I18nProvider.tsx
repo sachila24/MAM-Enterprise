@@ -7,6 +7,7 @@ import {
   t as labels,
 } from '../lib/i18n/simpleLabels';
 import { formatMessage, setMessageDisplayMode } from '../lib/i18n/messages';
+import { setFormatDisplayMode } from '../lib/format';
 
 export type Language = DisplayMode;
 export type DictionaryKey = LabelKey;
@@ -36,14 +37,18 @@ function normalizeStoredLanguage(value: string | null): DisplayMode {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<DisplayMode>(() =>
-    normalizeStoredLanguage(localStorage.getItem('language'))
-  );
+  const [language, setLanguage] = useState<DisplayMode>(() => {
+    const stored = normalizeStoredLanguage(localStorage.getItem('language'));
+    setFormatDisplayMode(stored);
+    setMessageDisplayMode(stored);
+    return stored;
+  });
 
   useEffect(() => {
     localStorage.setItem('language', language);
     document.documentElement.lang = language === 'si' ? 'si' : 'en';
     setMessageDisplayMode(language);
+    setFormatDisplayMode(language);
   }, [language]);
 
   const resolve = (text: string): string => resolveLabel(text, language);

@@ -350,6 +350,58 @@ export const t = {
   earlySettlement: bi('Early Settlement', 'පූර්ව නිරාකරණය'),
   cancelLoan: bi('Cancel Loan', 'ණය අවලංගු'),
   addGuarantee: bi('Add Guarantee', 'ඇපකර එකතු කරන්න'),
+  kpiOriginalPrincipal: bi('Original principal', 'මුල් මුදල'),
+  kpiCurrentPrincipalBalance: bi(
+    'Current principal balance',
+    'වර්තමාන මුල්‍ය ශේෂය'
+  ),
+  kpiCurrentPrincipalShort: bi('Current principal', 'වර්තමාන මුල්‍ය'),
+  kpiPendingInterestDue: bi('Pending interest due', 'බැඳි පොලිය ගෙවිය යුතු'),
+  kpiPendingInterestShort: bi('Pending interest', 'බැඳි පොලිය'),
+  kpiNextEstimatedInterest: bi(
+    'Next estimated interest',
+    'ඊළඟ අනුමාන පොලිය'
+  ),
+  kpiNextInterestShort: bi('Next est. interest', 'ඊළඟ පොලිය'),
+  kpiMonthlyRate: bi('Monthly rate', 'මාසික අනුපාතය'),
+  monthlyInstallmentShort: bi('Monthly inst.', 'මාසික වාරික'),
+  loanTerm: bi('Term', 'කාලය'),
+  loanNextDue: bi('Next due', 'ඊළඟ ගෙවීම'),
+  noDuePayments: bi('No due payments', 'ගෙවිය යුතු ගෙවීම් නැත'),
+  overdueAmountLive: bi('Overdue amount (live)', 'ප්‍රමාද මුදල (සජීව)'),
+  lateFeeAccruedLabel: bi('Late fee accrued', 'සැකසූ ප්‍රමාද ගාස්තු'),
+  lateFeeRemainingLabel: bi('Late fee remaining', 'ඉතිරි ප්‍රමාද ගාස්තු'),
+  noGuarantees: bi('No guarantees', 'ඇපකර නැත'),
+  noGuaranteesOnLoanHint: bi(
+    'Add a guarantee item linked to this loan.',
+    'මෙම ණයට සම්බන්ධ ඇපකර අයිතමයක් එකතු කරන්න.'
+  ),
+  chooseDemoLoanBelow: bi(
+    'Choose a demo loan below.',
+    'පහත ඩෙමෝ ණයක් තෝරන්න.'
+  ),
+  bikeStockRefEngine: bi(
+    'Stock ref {code} · Engine {engine}',
+    'තොග යොමු {code} · එන්ජින් {engine}'
+  ),
+  estimatedDownPayment: bi('Estimated down payment', 'ඇස්තාමේනතු මුදල් තැන්පතු'),
+  sellingPriceMinusFinanceHint: bi(
+    'Selling price minus finance amount',
+    'විකිණීම් මිල අඩු මුල්‍ය මුදල'
+  ),
+  openBikeDetail: bi('Open bike detail', 'බයික් විස්තර විවෘත කරන්න'),
+  guaranteeReceivedOn: bi('Received', 'ලැබුණු'),
+  termMonthsCount: bi('{count} months', 'මාස {count}'),
+  earlySettlementMonthsProgress: bi(
+    '({completed} completed so far.)',
+    '(දැනට {completed} සම්පූර්ණ.)'
+  ),
+  overdueDaysOnly: bi('{days} day(s) overdue', '{days} දින ප්‍රමාද'),
+  overdueMonthsOnly: bi('{months} month(s) overdue', '{months} මාස ප්‍රමාද'),
+  overdueMonthsAndDays: bi(
+    '{months} month(s) {days} day(s) overdue',
+    '{months} මාස {days} දින ප්‍රමාද'
+  ),
   totalActiveLoans: bi('Total Active Loans', 'සක්‍රිය ණය'),
   outstandingPortfolio: bi('Outstanding Portfolio', 'ඉතිරි ණය පොර්ට්ෆෝලියෝ'),
   overdueLoans: bi('Overdue Loans', 'ප්‍රමාද ණය'),
@@ -739,7 +791,6 @@ export const t = {
   sellingPriceLabel: bi('Selling price', 'විකිණීම් මිල'),
   removeItem: bi('Remove', 'ඉවත් කරන්න'),
   guaranteeItemNumber: bi('Item', 'අයිතම'),
-  selectedBikeLabel: bi('Selected bike', 'තෝරාගත් බයික්'),
   noGuaranteeItemsHint: bi(
     'No items yet — use "Add another guarantee" to start.',
     'අයිතම නැත — ආරම්භ කිරීමට "තව ඇපකරයක්" භාවිතා කරන්න.'
@@ -755,6 +806,219 @@ export const t = {
   vsLastMonth: bi('vs last month', 'පසුගිය මාසයට වඩා'),
   daysOverdue: bi('days overdue', 'දින ප්‍රමාද'),
   addBikeLink: bi('Add Bike', 'බයික් එකතු'),
+  callCustomer: bi('Call customer', 'ගනුදෙනුකරුට අමතන්න'),
+  recordPaymentShortcut: bi('Record payment', 'ගෙවීම ඇතුළත් කරන්න'),
+
+  // Expenses module
+  expensesSubtitle: bi(
+    'Operating costs and business spending',
+    'මෙහෙයුම් වියදම් සහ ව්‍යාපාර වියදම්'
+  ),
+  addExpenseBtn: bi('Add expense', 'වියදම එකතු කරන්න'),
+  totalThisMonth: bi('Total This Month', 'මෙම මාසයේ මුළු'),
+  topCategory: bi('Top Category', 'ඉහළ වර්ගය'),
+  expenseCount: bi('Expense Count', 'වියදම් ගණන'),
+  searchExpensesNotes: bi('Search notes...', 'සටහන් සොයන්න...'),
+  allCategories: bi('All Categories', 'සියලු වර්ග'),
+  noExpensesFound: bi(
+    'No expenses found matching your criteria.',
+    'වියදම් හමු නොවීය.'
+  ),
+  addExpenseTitle: bi('Add Expense', 'වියදම එකතු කරන්න'),
+  addExpenseSubtitle: bi(
+    'Record money the business spent',
+    'ව්‍යාපාරය වියදම් කළ මුදල සටහන් කරන්න'
+  ),
+  expenseWhatFor: bi('What was this for? *', 'මෙය කුමක් සඳහාද? *'),
+  expenseNotesPlaceholder: bi(
+    'e.g. Workshop repair supplies',
+    'උදා: වර්ක්ෂොප් අලුත්වැඩියා'
+  ),
+  amountRequired: bi('Amount *', 'මුදල *'),
+  saveExpense: bi('Save expense', 'වියදම සුරකින්න'),
+  categoryNone: bi('None', 'කිසිවක් නැත'),
+  expenseRent: bi('Rent', 'කුලිය'),
+  expenseUtilities: bi('Utilities', 'උපයෝගිතා'),
+  expenseSalaries: bi('Salaries', 'වැටුප්'),
+  expenseMaintenance: bi('Maintenance', 'නඩත්තු'),
+  expenseFuel: bi('Fuel', 'ඉන්ධන'),
+  expenseSupplies: bi('Supplies', 'සැපයුම්'),
+  expenseMarketing: bi('Marketing', 'අලෙවිකරණ'),
+
+  // Backup module
+  backupSubtitle: bi(
+    'Manage your data security and exports',
+    'දත්ත ආරක්ෂාව සහ අපනයන කළමනාකරණය'
+  ),
+  cloudSync: bi('Cloud Sync', 'වලාකුළු සමමුහුර්තය'),
+  cloudSyncActive: bi('Active', 'සක්‍රිය'),
+  cloudSyncHint: bi(
+    'Your data is automatically synced to the secure cloud database in real-time. No manual action required.',
+    'දත්ත ස්වයංක්‍රීයව ආරක්ෂිත වලාකුළු දත්ත ගබඩාවට සමමුහුර්ත වේ.'
+  ),
+  lastSynced: bi('Last synced:', 'අවසන් සමමුහුර්තය:'),
+  justNow: bi('Just now', 'දැන්'),
+  storageUsed: bi('Storage used:', 'භාවිත ගබඩාව:'),
+  manualLocalBackup: bi('Manual Local Backup', 'දේශීය අතින් උපස්ථ'),
+  manualBackupHint: bi(
+    'Download a complete copy of your database as CSV files. It is recommended to keep one copy on a pen drive or external hard drive for disaster recovery.',
+    'දත්ත ගබඩාවේ සම්පූර්ණ පිටපත CSV ලෙස බාගත කරන්න.'
+  ),
+  preparingFiles: bi('Preparing files...', 'ගොනු සකසමින්...'),
+  downloadFullBackup: bi('Download Full Backup', 'සම්පූර්ණ උපස්ථ බාගත කරන්න'),
+  recentBackups: bi('Recent Backups', 'මෑත උපස්ථ'),
+  dateAndTime: bi('Date & Time', 'දිනය සහ වේලාව'),
+  backupTypeManual: bi('Manual', 'අතින්'),
+  backupTypeAuto: bi('Auto', 'ස්වයං'),
+  initiatedBy: bi('Initiated By', 'ආරම්භ කළේ'),
+  backupSize: bi('Size', 'ප්‍රමාණය'),
+
+  // Staff module
+  staffSubtitle: bi(
+    'Manage users who can sign in to this system',
+    'මෙම පද්ධතියට පිවිසෙන පරිශීලකයින් කළමනාකරණය'
+  ),
+  inviteStaff: bi('Invite staff', 'කාර්ය මණ්ඩලය ආරාධනා'),
+  nameAndEmail: bi('Name & Email', 'නම සහ ඊමේල්'),
+  roleLabel: bi('Role', 'භූමිකාව'),
+  lastSignIn: bi('Last Sign In', 'අවසාන පිවිසීම'),
+  noStaffYet: bi(
+    'No staff members yet. Invite someone to get started.',
+    'කාර්ය මණ්ඩලයක් නැත. ආරම්භ කිරීමට ආරාධනා කරන්න.'
+  ),
+  deactivate: bi('Deactivate', 'අක්‍රිය කරන්න'),
+  inviteStaffMember: bi('Invite Staff Member', 'කාර්ය මණ්ඩලය ආරාධනා කරන්න'),
+  inviteStaffHint: bi(
+    'They will receive an email invitation to set their password and sign in.',
+    'මුරපදය සකසා පිවිසීමට ඊමේල් ආරාධනාවක් ලැබේ.'
+  ),
+  roleStaffStandard: bi('Staff (Standard access)', 'කාර්ය මණ්ඩලය (සම්මත ප්‍රවේශය)'),
+  roleManagerApprove: bi('Manager (Can approve loans)', 'කළමනාකරු (ණය අනුමත කළ හැක)'),
+  sending: bi('Sending...', 'යවමින්...'),
+  sendInvitation: bi('Send invitation', 'ආරාධනාව යවන්න'),
+
+  // Business settings
+  settingsSubtitle: bi(
+    'Manage your company profile and system preferences',
+    'සමාගම් පැතිකඩ සහ පද්ධති මනාප කළමනාකරණය'
+  ),
+  settingsIdentity: bi('Identity', 'හඳුනාගැනීම'),
+  settingsIdentityHint: bi(
+    'Your business name and registration details.',
+    'ව්‍යාපාර නාමය සහ ලියාපදිංචි විස්තර.'
+  ),
+  companyLogo: bi('Company Logo', 'සමාගම් ලාංඡනය'),
+  changeLogo: bi('Change', 'වෙනස් කරන්න'),
+  businessName: bi('Business Name', 'ව්‍යාපාර නාමය'),
+  registrationNumber: bi('Registration Number', 'ලියාපදිංචි අංකය'),
+  contactPhone: bi('Contact Phone', 'සම්බන්ධ දුරකථන'),
+  localeAndDocuments: bi('Locale & Documents', 'ප්‍රාදේශීය සහ ලේඛන'),
+  localeHint: bi(
+    'Regional settings and document templates.',
+    'ප්‍රාදේශීය සැකසුම් සහ ලේඛන අච්චු.'
+  ),
+  defaultCurrency: bi('Default Currency', 'පෙරනිමි මුදල'),
+  currencyLKR: bi('LKR - Sri Lankan Rupee', 'LKR - ශ්‍රී ලංකා රුපියල'),
+  currencyUSD: bi('USD - US Dollar', 'USD - ඇමරිකානු ඩොලර්'),
+  defaultLanguage: bi('Default Language', 'පෙරනිමි භාෂාව'),
+  langEnglish: bi('English', 'ඉංග්‍රීසි'),
+  langSinhala: bi('Sinhala', 'සිංහල'),
+  langTamil: bi('Tamil', 'දෙමළ'),
+  receiptFooterNote: bi('Receipt Footer Note', 'රිසිට්පත් පාද සටහන'),
+  receiptFooterHint: bi(
+    'This will appear at the bottom of all printed receipts.',
+    'මුද්‍රිත රිසිට්පත් සියල්ලේ පහළින් දිස් වේ.'
+  ),
+  permissionsSection: bi('Permissions', 'අවසර'),
+  permissionsHint: bi(
+    'Control what standard staff members can see.',
+    'සම්මත කාර්ය මණ්ඩලයට පෙනෙන දේ පාලනය කරන්න.'
+  ),
+  staffActivityLogAccess: bi('Staff Activity Log Access', 'කාර්ය මණ්ඩල ක්‍රියාකාරකම් ලොග් ප්‍රවේශය'),
+  staffActivityLogHint: bi(
+    'Allow standard staff to view the full system activity log.',
+    'සම්මත කාර්ය මණ්ඩලයට සම්පූර්ණ ක්‍රියාකාරකම් ලොගය බලන්න ඉඩ දෙන්න.'
+  ),
+  useSettingSr: bi('Use setting', 'සැකසුම භාවිතා කරන්න'),
+  saveSettings: bi('Save settings', 'සැකසුම් සුරකින්න'),
+
+  // Early settlement
+  backToLoans: bi('Back to loans', 'ණය වෙත ආපසු'),
+  backToLoan: bi('Back to loan', 'ණය වෙත ආපසු'),
+  earlySettlementNotAvailable: bi(
+    'Not available for this loan type.',
+    'මෙම ණය වර්ගයට නොලැබේ.'
+  ),
+  discountOnRemainingInterest: bi(
+    'Discount on remaining interest (%)',
+    'ඉතිරි පොලියට වට්ටම (%)'
+  ),
+  includeCurrentMonthDueSettlement: bi(
+    'Include current month due in settlement',
+    'නිරාකරණයට වර්තමාන මාසයේ ගෙවිය යුතු ඇතුළත් කරන්න'
+  ),
+  settlementDate: bi('Settlement date', 'නිරාකරණ දිනය'),
+  interestDiscount: bi('Interest discount', 'පොලී වට්ටම'),
+  currentMonthDue: bi('Current month due', 'වර්තමාන මාසයේ ගෙවිය යුතු'),
+  finalSettlementPayable: bi('Final settlement payable', 'අවසාන නිරාකරණ ගෙවිය යුතු'),
+  savingSettlement: bi('Saving settlement…', 'නිරාකරණය සුරකිමින්…'),
+  confirmSettlement: bi('Confirm settlement', 'නිරාකරණය තහවුරු කරන්න'),
+  settlementNotAvailableYet: bi(
+    'Settlement not available yet',
+    'නිරාකරණය තවම නොලැබේ'
+  ),
+  loanCodeLabel: bi('Loan code', 'ණය කේතය'),
+  monthsCompleted: bi('Months completed', 'සම්පූර්ණ මාස'),
+  remainingInterest: bi('Remaining interest', 'ඉතිරි පොලිය'),
+  earlySettlementEligibleAfter: bi(
+    'Early settlement is allowed after {months} completed months. You have {completed} completed so far.',
+    'පූර්ව නිරාකරණයට {months} මාස සම්පූර්ණ විය යුතුයි. දැනට {completed} සම්පූර්ණයි.'
+  ),
+  bikeInstallmentFixedHint: bi(
+    'Bike installment uses fixed-term leasing: equal monthly payments over the selected term. Interest-only repayment is not available for bike sales.',
+    'බයික් වාරික සඳහා ස්ථිර කාල වාරික: තෝරාගත් කාලය පුරා සමාන මාසික ගෙවීම්. බයික් විකිණුම් සඳහා පොලිය පමණ නොලැබේ.'
+  ),
+  financeAmountInline: bi('Finance amount:', 'මුල්‍ය මුදල:'),
+  defaultLateFeeHint: bi(
+    'Default late fee {rate}%. Owner may change later.',
+    'පෙරනිමි ප්‍රමාද ගාස්තු {rate}%. පසුව වෙනස් කළ හැක.'
+  ),
+  loanBalanceSummary: bi('Balance', 'ශේෂය'),
+  loanSummaryPrefix: bi('Loan', 'ණය'),
+
+  // Installment schedule table
+  scheduleColNo: bi('No.', 'අං.'),
+  scheduleColDueDate: bi('Due date', 'ගෙවිය යුතු දිනය'),
+  scheduleColInstallment: bi('Installment', 'වාරිකය'),
+  scheduleColPaid: bi('Paid', 'ගෙවූ'),
+  scheduleColMonthsLate: bi('Months late', 'ප්‍රමාද මාස'),
+  scheduleColLateFee: bi('Late fee', 'ප්‍රමාද ගාස්තු'),
+  scheduleColRemaining: bi('Remaining', 'ඉතිරි'),
+  noInstallmentsOnLoan: bi('No installments on this loan.', 'මෙම ණයට වාරික නැත.'),
+
+  // Customer detail
+  customerSince: bi('Customer Since', 'ගනුදෙනුකරු සිට'),
+  noActiveLoans: bi('No active loans.', 'සක්‍රිය ණය නැත.'),
+  customerNicLabel: bi('NIC', 'හැ.ප.අ.'),
+  contactInfo: bi('Contact Info', 'සම්බන්ධතා තොරතුරු'),
+  accountSummary: bi('Account Summary', 'ගිණුම් සාරාංශය'),
+
+  // Documents
+  documentNotFound: bi('Document not found', 'ලේඛනය හමු නොවීය'),
+  documentNotFoundHint: bi(
+    'This invoice or receipt may have been removed.',
+    'මෙම බිල හෝ රිසිට්පත ඉවත් කර තිබිය හැක.'
+  ),
+
+  // Layout accessibility
+  openSidebar: bi('Open sidebar', 'පැති තීරුව විවෘත කරන්න'),
+  closeSidebar: bi('Close sidebar', 'පැති තීරුව වසන්න'),
+  viewNotifications: bi('View notifications', 'දැනුම්දීම් බලන්න'),
+  displayLanguage: bi('Display language', 'පෙන්වන භාෂාව'),
+  langModeBoth: bi('English + Sinhala', 'ඉංග්‍රීසි + සිංහල'),
+  langModeEnglish: bi('English', 'ඉංග්‍රීසි'),
+  langModeSinhala: bi('Sinhala', 'සිංහල'),
+  ariaTabs: bi('Tabs', 'ටැබ්'),
 
   // Errors & validation
   requiredField: bi('Required field missing', 'අවශ්‍ය ක්ෂේත්‍රය හිඟයි'),
@@ -1139,8 +1403,11 @@ export const ENUM_LABEL_KEYS: Record<string, LabelKey> = {
   IN_STOCK: 'statusInStock',
   CONFIRMED: 'statusConfirmed',
   ACTIVE: 'statusActive',
+  active: 'statusActive',
   OVERDUE: 'statusOverdue',
+  overdue: 'statusOverdue',
   COMPLETED: 'statusCompleted',
+  completed: 'statusCompleted',
   VOIDED: 'statusVoided',
   HELD: 'statusHeld',
   RESERVED: 'statusReserved',
@@ -1159,4 +1426,17 @@ export const ENUM_LABEL_KEYS: Record<string, LabelKey> = {
   CHEQUE: 'statusCheque',
   BANK_TRANSFER: 'statusBankTransfer',
   OTHER: 'statusOther',
+  RENT: 'expenseRent',
+  UTILITIES: 'expenseUtilities',
+  SALARIES: 'expenseSalaries',
+  MAINTENANCE: 'expenseMaintenance',
+  FUEL: 'expenseFuel',
+  SUPPLIES: 'expenseSupplies',
+  MARKETING: 'expenseMarketing',
+  None: 'categoryNone',
+  MANAGER: 'roleManagerApprove',
+  STAFF: 'roleStaffStandard',
+  inactive: 'statusInactive',
+  Auto: 'backupTypeAuto',
+  Manual: 'backupTypeManual',
 };

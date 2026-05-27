@@ -9,7 +9,7 @@ import { listReceipts } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
 
 export function ReceiptsList() {
-  const { t } = useT();
+  const { t, language } = useT();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
   const receipts = listReceipts(db);
@@ -73,7 +73,7 @@ export function ReceiptsList() {
                     {r.receiptNo}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
-                    {formatDate(r.paidAt)}
+                    {formatDate(r.paidAt, 'short', language)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900">
                     {r.customer?.name || t('misc.unknown')}

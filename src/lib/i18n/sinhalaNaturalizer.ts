@@ -351,12 +351,23 @@ function naturalizeFallback(text: string): string {
   return natural;
 }
 
+/** True when text still contains Latin letters (legacy mixed EN/SI overrides). */
+function containsLatinLetters(text: string): boolean {
+  return /[A-Za-z]/.test(text);
+}
+
 export function getNaturalSinhala(
   textKey: NaturalSinhalaKey,
   fallbackText?: string
 ): string {
   const override = NATURAL_SINHALA_BY_KEY[textKey];
-  if (override) return override;
+  if (override) {
+    // Sinhala-only UI: never show English left in old naturalizer entries
+    if (containsLatinLetters(override) && fallbackText) {
+      return naturalizeFallback(fallbackText);
+    }
+    return override;
+  }
 
   return naturalizeFallback(fallbackText ?? textKey);
 }

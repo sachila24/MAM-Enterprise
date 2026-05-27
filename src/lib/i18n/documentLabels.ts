@@ -79,6 +79,12 @@ const pairs: Record<string, Bilingual> = {
   vehicleNumber: { en: 'Vehicle number', si: 'වාහන අංකය' },
   guarantor1: { en: 'Guarantor 1', si: 'ඇපකරු 1' },
   guarantor2: { en: 'Guarantor 2', si: 'ඇපකරු 2' },
+  description: { en: 'Description', si: 'විස්තරය' },
+  itemType: { en: 'Type', si: 'වර්ගය' },
+  storage: { en: 'Storage', si: 'ගබඩාව' },
+  repairCost: { en: 'Repair', si: 'අලුත්වැඩියා' },
+  otherCost: { en: 'Other cost', si: 'වෙනත් වියදම' },
+  amountLkr: { en: 'Amount (LKR)', si: 'මුදල (රු.)' },
 };
 
 export type DocumentLabelKey = keyof typeof pairs;

@@ -36,7 +36,7 @@ import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
 
 export function CreateLoan() {
-  const { t } = useT();
+  const { t, tf } = useT();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -300,9 +300,7 @@ export function CreateLoan() {
                       {t('fixedMonthlyInstallments')}
                     </p>
                     <p className="text-sm text-brand-800">
-                      Bike installment uses fixed-term leasing: equal monthly
-                      payments over the selected term. Interest-only repayment is
-                      not available for bike sales.
+                      {t('bikeInstallmentFixedHint')}
                     </p>
                   </div>
                 ) : (
@@ -335,10 +333,10 @@ export function CreateLoan() {
             {currentStep === 3 && isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Interest-Only Terms
+                  {t('interestOnlyTerms')}
                 </h3>
                 <CurrencyInput
-                  label="Loan amount *"
+                  label={`${t('loanAmountField')} *`}
                   value={isBike ? effectiveFinanceAmount : loanAmount}
                   onChange={(v) => !isBike && setLoanAmount(v)}
                   placeholder="e.g. 100,000"
@@ -346,7 +344,7 @@ export function CreateLoan() {
                 />
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Monthly interest rate (%) *
+                    {t('monthlyInterestRate')} *
                   </label>
                   <input
                     type="text"
@@ -360,7 +358,7 @@ export function CreateLoan() {
                   />
                 </div>
                 <DatePicker
-                  label="Start date *"
+                  label={`${t('startDate')} *`}
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
@@ -373,7 +371,7 @@ export function CreateLoan() {
             {currentStep === 3 && !isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  {isBike ? 'Bike & installment terms' : 'Fixed Installment Terms'}
+                  {isBike ? t('bikeInstallmentTerms') : t('fixedInstallmentTerms')}
                 </h3>
                 {isBike && (
                   <div className="space-y-4 pb-6 border-b border-neutral-200">
@@ -384,23 +382,23 @@ export function CreateLoan() {
                       placeholder={t('selectInStockBike')}
                     />
                     <CurrencyInput
-                      label="Bike selling price *"
+                      label={`${t('bikeSellingPrice')} *`}
                       value={sellingPrice}
                       onChange={setSellingPrice}
                     />
                     <CurrencyInput
-                      label="Down payment *"
+                      label={`${t('downPayment')} *`}
                       value={downPayment}
                       onChange={setDownPayment}
                     />
                     <p className="text-sm text-neutral-600">
-                      Finance amount:{' '}
+                      {t('financeAmountInline')}{' '}
                       <strong>{formatLKR(effectiveFinanceAmount)}</strong>
                     </p>
                   </div>
                 )}
                 <CurrencyInput
-                  label="Finance amount *"
+                  label={`${t('financeAmount')} *`}
                   value={effectiveFinanceAmount}
                   onChange={(v) => !isBike && setFinanceAmount(v)}
                   disabled={isBike}
@@ -408,7 +406,7 @@ export function CreateLoan() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
-                      Term (months) *
+                      {t('termMonths')} *
                     </label>
                     <input
                       type="text"
@@ -422,7 +420,7 @@ export function CreateLoan() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
-                      Monthly flat rate (%) *
+                      {t('monthlyFlatRate')} *
                     </label>
                     <input
                       type="text"
@@ -438,7 +436,7 @@ export function CreateLoan() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Late fee rate (%) *
+                    {t('lateFeeRateField')} *
                   </label>
                   <input
                     type="text"
@@ -452,22 +450,22 @@ export function CreateLoan() {
                   />
                 </div>
                 <CurrencyInput
-                  label="Discount (optional)"
+                  label={t('discountOptional')}
                   value={discountAmount}
                   onChange={setDiscountAmount}
                 />
                 <DatePicker
-                  label="Start date *"
+                  label={`${t('startDate')} *`}
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
                 <DatePicker
-                  label="First due date *"
+                  label={`${t('firstDueDate')} *`}
                   value={firstDueDate}
                   onChange={(e) => setFirstDueDate(e.target.value)}
                 />
                 <p className="text-xs text-neutral-500">
-                  Default late fee {DEFAULT_LATE_FEE_RATE_PERCENT}%. Owner may change later.
+                  {tf('defaultLateFeeHint', { rate: DEFAULT_LATE_FEE_RATE_PERCENT })}
                 </p>
               </div>
             )}
@@ -575,20 +573,20 @@ export function CreateLoan() {
 
             {currentStep === 5 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium text-neutral-900">Review</h3>
+                <h3 className="text-lg font-medium text-neutral-900">{t('stepReview')}</h3>
                 <dl className="divide-y divide-neutral-200 text-sm">
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Customer</dt>
+                    <dt className="text-neutral-500">{t('field.customer')}</dt>
                     <dd>
                       {customers.find((c) => c.id === customerId)?.name ?? '—'}
                     </dd>
                   </div>
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Purpose</dt>
+                    <dt className="text-neutral-500">{t('stepPurpose')}</dt>
                     <dd>{formatEnum(loanPurpose)}</dd>
                   </div>
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Method</dt>
+                    <dt className="text-neutral-500">{t('stepMethod')}</dt>
                     <dd>{formatEnum(repaymentMethod)}</dd>
                   </div>
                 </dl>
@@ -630,19 +628,19 @@ export function CreateLoan() {
             {isInterestOnly ? (
               <dl className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Current principal</dt>
+                  <dt className="text-brand-200">{t('currentPrincipal')}</dt>
                   <dd className="font-medium tabular-nums">
                     {formatLKR(interestOnlyCalc.principal)}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Monthly interest due</dt>
+                  <dt className="text-brand-200">{t('monthlyInterestDueLabel')}</dt>
                   <dd className="font-medium tabular-nums">
                     {formatLKR(interestOnlyCalc.monthlyInterestDue)}
                   </dd>
                 </div>
                 <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">Principal balance</dt>
+                  <dt className="text-brand-100">{t('principalBalance')}</dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {formatLKR(interestOnlyCalc.principal)}
                   </dd>
@@ -653,37 +651,37 @@ export function CreateLoan() {
                 {isBike && (
                   <>
                     <div className="flex justify-between">
-                      <dt className="text-brand-200">Selling price</dt>
+                      <dt className="text-brand-200">{t('sellingPriceLabel')}</dt>
                       <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-brand-200">Down payment</dt>
+                      <dt className="text-brand-200">{t('downPayment')}</dt>
                       <dd className="tabular-nums">{formatLKR(downPayment)}</dd>
                     </div>
                   </>
                 )}
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Finance amount</dt>
+                  <dt className="text-brand-200">{t('financeAmount')}</dt>
                   <dd className="tabular-nums">{formatLKR(fixedCalc.financeAmount)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Total interest</dt>
+                  <dt className="text-brand-200">{t('totalInterest')}</dt>
                   <dd className="tabular-nums">{formatLKR(fixedCalc.totalInterest)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Total payable</dt>
+                  <dt className="text-brand-200">{t('totalPayable')}</dt>
                   <dd className="tabular-nums font-bold">
                     {formatLKR(fixedCalc.totalPayable)}
                   </dd>
                 </div>
                 <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">Monthly installment</dt>
+                  <dt className="text-brand-100">{t('monthlyInstallment')}</dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {formatLKR(fixedCalc.monthlyInstallment)}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-brand-200">Late fee / month if overdue</dt>
+                  <dt className="text-brand-200">{t('lateFeePerMonthOverdue')}</dt>
                   <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
                 </div>
               </dl>
