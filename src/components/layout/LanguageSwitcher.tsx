@@ -15,7 +15,6 @@ export function LanguageSwitcher() {
       className="block w-28 rounded-md border-0 py-1.5 pl-3 pr-8 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6 bg-white"
       aria-label={t('displayLanguage')}
     >
-      <option value="both">{t('langModeBoth')}</option>
       <option value="en">{t('langModeEnglish')}</option>
       <option value="si">{t('langModeSinhala')}</option>
     </select>

@@ -20,6 +20,7 @@ import {
   getRecentActivity,
   type DashboardOverdueLoan,
 } from '../lib/local-db/repositories';
+import { getBusinessSettingsForm } from '../lib/local-db/repositories/settingsRepo';
 import { useT } from '../i18n/I18nProvider';
 import {
   getGreetingPeriod,
@@ -46,14 +47,18 @@ export function Dashboard() {
     () => getRecentActivity(db, 10, language),
     [db, language]
   );
+  const businessName = useMemo(
+    () => getBusinessSettingsForm(db).businessName.trim(),
+    [db]
+  );
 
   const headerSubtitle = useMemo(() => {
     const now = getSystemTime();
     const period = getGreetingPeriod(now);
-    const greeting = `${t(greetingKey(period))}, Sachila`;
+    const greeting = businessName || t(greetingKey(period));
     const timestamp = formatDateTime(now, language);
     return `${greeting} — ${timestamp}`;
-  }, [t, language, asOfToday]);
+  }, [t, language, asOfToday, businessName]);
 
   const quickActions = (
     <div className="flex gap-2">
@@ -104,19 +109,25 @@ export function Dashboard() {
             value={formatLKR(kpis.todayExpectedCollections)}
             icon={CalendarClockIcon}
           />
-          <KpiCard
-            label={t('activeOverduesToday')}
-            value={kpis.overdueCount}
-            icon={AlertCircleIcon}
-            delta={
-              kpis.overdueCount > 0
-                ? {
-                    value: t('needsAttention'),
-                    trend: 'down',
-                  }
-                : undefined
-            }
-          />
+          <Link
+            to="/loans?status=overdue"
+            className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+            aria-label={t('activeOverduesToday')}
+          >
+            <KpiCard
+              label={t('activeOverduesToday')}
+              value={kpis.overdueCount}
+              icon={AlertCircleIcon}
+              delta={
+                kpis.overdueCount > 0
+                  ? {
+                      value: t('needsAttention'),
+                      trend: 'down',
+                    }
+                  : undefined
+              }
+            />
+          </Link>
           <KpiCard
             label={t('paymentsReceivedToday')}
             value={kpis.todayPaymentsCount}
@@ -134,7 +145,7 @@ export function Dashboard() {
                 {t('overdueQueue')}
               </h3>
               <Link
-                to="/loans"
+                to="/loans?status=overdue"
                 className="text-sm font-medium text-brand-600 hover:text-brand-500"
               >
                 {t('action.viewAll')}
@@ -278,46 +289,72 @@ function OverdueQueueRow({
   t: ReturnType<typeof useT>['t'];
   language: ReturnType<typeof useT>['language'];
 }) {
+  const customerPhone = loan.customer?.phone?.replace(/\s/g, '') ?? '';
+  const customerName = loan.customer?.name ?? t('misc.unknown');
+
   return (
-    <li className="px-4 py-4 sm:px-6 hover:bg-neutral-50">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col min-w-0">
-          <p className="text-sm font-medium text-neutral-900 truncate">
-            {loan.customer?.name}
-          </p>
-          <p className="text-sm text-neutral-500 mt-1">
-            <span className="tabular-nums font-medium text-neutral-700">
+    <li className="flex items-stretch divide-x divide-neutral-100">
+      <Link
+        to={`/loans/${loan.id}`}
+        className="flex flex-1 min-w-0 px-4 py-4 sm:px-6 hover:bg-neutral-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600"
+      >
+        <div className="grid w-full grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {t('loanCodeLabel')}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-brand-700 tabular-nums truncate">
               {loan.loanCode}
-            </span>
-          </p>
-          <p className="text-sm text-danger-600 font-medium mt-1">
-            {formatOverdueHuman(loan.daysOverdue, language)}
-          </p>
-        </div>
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {t('field.customer')}
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-neutral-900 truncate">
+              {customerName}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {t('field.balance')}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-neutral-900 tabular-nums">
               {formatLKR(loan.balanceAmount)}
             </p>
-            <p className="text-xs text-neutral-500 mt-1">{t('field.balance')}</p>
           </div>
-          <div className="flex gap-2">
-            <a
-              href={`tel:${loan.customer?.phone}`}
-              className="rounded-full bg-white p-2 text-neutral-400 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
-              title={t('callCustomer')}
-            >
-              <PhoneIcon className="h-4 w-4" />
-            </a>
-            <Link
-              to={`/payments/new?loanId=${loan.id}`}
-              className="rounded-full bg-white p-2 text-brand-600 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-brand-50"
-              title={t('recordPaymentShortcut')}
-            >
-              <CreditCardIcon className="h-4 w-4" />
-            </Link>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {t('overduePeriodLabel')}
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-danger-600">
+              {formatOverdueHuman(loan.daysOverdue, language)}
+            </p>
           </div>
         </div>
+      </Link>
+
+      <div className="flex shrink-0 items-center gap-2 px-3 sm:px-4">
+        {customerPhone ? (
+          <a
+            href={`tel:${customerPhone}`}
+            className="rounded-full bg-white p-2 text-neutral-600 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 hover:text-brand-700"
+            title={t('callCustomer')}
+            aria-label={`${t('callCustomer')}: ${customerName}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <PhoneIcon className="h-4 w-4" aria-hidden="true" />
+          </a>
+        ) : null}
+        <Link
+          to={`/payments/new?loanId=${loan.id}`}
+          className="rounded-full bg-white p-2 text-brand-600 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-brand-50"
+          title={t('recordPaymentShortcut')}
+          aria-label={`${t('recordPaymentShortcut')}: ${loan.loanCode}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CreditCardIcon className="h-4 w-4" aria-hidden="true" />
+        </Link>
       </div>
     </li>
   );

@@ -518,6 +518,7 @@ export const t = {
   activeOverduesToday: bi('Active Overdues Today', 'අද සක්‍රිය ප්‍රමාද'),
   overdueFollowups: bi('Overdue Follow-ups', 'ප්‍රමාද අනුගමන'),
   overdueQueue: bi('Overdue Queue', 'ප්‍රමාද පෝලිම'),
+  overduePeriodLabel: bi('Overdue period', 'ප්‍රමාද කාලය'),
   noOverdueLoans: bi('No overdue loans. Great job!', 'ප්‍රමාද ණය නැත!'),
   bikeStockStatus: bi('Bike Stock Status', 'බයික් තොග තත්ත්වය'),
   overdueSeverityLow: bi('Low', 'අඩු'),
@@ -534,6 +535,15 @@ export const t = {
   welcomeBack: bi(
     'Welcome back! Please enter your details.',
     'ආයුබෝවන්! ඔබේ විස්තර ඇතුළත් කරන්න.'
+  ),
+  usernamePasswordSignInHint: bi(
+    'Enter your username and current app password.',
+    'ඔබගේ පරිශීලක නාමය සහ වත්මන් යෙදුම් මුරපදය ඇතුළත් කරන්න.'
+  ),
+  username: bi('Username', 'පරිශීලක නාමය'),
+  passwordOnlySignInHint: bi(
+    'Enter your current app password to continue.',
+    'ඉදිරියට යාමට වර්තමාන යෙදුම් මුරපදය ඇතුළත් කරන්න.'
   ),
   emailAddress: bi('Email address', 'ඊමේල් ලිපිනය'),
   password: bi('Password', 'මුරපදය'),
@@ -847,31 +857,47 @@ export const t = {
 
   // Backup module
   backupSubtitle: bi(
-    'Manage your data security and exports',
-    'දත්ත ආරක්ෂාව සහ අපනයන කළමනාකරණය'
+    'Download or restore your local demo database',
+    'දේශීය ඩෙමෝ දත්ත ගබඩාව බාගත හෝ ප්‍රතිසාධනය කරන්න'
   ),
-  cloudSync: bi('Cloud Sync', 'වලාකුළු සමමුහුර්තය'),
-  cloudSyncActive: bi('Active', 'සක්‍රිය'),
-  cloudSyncHint: bi(
-    'Your data is automatically synced to the secure cloud database in real-time. No manual action required.',
-    'දත්ත ස්වයංක්‍රීයව ආරක්ෂිත වලාකුළු දත්ත ගබඩාවට සමමුහුර්ත වේ.'
-  ),
-  lastSynced: bi('Last synced:', 'අවසන් සමමුහුර්තය:'),
-  justNow: bi('Just now', 'දැන්'),
-  storageUsed: bi('Storage used:', 'භාවිත ගබඩාව:'),
   manualLocalBackup: bi('Manual Local Backup', 'දේශීය අතින් උපස්ථ'),
   manualBackupHint: bi(
-    'Download a complete copy of your database as CSV files. It is recommended to keep one copy on a pen drive or external hard drive for disaster recovery.',
-    'දත්ත ගබඩාවේ සම්පූර්ණ පිටපත CSV ලෙස බාගත කරන්න.'
+    'Download a complete JSON copy of your database, or restore from a previously exported backup file. Keep a copy on external storage for disaster recovery.',
+    'දත්ත ගබඩාවේ සම්පූර්ණ JSON පිටපතක් බාගත කරන්න, හෝ පෙර අපනයනය කළ උපස්ථ ගොනුවකින් ප්‍රතිසාධනය කරන්න.'
   ),
+  lastBackupAt: bi('Last backup', 'අවසන් උපස්ථය'),
+  lastRestoreAt: bi('Last restore', 'අවසන් ප්‍රතිසාධනය'),
+  backupNever: bi('Never', 'කිසිදා නැත'),
   preparingFiles: bi('Preparing files...', 'ගොනු සකසමින්...'),
   downloadFullBackup: bi('Download Full Backup', 'සම්පූර්ණ උපස්ථ බාගත කරන්න'),
-  recentBackups: bi('Recent Backups', 'මෑත උපස්ථ'),
-  dateAndTime: bi('Date & Time', 'දිනය සහ වේලාව'),
+  uploadBackup: bi('Upload Backup', 'උපස්ථ උඩුගත කරන්න'),
+  backupUploading: bi('Uploading...', 'උඩුගත කරමින්...'),
+  backupDownloadSuccess: bi(
+    'Backup downloaded successfully',
+    'උපස්ථය සාර්ථකව බාගත කරන ලදී'
+  ),
+  backupDownloadFailed: bi(
+    'Backup download failed. Please try again.',
+    'උපස්ථ බාගත කිරීම අසාර්ථක විය. නැවත උත්සාහ කරන්න.'
+  ),
+  backupRestoreSuccess: bi(
+    'Backup restored successfully',
+    'උපස්ථය සාර්ථකව ප්‍රතිසාධනය කරන ලදී'
+  ),
+  backupRestoreFailed: bi(
+    'Backup restore failed.',
+    'උපස්ථ ප්‍රතිසාධනය අසාර්ථක විය.'
+  ),
+  backupRestoreConfirm: bi(
+    'Restore backup and replace all current demo data?',
+    'උපස්ථය ප්‍රතිසාධනය කර වර්තමාන ඩෙමෝ දත්ත සියල්ල ප්‍රතිස්ථාපනය කරන්නද?'
+  ),
+  backupInvalidFileType: bi(
+    'Please select a .json backup file.',
+    'කරුණාකර .json උපස්ථ ගොනුවක් තෝරන්න.'
+  ),
   backupTypeManual: bi('Manual', 'අතින්'),
   backupTypeAuto: bi('Auto', 'ස්වයං'),
-  initiatedBy: bi('Initiated By', 'ආරම්භ කළේ'),
-  backupSize: bi('Size', 'ප්‍රමාණය'),
 
   // Staff module
   staffSubtitle: bi(
@@ -1059,9 +1085,8 @@ export const t = {
   closeSidebar: bi('Close sidebar', 'පැති තීරුව වසන්න'),
   viewNotifications: bi('View notifications', 'දැනුම්දීම් බලන්න'),
   displayLanguage: bi('Display language', 'පෙන්වන භාෂාව'),
-  langModeBoth: bi('English + Sinhala', 'ඉංග්‍රීසි + සිංහල'),
   langModeEnglish: bi('English', 'ඉංග්‍රීසි'),
-  langModeSinhala: bi('Sinhala', 'සිංහල'),
+  langModeSinhala: bi('සිංහල', 'සිංහල'),
   ariaTabs: bi('Tabs', 'ටැබ්'),
 
   // Errors & validation

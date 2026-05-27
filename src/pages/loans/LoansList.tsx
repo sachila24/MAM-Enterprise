@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
@@ -10,17 +10,31 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { useT } from '../../i18n/I18nProvider';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listCustomers, listLoans } from '../../lib/local-db/repositories';
-import {
-  getLastPaymentDate,
-  getLedgerLoanStatus,
-} from '../../lib/display/ledgerDisplay';
+import { getLastPaymentDate } from '../../lib/display/ledgerDisplay';
+import { getLoanListStatus } from '../../lib/finance/loanOverdue';
+import { useSystemToday } from '../../lib/time/systemTime';
+
+const VALID_STATUS_FILTERS = new Set(['all', 'active', 'overdue', 'completed']);
+
+function statusFromSearchParam(value: string | null): string {
+  if (value && VALID_STATUS_FILTERS.has(value)) return value;
+  return 'all';
+}
 
 export function LoansList() {
   const { t, language } = useT();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const db = useDemoDb();
+  const asOfToday = useSystemToday();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(() =>
+    statusFromSearchParam(searchParams.get('status'))
+  );
+
+  useEffect(() => {
+    setStatusFilter(statusFromSearchParam(searchParams.get('status')));
+  }, [searchParams]);
   const loans = listLoans(db);
   const customers = listCustomers(db);
 
@@ -33,12 +47,16 @@ export function LoansList() {
     return map;
   }, [db, loans]);
 
-  const enrichedLoans = loans.map((loan) => ({
-    ...loan,
-    customer: customers.find((c) => c.id === loan.customerId),
-    ledgerStatus: getLedgerLoanStatus(loan.status, loan.balanceAmount),
-    lastPaymentDate: lastPaymentByLoan.get(loan.id) ?? null,
-  }));
+  const enrichedLoans = useMemo(
+    () =>
+      loans.map((loan) => ({
+        ...loan,
+        customer: customers.find((c) => c.id === loan.customerId),
+        ledgerStatus: getLoanListStatus(db, loan, asOfToday),
+        lastPaymentDate: lastPaymentByLoan.get(loan.id) ?? null,
+      })),
+    [loans, customers, db, asOfToday, lastPaymentByLoan]
+  );
 
   const filteredLoans = enrichedLoans.filter((loan) => {
     const matchesSearch =

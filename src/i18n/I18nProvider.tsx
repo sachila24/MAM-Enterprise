@@ -31,9 +31,10 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | null>(null);
 
 function normalizeStoredLanguage(value: string | null): DisplayMode {
-  if (value === 'en' || value === 'si' || value === 'both') return value;
-  // Legacy: separate en/si/ta dictionaries → default to bilingual
-  return 'both';
+  if (value === 'en' || value === 'si') return value;
+  // Legacy "both" mode now falls back to English-only selector.
+  if (value === 'both') return 'en';
+  return 'en';
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {

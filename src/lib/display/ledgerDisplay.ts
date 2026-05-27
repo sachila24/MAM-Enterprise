@@ -722,7 +722,7 @@ export function getLastPaymentDate(
   return dates[0] ?? null;
 }
 
-/** Shop-friendly loan list status. */
+/** @deprecated Use getLoanListStatus from lib/finance/loanOverdue for DB-backed overdue detection. */
 export function getLedgerLoanStatus(
   storedStatus: string,
   balanceAmount: number
