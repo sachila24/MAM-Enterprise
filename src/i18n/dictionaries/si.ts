@@ -4,7 +4,6 @@ export const si = {
   'nav.customers': 'ගනුදෙනුකරුවන්',
   'nav.loans': 'ණය සහ වාරික',
   'nav.payments': 'ගෙවීම්',
-  'nav.receipts': 'රිසිට්පත්',
   'nav.documents': 'ලේඛන',
   'nav.bikeStock': 'යතුරුපැදි තොග',
   'nav.guarantees': 'ඇපකර',

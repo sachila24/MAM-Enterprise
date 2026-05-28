@@ -295,7 +295,6 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   earlySettlementRecorded: 'කලින් අවසන් කිරීම {code} සටහන් කළා',
   couldNotConfirmSettlement: 'අවසන් කිරීම තහවුරු කරන්න බැරි වුණා',
   earlySettlementMonthsRequired: 'කලින් අවසන් කිරීමට මාස {months} සම්පූර්ණ වෙන්න ඕන',
-  voidReceiptNotImplemented: 'Local demo එකේ රිසිට් අවලංගු කිරීම තවම නැහැ',
   cancelLoanSupabaseSoon: 'Supabase සම්බන්ධ කළාම ණය අවලංගු කරන්න පුළුවන්',
   invalidDemoDb: 'Demo database එක වැරදියි',
   guaranteeRequiredHint: 'ඇපකර අවශ්‍යයි. ප්‍රමාද ගාස්තු නැහැ. නොගෙවූ පොලිය ඉතිරි වෙනවා.',

@@ -7,7 +7,6 @@ export type {
   RecordInterestOnlyPrincipalSettlementInput,
 } from './paymentsRepo';
 export * from './guaranteesRepo';
-export * from './receiptsRepo';
 export * from './expensesRepo';
 export * from './cashTransactionsRepo';
 export * from './dashboardRepo';

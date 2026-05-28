@@ -218,7 +218,9 @@ function computeAccruedLateFee(
     const charged = inst.lateFeeCharged ?? 0;
     return {
       lateMonths: 0,
-      lateFee: roundLKR(Math.max(lateFeePaid, charged, accrued)),
+      // Business rule: once installment principal is fully settled,
+      // this installment must not accrue additional late-fee cycles.
+      lateFee: roundLKR(Math.max(lateFeePaid, charged)),
       lateFeeSettled: isLateFeeSettled(inst),
     };
   }

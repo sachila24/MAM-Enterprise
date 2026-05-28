@@ -14,7 +14,6 @@ export const t = {
   'nav.customers': bi('Customers', 'ගනුදෙනුකරුවන්'),
   'nav.loans': bi('Loans & Installments', 'ණය සහ වාරික'),
   'nav.payments': bi('Payments', 'ගෙවීම්'),
-  'nav.receipts': bi('Receipts', 'රිසිට්පත්'),
   'nav.documents': bi('Documents', 'ලේඛන'),
   'nav.bikeStock': bi('Bike Stock', 'යතුරුපැදි තොග'),
   'nav.guarantees': bi('Guarantees', 'ඇපකර'),
@@ -1239,10 +1238,6 @@ export const t = {
     'Early settlement requires {months} completed months',
     'පූර්ව නිරාකරණයට {months} මාස සම්පූර්ණ විය යුතුයි'
   ),
-  voidReceiptNotImplemented: bi(
-    'Voiding receipts is not implemented in local demo mode yet',
-    'දේශීය ඩෙමෝහි රිසිට් අවලංගු කිරීම තවම නැත'
-  ),
   cancelLoanSupabaseSoon: bi(
     'Cancel loan will be available when Supabase is connected',
     'Supabase සම්බන්ධ වූ පසු ණය අවලංගු කළ හැක'
@@ -1263,10 +1258,6 @@ export const t = {
   installmentsPaidLabel: bi('Installments paid', 'ගෙවූ වාරික'),
 
   // Receipts list
-  receiptsSubtitle: bi(
-    'View and manage payment receipts',
-    'ගෙවීම් රිසිට්පත් බලන්න සහ කළමනාකරණය'
-  ),
   documentsSubtitle: bi(
     'Official finance documents — search, filter, and reprint',
     'නිල මුල්‍ය ලේඛන — සොයන්න, පෙරහන සහ නැවත මුද්‍රණය'
@@ -1306,16 +1297,7 @@ export const t = {
   docTypeCashSale: bi('Cash Sale', 'මුදල් විකිණුම'),
   docTypeSettlement: bi('Settlement', 'නිෂ්පත්ති'),
   docTypeAgreement: bi('Agreement', 'ගිවිසුම'),
-  searchReceipts: bi(
-    'Search by Receipt No or Customer...',
-    'රිසිට් අංකය හෝ ගනුදෙනුකරු...'
-  ),
-  noReceiptsFound: bi(
-    'No receipts found matching your criteria',
-    'රිසිට්පත් හමු නොවීය'
-  ),
   printReceiptTitle: bi('Print Receipt', 'රිසිට්පත් මුද්‍රණය'),
-  voidReceiptTitle: bi('Void Receipt', 'රිසිට්පත් අවලංගු'),
   colAmount: bi('Amount', 'මුදල'),
   colActions: bi('Actions', 'ක්‍රියා'),
   systemUser: bi('System', 'පද්ධතිය'),

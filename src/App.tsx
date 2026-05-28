@@ -17,7 +17,6 @@ import { EarlySettlement } from './pages/loans/EarlySettlement';
 import { PaymentsList } from './pages/payments/PaymentsList';
 import { RecordPayment } from './pages/payments/RecordPayment';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
-import { ReceiptsList } from './pages/receipts/ReceiptsList';
 import { BikesList } from './pages/bikes/BikesList';
 import { BikeForm } from './pages/bikes/BikeForm';
 import { BikeDetail } from './pages/bikes/BikeDetail';
@@ -73,7 +72,6 @@ export function App() {
                 <Route path="success" element={<PaymentSuccess />} />
               </Route>
 
-              <Route path="receipts" element={<ReceiptsList />} />
               <Route path="documents">
                 <Route index element={<DocumentsList />} />
                 <Route path=":id" element={<DocumentView />} />
