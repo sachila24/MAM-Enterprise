@@ -4,30 +4,24 @@ import { lateFeeRuleLabel } from '../../lib/documents/snapshots';
 import type { LoanCreationDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
 
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function BillRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="doc-field">
-      <span className="doc-field-label">{label}</span>
-      <span className="doc-field-value">{value}</span>
+    <div className="mam-bill-row">
+      <span className="mam-bill-row-label">{label}</span>
+      <span className="mam-bill-row-leader" aria-hidden />
+      <span className="mam-bill-row-value">{value}</span>
     </div>
   );
 }
 
-function OptionalField({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
-  if (!value?.trim()) return null;
-  return <Field label={label} value={value.trim()} />;
+function DetailRow({ label, value }: { label: string; value: string }) {
+  if (!value?.trim() || value.trim() === '—') return null;
+  return (
+    <div className="mam-bill-detail-row">
+      <span className="mam-bill-detail-label">{label}</span>
+      <span className="mam-bill-detail-value">{value.trim()}</span>
+    </div>
+  );
 }
 
 export interface LoanInvoicePrintProps {
@@ -44,157 +38,162 @@ export function LoanInvoicePrint({
   language = 'both',
 }: LoanInvoicePrintProps) {
   const L = getDocumentLabels(language);
-  const planPreview = snapshot.installmentPlan.slice(0, 6);
-  const planMore = snapshot.installmentPlan.length - planPreview.length;
+
+  const initialPaid =
+    snapshot.initialPayment ??
+    (snapshot.downPayment ?? 0) +
+      (snapshot.serviceFee ?? 0) +
+      (snapshot.registrationFee ?? 0);
+  const netAdvance =
+    snapshot.netAdvancePayment ?? snapshot.downPayment ?? 0;
 
   return (
-    <div id="document-print-area" className="receipt-document doc-invoice">
-      <div className="receipt-sheet">
-        <header className="receipt-section receipt-header">
-          <h1 className="receipt-company-name">{L.companyName}</h1>
-          <p className="receipt-company-meta">No.47, Galmaduwa, Mahailuppallama</p>
-          <p className="receipt-company-meta">Call: 071 593 1681 | 071 209 9416</p>
-          <h2 className="doc-title">{L.loanInvoiceTitle}</h2>
-          <div className="doc-meta-row">
-            <p>
-              <strong>{L.invoiceNumber}:</strong> {documentNumber}
-            </p>
-            <p>
-              <strong>{L.createdDate}:</strong> {formatDate(createdAt)}
-            </p>
-            <p>
-              <strong>{L.loanNumber}:</strong> {snapshot.loanCode}
-            </p>
+    <div id="document-print-area" className="receipt-document doc-invoice mam-bill">
+      <div className="receipt-sheet mam-bill-sheet">
+        <header className="mam-bill-header">
+          <h1 className="mam-bill-company">{L.companyName}</h1>
+          <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
+          <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
+          <p className="mam-bill-title">{L.loanInvoiceTitle}</p>
+          <div className="mam-bill-meta">
+            <span>
+              {L.invoiceNumber}: <strong>{documentNumber}</strong>
+            </span>
+            <span>
+              {L.createdDate}: <strong>{formatDate(createdAt)}</strong>
+            </span>
+            <span>
+              {L.loanNumber}: <strong>{snapshot.loanCode}</strong>
+            </span>
           </div>
-          <p className="doc-locked-banner">{L.lockedNotice}</p>
         </header>
 
-        <div className="receipt-body">
-          <h3 className="doc-section-title">{L.customerDetails}</h3>
-          <div className="doc-grid-2">
-            <Field label={L.customerName} value={snapshot.customer.name} />
-            <Field label={L.nic} value={snapshot.customer.nic} />
-            <Field label={L.phone} value={snapshot.customer.phone} />
-            <Field label={L.address} value={snapshot.customer.address} />
-          </div>
+        <div className="receipt-body mam-bill-body">
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
+            <div className="mam-bill-detail-block">
+              <DetailRow label={L.customerName} value={snapshot.customer.name} />
+              <DetailRow
+                label={L.customerCode}
+                value={snapshot.customer.customerCode ?? ''}
+              />
+              <DetailRow label={L.nic} value={snapshot.customer.nic} />
+              <DetailRow label={L.address} value={snapshot.customer.address} />
+              <DetailRow label={L.phone} value={snapshot.customer.phone} />
+            </div>
+          </section>
 
           {snapshot.bike && (
-            <>
-              <h3 className="doc-section-title">{L.bikeDetails}</h3>
-              <div className="doc-grid-2">
-                <Field label={L.bikeModel} value={snapshot.bike.model} />
-                <Field label={L.brand} value={snapshot.bike.brand} />
-                <Field label={L.color} value={snapshot.bike.color} />
-                <Field label={L.chassisNo} value={snapshot.bike.chassisNo} />
-                <Field label={L.engineNo} value={snapshot.bike.engineNo} />
+            <section className="mam-bill-section">
+              <h2 className="mam-bill-section-heading">{L.bikeDetails}</h2>
+              <div className="mam-bill-detail-block">
+                <DetailRow
+                  label={L.bikeModel}
+                  value={`${snapshot.bike.brand} ${snapshot.bike.model}`.trim()}
+                />
+                <DetailRow label={L.color} value={snapshot.bike.color} />
+                <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />
+                <DetailRow label={L.engineNo} value={snapshot.bike.engineNo} />
               </div>
-            </>
+            </section>
           )}
 
-          <h3 className="doc-section-title">{L.financeDetails}</h3>
-          <div className="doc-grid-2">
-            <Field label={L.cashPrice} value={formatLKR(snapshot.cashPrice)} />
-            <Field label={L.downPayment} value={formatLKR(snapshot.downPayment)} />
-            <Field
-              label={L.financeAmount}
-              value={formatLKR(snapshot.financeAmount)}
-            />
-            <Field
-              label={L.interestAmount}
-              value={formatLKR(snapshot.interestAmount)}
-            />
-            <Field
-              label={L.totalPayable}
-              value={formatLKR(snapshot.totalPayable)}
-            />
-            <Field
-              label={L.monthlyInstallment}
-              value={formatLKR(snapshot.monthlyInstallment)}
-            />
-            <Field
-              label={L.installmentCount}
-              value={String(snapshot.installmentCount)}
-            />
-            <Field
-              label={L.lateFeeRule}
-              value={lateFeeRuleLabel(
+          <section className="mam-bill-section mam-bill-finance">
+            <h2 className="mam-bill-section-heading">{L.financeDetails}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow label={L.cashPrice} value={formatLKR(snapshot.cashPrice)} />
+              <BillRow label={L.initialPayment} value={formatLKR(initialPaid)} />
+              <BillRow
+                label={L.serviceFee}
+                value={formatLKR(snapshot.serviceFee ?? 0)}
+              />
+              <BillRow
+                label={L.registrationFee}
+                value={formatLKR(snapshot.registrationFee ?? 0)}
+              />
+              <BillRow label={L.netAdvancePayment} value={formatLKR(netAdvance)} />
+              <BillRow
+                label={L.financeAmount}
+                value={formatLKR(snapshot.financeAmount)}
+              />
+              <BillRow
+                label={L.interestAmount}
+                value={formatLKR(snapshot.interestAmount)}
+              />
+              <BillRow
+                label={L.installmentCount}
+                value={String(snapshot.installmentCount)}
+              />
+              <BillRow
+                label={L.monthlyInstallment}
+                value={formatLKR(snapshot.monthlyInstallment)}
+              />
+              <BillRow
+                label={L.totalPayable}
+                value={formatLKR(snapshot.totalPayable)}
+              />
+            </div>
+            <p className="mam-bill-terms-note">
+              {L.lateFeeRule}:{' '}
+              {lateFeeRuleLabel(
                 snapshot.lateFeeRatePercent,
                 snapshot.monthlyInstallment
-              )}
-            />
-            <Field
-              label={L.gracePeriod}
-              value={`${snapshot.gracePeriodDays} ${L.days}`}
-            />
-          </div>
+              )}{' '}
+              · {L.gracePeriod}: {snapshot.gracePeriodDays} {L.days} ·{' '}
+              {L.paymentDate}: {formatDate(snapshot.firstDueDate)}
+            </p>
+          </section>
 
-          {planPreview.length > 0 && (
-            <>
-              <h3 className="doc-section-title">{L.installmentPlan}</h3>
-              <table className="doc-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>{L.paymentDate}</th>
-                    <th className="num">{L.amountLkr}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {planPreview.map((row) => (
-                    <tr key={row.number}>
-                      <td>{row.number}</td>
-                      <td>{formatDate(row.dueDate)}</td>
-                      <td className="num">{formatLKR(row.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {planMore > 0 && (
-                <p className="doc-locked-banner">
-                  + {planMore} more installments (see loan ledger)
-                </p>
-              )}
-            </>
-          )}
-
-          <h3 className="doc-section-title">{L.guarantorDetails}</h3>
-          <div className="doc-grid-2">
-            <Field label={L.customerName} value={snapshot.guarantor.name} />
-            <Field label={L.nic} value={snapshot.guarantor.nic} />
-            <Field label={L.phone} value={snapshot.guarantor.phone} />
-            <Field label={L.address} value={snapshot.guarantor.address} />
-          </div>
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.guarantorDetails}</h2>
+            <div className="mam-bill-detail-block">
+              <DetailRow label={L.customerName} value={snapshot.guarantor.name} />
+              <DetailRow label={L.nic} value={snapshot.guarantor.nic} />
+              <DetailRow label={L.phone} value={snapshot.guarantor.phone} />
+              <DetailRow label={L.address} value={snapshot.guarantor.address} />
+            </div>
+          </section>
 
           {snapshot.collateral.length > 0 && (
-            <>
-              <h3 className="doc-section-title">{L.collateralHeld}</h3>
+            <section className="mam-bill-section">
+              <h2 className="mam-bill-section-heading">{L.collateralHeld}</h2>
               {snapshot.collateral.map((c, i) => (
-                <div key={i} className="doc-grid-2 doc-collateral-item">
-                  <OptionalField label={L.fileNumber} value={c.fileNumber} />
-                  <OptionalField
-                    label={L.vehicleNumber}
-                    value={c.vehicleNumber}
-                  />
-                  <OptionalField
-                    label={L.guarantor1}
-                    value={c.guarantor1Name}
-                  />
-                  <OptionalField
-                    label={L.guarantor2}
-                    value={c.guarantor2Name}
-                  />
-                  <OptionalField label={L.description} value={c.description} />
-                  <OptionalField label={L.itemType} value={c.itemType} />
-                  <OptionalField label={L.storage} value={c.storageLocation} />
+                <div key={i} className="mam-bill-detail-block mam-bill-collateral">
+                  {c.fileNumber && (
+                    <DetailRow label={L.fileNumber} value={c.fileNumber} />
+                  )}
+                  {c.vehicleNumber && (
+                    <DetailRow label={L.vehicleNumber} value={c.vehicleNumber} />
+                  )}
+                  {c.guarantor1Name && (
+                    <DetailRow label={L.guarantor1} value={c.guarantor1Name} />
+                  )}
+                  {c.guarantor2Name && (
+                    <DetailRow label={L.guarantor2} value={c.guarantor2Name} />
+                  )}
+                  {c.description && (
+                    <DetailRow label={L.description} value={c.description} />
+                  )}
                 </div>
               ))}
-            </>
+            </section>
           )}
 
-          <div className="doc-signatures">
-            <div className="doc-sig-line">{L.customerSignature}</div>
-            <div className="doc-sig-line">{L.guarantorSignature}</div>
-            <div className="doc-sig-line">{L.authorizedOfficer}</div>
+          <p className="mam-bill-locked">{L.lockedNotice}</p>
+
+          <div className="mam-bill-signatures">
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.customerSignature}</span>
+            </div>
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.guarantorSignature}</span>
+            </div>
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.authorizedOfficer}</span>
+            </div>
           </div>
         </div>
       </div>

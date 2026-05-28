@@ -441,11 +441,6 @@ function FixedInstallmentLoanDetail({
       ? t('financeAmount')
       : t('loanAmount');
 
-  const downPaymentHint =
-    bike && loan.principalAmount <= bike.sellingPrice
-      ? roundLKR(bike.sellingPrice - loan.principalAmount)
-      : undefined;
-
   const settlementEligible = canRequestEarlySettlement(
     detail.monthsCompleted,
     loan.minimumMonthsBeforeSettlement
@@ -512,25 +507,20 @@ function FixedInstallmentLoanDetail({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              {t('bikeSellingPrice')}
+              {t('loanAmountField')}
             </p>
             <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-              {formatLKR(bike.sellingPrice)}
+              {formatLKR(loan.originalPrincipalAmount ?? bike.sellingPrice)}
             </p>
           </div>
-          {downPaymentHint !== undefined ? (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                {t('estimatedDownPayment')}
-              </p>
-              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-                {formatLKR(downPaymentHint)}
-              </p>
-              <p className="mt-2 text-xs text-neutral-500">
-                {t('sellingPriceMinusFinanceHint')}
-              </p>
-            </div>
-          ) : null}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {t('financedPrincipal')}
+            </p>
+            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+              {formatLKR(loan.principalAmount)}
+            </p>
+          </div>
           <div className="sm:col-span-3">
             <Link
               to={`/bikes/${bike.id}`}
@@ -881,7 +871,13 @@ function LoanOriginationSection({ loan }: { loan: Loan }) {
     <section className="mb-8">
       <SectionTitle icon={BanknoteIcon} title={t('originationPaymentSection')} />
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 text-sm border-b border-neutral-200">
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 text-sm border-b border-neutral-200">
+          <div>
+            <dt className="text-neutral-500">{t('loanAmountField')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.originalPrincipalAmount ?? loan.principalAmount)}
+            </dd>
+          </div>
           <div>
             <dt className="text-neutral-500">{t('initialPayment')}</dt>
             <dd className="font-semibold tabular-nums">
@@ -904,6 +900,12 @@ function LoanOriginationSection({ loan }: { loan: Loan }) {
             <dt className="text-neutral-500">{t('netAdvancePayment')}</dt>
             <dd className="font-semibold tabular-nums">
               {formatLKR(loan.netAdvancePayment ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('financedPrincipal')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.principalAmount)}
             </dd>
           </div>
         </dl>

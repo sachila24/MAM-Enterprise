@@ -183,7 +183,7 @@ export const t = {
   loanAmount: bi('Loan amount', 'ණය මුදල'),
   financeAmount: bi('Finance amount', 'මුල්‍ය මුදල'),
   paid: bi('Paid', 'ගෙවූ'),
-  totalPayable: bi('Total payable', 'මුළු ගෙවිය යුතු'),
+  totalPayable: bi('Total amount payable', 'ගෙවිය යුතු මුළු මුදල'),
   monthlyInstallment: bi('Monthly installment', 'මාසික වාරිකය'),
   nextDueDate: bi('Next due date', 'ඊළඟ ගෙවීම් දිනය'),
   lateFeeRate: bi('Late fee rate', 'ප්‍රමාද ගාස්තු අනුපාතය'),
@@ -309,7 +309,7 @@ export const t = {
   ),
   fixedTermInstallment: bi('Fixed Term Installment', 'ස්ථිර කාල වාරික'),
   interestOnlyTerms: bi('Interest-Only Terms', 'පොලිය පමණ කොන්දේසි'),
-  loanAmountField: bi('Loan amount', 'ණය මුදල'),
+  loanAmountField: bi('Total amount', 'මුළු මුදල'),
   monthlyInterestRate: bi('Monthly interest rate (%)', 'මාසික පොලිය (%)'),
   startDate: bi('Start date', 'ආරම්භ දිනය'),
   dueDay: bi('Due day (1–28)', 'ගෙවීම් දිනය (1–28)'),
@@ -318,12 +318,14 @@ export const t = {
   fixedInstallmentTerms: bi('Fixed Installment Terms', 'ස්ථිර වාරික කොන්දේසි'),
   selectInStockBike: bi('-- Select in-stock bike --', '-- තොග ඇති බයික් තෝරන්න --'),
   bikeSellingPrice: bi('Bike selling price', 'බයික් විකිණීම් මිල'),
-  downPayment: bi('Down payment', 'මුදල් තැන්පතු'),
-  initialPayment: bi('Initial payment', 'ආරම්භක ගෙවීම'),
-  netAdvancePayment: bi('Net advance payment', 'ශුද්ධ අග්‍රිම ගෙවීම'),
-  serviceFee: bi('Service fee', 'සේවා ගාස්තුව'),
-  registrationFee: bi('Registration fee', 'ලියාපදිංචි ගාස්තුව'),
-  financedPrincipal: bi('Financed principal', 'මුල්‍යමය ප්‍රධාන මුදල'),
+  initialPayment: bi('Amount paid', 'ගෙවූ මුදල'),
+  netAdvancePayment: bi('Net advance for loan', 'ණයට යෙදෙන අග්‍රිම මුදල'),
+  serviceFee: bi('Service fee', 'සේවා ගාස්තු'),
+  registrationFee: bi('Registration fee', 'ලියාපදිංචි ගාස්තු'),
+  financedPrincipal: bi('Term amount', 'කාල මුදල'),
+  serviceFeeDeduction: bi('(-) Service fee', '(-) සේවා ගාස්තු'),
+  registrationFeeDeduction: bi('(-) Registration fee', '(-) ලියාපදිංචි ගාස්තු'),
+  paymentBreakdownTitle: bi('Payment breakdown', 'ගෙවීම් විස්තරය'),
   remainingLoanBalance: bi('Remaining loan balance', 'ඉතිරි ණය ශේෂය'),
   financedPrincipalMustBePositive: bi(
     'Net advance cannot equal or exceed the loan amount',
@@ -436,11 +438,6 @@ export const t = {
   bikeStockRefEngine: bi(
     'Stock ref {code} · Engine {engine}',
     'තොග යොමු {code} · එන්ජින් {engine}'
-  ),
-  estimatedDownPayment: bi('Estimated down payment', 'ඇස්තාමේනතු මුදල් තැන්පතු'),
-  sellingPriceMinusFinanceHint: bi(
-    'Selling price minus finance amount',
-    'විකිණීම් මිල අඩු මුල්‍ය මුදල'
   ),
   openBikeDetail: bi('Open bike detail', 'බයික් විස්තර විවෘත කරන්න'),
   guaranteeReceivedOn: bi('Received', 'ලැබුණු'),
@@ -846,7 +843,7 @@ export const t = {
   currentPrincipal: bi('Current principal', 'වර්තමාන මුල්‍ය'),
   monthlyInterestDueLabel: bi('Monthly interest due', 'මාසික පොලිය ගෙවිය යුතු'),
   principalBalance: bi('Principal balance', 'මුල්‍ය ශේෂය'),
-  totalInterest: bi('Total interest', 'මුළු පොලිය'),
+  totalInterest: bi('Interest amount', 'පොලී මුදල'),
   lateFeePerMonthOverdue: bi(
     'Late fee / month if overdue',
     'ප්‍රමාද නම් මාසික ගාස්තු'

@@ -1,5 +1,4 @@
 import './index.css';
-import './styles/receipt-print.css';
 import './styles/document-print.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';

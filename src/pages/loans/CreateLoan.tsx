@@ -38,6 +38,7 @@ import {
   validateOriginationFees,
 } from '../../lib/finance/loanOriginationFees';
 import { LoanOriginationSummaryCard } from '../../components/loans/LoanOriginationSummaryCard';
+import { LoanPaymentBreakdown } from '../../components/loans/LoanPaymentBreakdown';
 
 export function CreateLoan() {
   const { t, tf } = useT();
@@ -383,7 +384,13 @@ export function CreateLoan() {
                   placeholder="e.g. 100,000"
                   disabled={isBike}
                 />
-                <div className="space-y-3">
+                <LoanPaymentBreakdown
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                >
                   <CurrencyInput
                     label={t('initialPayment')}
                     value={initialPayment}
@@ -399,23 +406,7 @@ export function CreateLoan() {
                     value={registrationFee}
                     onChange={setRegistrationFee}
                   />
-                  <div className="flex justify-between text-sm border-t border-neutral-200 pt-3">
-                    <span className="text-neutral-600">
-                      {t('netAdvancePayment')}
-                    </span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">
-                      {formatLKR(origination.netAdvancePayment)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-1">
-                    <span className="text-neutral-600">
-                      {t('financedPrincipal')}
-                    </span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">
-                      {formatLKR(origination.financedPrincipal)}
-                    </span>
-                  </div>
-                </div>
+                </LoanPaymentBreakdown>
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
                     {t('monthlyInterestRate')} *
@@ -469,7 +460,13 @@ export function CreateLoan() {
                     onChange={setFinanceAmount}
                   />
                 )}
-                <div className="space-y-3">
+                <LoanPaymentBreakdown
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                >
                   <CurrencyInput
                     label={t('initialPayment')}
                     value={initialPayment}
@@ -485,23 +482,7 @@ export function CreateLoan() {
                     value={registrationFee}
                     onChange={setRegistrationFee}
                   />
-                  <div className="flex justify-between text-sm border-t border-neutral-200 pt-3">
-                    <span className="text-neutral-600">
-                      {t('netAdvancePayment')}
-                    </span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">
-                      {formatLKR(origination.netAdvancePayment)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-1">
-                    <span className="text-neutral-600">
-                      {t('financedPrincipal')}
-                    </span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">
-                      {formatLKR(origination.financedPrincipal)}
-                    </span>
-                  </div>
-                </div>
+                </LoanPaymentBreakdown>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
@@ -584,8 +565,7 @@ export function CreateLoan() {
                     </p>
                     <p>
                       {t('loanAmountField')}: {formatLKR(sellingPrice)} ·{' '}
-                      {t('financedPrincipal')}:{' '}
-                      {formatLKR(origination.financedPrincipal)}
+                      {t('financedPrincipal')}: {formatLKR(origination.financedPrincipal)}
                     </p>
                   </div>
                 )}
@@ -725,63 +705,34 @@ export function CreateLoan() {
               {t('calculation')}
             </h3>
             {isInterestOnly ? (
-              <dl className="space-y-3 text-sm">
-                <LoanOriginationSummaryCard
-                  loanAmount={loanPrincipalAmount}
-                  initialPayment={origination.initialPayment}
-                  serviceFee={origination.serviceFee}
-                  registrationFee={origination.registrationFee}
-                  netAdvancePayment={origination.netAdvancePayment}
-                  financedPrincipal={origination.financedPrincipal}
-                />
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('monthlyInterestDueLabel')}</dt>
-                  <dd className="font-medium tabular-nums">
-                    {formatLKR(interestOnlyCalc.monthlyInterestDue)}
-                  </dd>
-                </div>
-              </dl>
+              <LoanOriginationSummaryCard
+                loanAmount={loanPrincipalAmount}
+                initialPayment={origination.initialPayment}
+                serviceFee={origination.serviceFee}
+                registrationFee={origination.registrationFee}
+                netAdvancePayment={origination.netAdvancePayment}
+                financedPrincipal={origination.financedPrincipal}
+                interestAmount={interestOnlyCalc.monthlyInterestDue}
+              />
             ) : (
-              <dl className="space-y-3 text-sm">
-                <LoanOriginationSummaryCard
-                  loanAmount={loanPrincipalAmount}
-                  initialPayment={origination.initialPayment}
-                  serviceFee={origination.serviceFee}
-                  registrationFee={origination.registrationFee}
-                  netAdvancePayment={origination.netAdvancePayment}
-                  financedPrincipal={origination.financedPrincipal}
-                />
-                {isBike && (
+              <LoanOriginationSummaryCard
+                loanAmount={loanPrincipalAmount}
+                initialPayment={origination.initialPayment}
+                serviceFee={origination.serviceFee}
+                registrationFee={origination.registrationFee}
+                netAdvancePayment={origination.netAdvancePayment}
+                financedPrincipal={origination.financedPrincipal}
+                interestAmount={fixedCalc.totalInterest}
+                totalPayable={fixedCalc.totalPayable}
+                monthlyInstallment={fixedCalc.monthlyInstallment}
+              >
+                <dl className="space-y-3 text-sm pt-2 border-t border-brand-700">
                   <div className="flex justify-between">
-                    <dt className="text-brand-200">{t('sellingPriceLabel')}</dt>
-                    <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
+                    <dt className="text-brand-200">{t('lateFeePerMonthOverdue')}</dt>
+                    <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('financeAmount')}</dt>
-                  <dd className="tabular-nums">{formatLKR(fixedCalc.financeAmount)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('totalInterest')}</dt>
-                  <dd className="tabular-nums">{formatLKR(fixedCalc.totalInterest)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('totalPayable')}</dt>
-                  <dd className="tabular-nums font-bold">
-                    {formatLKR(fixedCalc.totalPayable)}
-                  </dd>
-                </div>
-                <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">{t('monthlyInstallment')}</dt>
-                  <dd className="text-xl font-bold tabular-nums">
-                    {formatLKR(fixedCalc.monthlyInstallment)}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">{t('lateFeePerMonthOverdue')}</dt>
-                  <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
-                </div>
-              </dl>
+                </dl>
+              </LoanOriginationSummaryCard>
             )}
             </div>
           </div>

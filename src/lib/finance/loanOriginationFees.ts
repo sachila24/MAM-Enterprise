@@ -40,7 +40,7 @@ export function computeOriginationFees(
   };
 }
 
-/** Down payment before financing: gross loan amount minus net advance. */
+/** Gross loan amount minus net advance — financed principal. */
 export function computeFinancedPrincipal(
   loanAmount: number,
   netAdvancePayment: number

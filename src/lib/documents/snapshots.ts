@@ -35,6 +35,7 @@ function partyFromCustomer(
     nic: c.nic,
     phone: c.phone,
     address: c.address,
+    customerCode: c.customerCode,
   };
 }
 
@@ -63,14 +64,21 @@ function bikeSnapshotFromId(
 export function buildLoanCreationSnapshot(
   db: MamDemoDb,
   loan: DbLoan,
-  options?: { downPayment?: number }
+  _options?: { downPayment?: number }
 ): LoanCreationDocumentSnapshot {
   const customer = partyFromCustomer(db, loan.customer_id);
   const bike = loan.bike_id ? bikeSnapshotFromId(db, loan.bike_id) : undefined;
-  const cashPrice = bike?.sellingPrice ?? loan.principal_amount;
-  const downPayment =
-    options?.downPayment ??
-    (bike ? roundLKR(Math.max(0, cashPrice - loan.principal_amount)) : 0);
+  const grossLoanAmount =
+    loan.original_principal_amount ??
+    bike?.sellingPrice ??
+    loan.principal_amount;
+  const cashPrice = bike?.sellingPrice ?? grossLoanAmount;
+  const initialPayment = loan.customer_paid_amount ?? 0;
+  const serviceFee = loan.service_fee ?? 0;
+  const registrationFee = loan.registration_fee ?? 0;
+  const netAdvancePayment =
+    loan.advance_payment ??
+    roundLKR(Math.max(0, grossLoanAmount - loan.principal_amount));
   const installments = db.loan_installments
     .filter((i) => i.loan_id === loan.id)
     .sort((a, b) => a.installment_number - b.installment_number);
@@ -124,7 +132,10 @@ export function buildLoanCreationSnapshot(
     guarantor: { ...EMPTY_PARTY },
     bike,
     cashPrice,
-    downPayment,
+    initialPayment,
+    serviceFee,
+    registrationFee,
+    netAdvancePayment,
     financeAmount: loan.principal_amount,
     interestAmount: loan.total_interest_amount ?? 0,
     discountAmount: loan.discount_amount,
@@ -189,6 +200,17 @@ export function buildPaymentReceiptSnapshot(
   const payment = db.loan_payments.find((p) => p.id === paymentId)!;
   const loan = db.loans.find((l) => l.id === payment.loan_id)!;
   const customer = db.customers.find((c) => c.id === payment.customer_id);
+  const bike = loan.bike_id ? bikeSnapshotFromId(db, loan.bike_id) : undefined;
+  const installments = db.loan_installments
+    .filter((i) => i.loan_id === loan.id)
+    .sort((a, b) => a.installment_number - b.installment_number);
+  const nextPendingInstallment = installments.find((i) => i.status !== 'PAID');
+  const totalInstallments = loan.term_months ?? installments.length;
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const installmentNumberLabel =
+    totalInstallments > 0
+      ? `${pad2(nextPendingInstallment?.installment_number ?? totalInstallments)}/${pad2(totalInstallments)}`
+      : undefined;
   const profile = db.profiles[0];
 
   return {
@@ -196,13 +218,22 @@ export function buildPaymentReceiptSnapshot(
     receiptNumber: payment.receipt_number,
     paymentCode: payment.payment_code,
     paymentDate: payment.payment_date,
-    customerName: customer?.full_name ?? '—',
+    customer: {
+      name: customer?.full_name ?? '—',
+      customerCode: customer?.customer_code,
+      nic: customer?.nic ?? '—',
+      phone: customer?.phone ?? '—',
+    },
     loanCode: loan.loan_code,
+    bikeModel: bike?.model,
+    registrationNumber: bike?.registrationNo,
     paidAmount: payment.amount,
     discountAmount: payment.discount_amount,
     paymentMethod: payment.payment_method,
     repaymentMethod: loan.repayment_method,
     cashierName: profile?.full_name ?? 'Staff',
+    installmentNumberLabel,
+    nextDueDate: nextPendingInstallment?.due_date,
     appliedBreakdown: breakdownFromReceipt(
       receiptBreakdown,
       loan.repayment_method

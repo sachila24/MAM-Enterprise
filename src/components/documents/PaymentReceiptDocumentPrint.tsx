@@ -1,15 +1,45 @@
-import { formatLKR, formatDate } from '../../lib/format';
+import { formatDate, formatEnum, formatLKR } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
 
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+function BillRow({
+  label,
+  value,
+  tone = 'normal',
+}: {
+  label: string;
+  value: string;
+  tone?: 'normal' | 'due' | 'strong';
+}) {
   return (
-    <div className="receipt-row">
-      <span className="receipt-label">{label}</span>
-      <span className={`receipt-value${bold ? ' receipt-bold' : ''}`}>{value}</span>
+    <div className="mam-bill-row">
+      <span className="mam-bill-row-label">{label}</span>
+      <span className="mam-bill-row-leader" aria-hidden />
+      <span
+        className={`mam-bill-row-value ${
+          tone === 'strong'
+            ? 'mam-bill-strong-value'
+            : tone === 'due'
+              ? 'mam-bill-due-value'
+              : ''
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
+}
+
+function formatTimeOnly(value: string): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 export interface PaymentReceiptDocumentPrintProps {
@@ -27,65 +57,129 @@ export function PaymentReceiptDocumentPrint({
 }: PaymentReceiptDocumentPrintProps) {
   const L = getDocumentLabels(language);
   const b = snapshot.appliedBreakdown;
+  const customerName = snapshot.customer?.name ?? snapshot.customerName ?? '—';
+  const customerCode = snapshot.customer?.customerCode ?? '—';
+  const customerNic = snapshot.customer?.nic ?? '—';
+  const customerPhone = snapshot.customer?.phone ?? '—';
+  const hasPaymentTimePart = /:\d{2}/.test(snapshot.paymentDate);
+  const paymentTimeSource = hasPaymentTimePart
+    ? snapshot.paymentDate
+    : createdAt;
+  const previousBalance = b.remainingBalance + b.totalApplied;
+  const totalReceived = b.cashReceived;
 
   return (
-    <div id="document-print-area" className="receipt-document">
-      <div className="receipt-sheet">
-        <header className="receipt-section receipt-header">
-          <h1 className="receipt-company-name">{L.companyName}</h1>
-          <p className="receipt-company-meta">No.47, Galmaduwa, Mahailuppallama</p>
-          <h2 className="receipt-title">{L.paymentReceiptTitle}</h2>
-          <div className="receipt-meta-block">
-            <p className="receipt-receipt-no">
-              {L.receiptNumber}: {documentNumber}
-            </p>
-            <p className="receipt-receipt-no">
-              {L.receiptNumber} (payment): {snapshot.receiptNumber}
-            </p>
-            <p>
-              <span>{L.createdDate}:</span> {formatDate(createdAt)}
-            </p>
-            <p>
-              <span>{L.paymentDate}:</span> {formatDate(snapshot.paymentDate)}
-            </p>
+    <div id="document-print-area" className="receipt-document mam-bill">
+      <div className="receipt-sheet mam-bill-sheet">
+        <header className="mam-bill-header">
+          <h1 className="mam-bill-company">MAM TRADING</h1>
+          <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
+          <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
+          <p className="mam-bill-title">{L.paymentReceiptTitle}</p>
+          <p className="mam-bill-receipt-prominent">
+            {L.receiptNumber}: <strong>{snapshot.receiptNumber}</strong>
+          </p>
+          <div className="mam-bill-meta">
+            <span>
+              {L.createdDate}: <strong>{formatDate(createdAt)}</strong>
+            </span>
+            <span>
+              {L.loanNumber}: <strong>{snapshot.loanCode}</strong>
+            </span>
           </div>
-          <p className="doc-locked-banner">{L.lockedNotice}</p>
         </header>
 
-        <div className="receipt-body">
-          <section className="receipt-section">
-            <Row label={L.customerName} value={snapshot.customerName} />
-            <Row label={L.loanNumber} value={snapshot.loanCode} />
-            <Row label={L.cashier} value={snapshot.cashierName} />
+        <div className="receipt-body mam-bill-body">
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.customerInformation}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow label={L.customerName} value={customerName} />
+              <BillRow label={L.customerCode} value={customerCode} />
+              <BillRow label={L.nic} value={customerNic} />
+              <BillRow label={L.phone} value={customerPhone} />
+            </div>
           </section>
 
-          <hr className="receipt-rule" />
-
-          <section className="receipt-section">
-            <Row label={L.paidAmount} value={formatLKR(snapshot.paidAmount)} bold />
-            {snapshot.discountAmount > 0 && (
-              <Row label={L.discount} value={formatLKR(snapshot.discountAmount)} />
-            )}
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.loanInformation}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow label={L.loanNumber} value={snapshot.loanCode} />
+              <BillRow label={L.bikeModel} value={snapshot.bikeModel ?? '—'} />
+              <BillRow
+                label={L.registrationNumber}
+                value={snapshot.registrationNumber ?? '—'}
+              />
+            </div>
           </section>
 
-          <hr className="receipt-rule" />
-
-          <section className="receipt-section receipt-insight-section">
-            <h3 className="receipt-section-title">{L.appliedBreakdown}</h3>
-            <Row label={L.lateFeePaid} value={formatLKR(b.lateFeePaid)} />
-            <Row label={L.installmentPaid} value={formatLKR(b.installmentPaid)} />
-            {b.interestPaid > 0 && (
-              <Row label={L.interestPaid} value={formatLKR(b.interestPaid)} />
-            )}
-            {b.principalPaid > 0 && (
-              <Row label={L.principalPaid} value={formatLKR(b.principalPaid)} />
-            )}
-            <Row
-              label={L.remainingBalance}
-              value={formatLKR(b.remainingBalance)}
-              bold
-            />
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.paymentInformation}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow label={L.receiptNumber} value={snapshot.receiptNumber} />
+              <BillRow
+                label={L.paymentDate}
+                value={formatDate(snapshot.paymentDate)}
+              />
+              <BillRow
+                label={L.paymentTime}
+                value={formatTimeOnly(paymentTimeSource)}
+              />
+              <BillRow
+                label={L.paymentMethod}
+                value={formatEnum(snapshot.paymentMethod, language)}
+              />
+            </div>
           </section>
+
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.balanceInformation}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow
+                label={L.previousBalance}
+                value={formatLKR(previousBalance)}
+              />
+              <BillRow
+                label={L.paymentAmount}
+                value={formatLKR(snapshot.paidAmount)}
+              />
+              <BillRow label={L.lateFee} value={formatLKR(b.lateFeePaid)} />
+              <BillRow label={L.totalReceived} value={formatLKR(totalReceived)} />
+              <BillRow
+                label={L.remainingBalance}
+                value={formatLKR(b.remainingBalance)}
+                tone="strong"
+              />
+            </div>
+            <div className="mam-bill-finance-box mam-bill-due-box">
+              <BillRow
+                label={L.nextDueDate}
+                value={
+                  snapshot.nextDueDate ? formatDate(snapshot.nextDueDate) : '—'
+                }
+                tone="due"
+              />
+              <BillRow
+                label={L.installmentNumber}
+                value={snapshot.installmentNumberLabel ?? '—'}
+                tone="due"
+              />
+            </div>
+            <p className="mam-bill-terms-note">
+              {L.cashier}: {snapshot.cashierName}
+            </p>
+          </section>
+        </div>
+        <p className="mam-bill-locked">{L.lockedNotice}</p>
+
+        <div className="mam-bill-signatures mam-bill-signatures-two">
+          <div className="mam-bill-sig">
+            <div className="mam-bill-sig-line" />
+            <span>{L.customerSignature}</span>
+          </div>
+          <div className="mam-bill-sig">
+            <div className="mam-bill-sig-line" />
+            <span>{L.authorizedOfficer}</span>
+          </div>
         </div>
       </div>
     </div>

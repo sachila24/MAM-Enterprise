@@ -11,8 +11,10 @@ import type {
 } from '../../lib/finance/receipt';
 import type { AllocationDisplayRow } from '../../lib/finance/allocationDisplay';
 import type { RepaymentMethod } from '../../types/loan';
-import { PaymentReceiptPrint } from '../../components/payments/PaymentReceiptPrint';
+import { PaymentReceiptDocumentPrint } from '../../components/documents/PaymentReceiptDocumentPrint';
 import { findPaymentReceiptDocument } from '../../lib/documents/documentService';
+import { readDocumentSnapshot } from '../../lib/documents/snapshots';
+import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { useT } from '../../i18n/I18nProvider';
@@ -63,6 +65,10 @@ export function PaymentSuccess() {
   const officialDoc = state.paymentId
     ? findPaymentReceiptDocument(db, state.paymentId)
     : undefined;
+  const officialSnapshot =
+    officialDoc && officialDoc.metadata_json
+      ? (readDocumentSnapshot(officialDoc) as PaymentReceiptDocumentSnapshot)
+      : undefined;
 
   return (
     <div className="payment-success-page pb-16">
@@ -97,15 +103,18 @@ export function PaymentSuccess() {
         </div>
       </div>
 
-      <PaymentReceiptPrint
-        receiptNumber={receiptNo}
-        paymentDate={state.paymentDate}
-        customerName={state.customerName}
-        paymentMethod={state.paymentMethod}
-        repaymentMethod={state.repaymentMethod}
-        receipt={state.receipt}
-        language={language}
-      />
+      {officialDoc && officialSnapshot?.kind === 'PAYMENT_RECEIPT' ? (
+        <PaymentReceiptDocumentPrint
+          documentNumber={officialDoc.document_number}
+          createdAt={officialDoc.created_at}
+          snapshot={officialSnapshot}
+          language={language}
+        />
+      ) : (
+        <div className="rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-900">
+          {t('documentNotFoundHint')}
+        </div>
+      )}
 
       <div className="no-print mt-6 flex flex-wrap gap-3">
         <button

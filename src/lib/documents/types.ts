@@ -13,6 +13,7 @@ export interface DocumentPartySnapshot {
   nic: string;
   phone: string;
   address: string;
+  customerCode?: string;
 }
 
 export interface DocumentBikeSnapshot {
@@ -41,9 +42,16 @@ export interface LoanCreationDocumentSnapshot {
   customer: DocumentPartySnapshot;
   guarantor: DocumentPartySnapshot;
   bike?: DocumentBikeSnapshot;
+  /** Gross loan amount (selling price / loan amount before financing) */
   cashPrice: number;
-  downPayment: number;
+  initialPayment: number;
+  serviceFee: number;
+  registrationFee: number;
+  netAdvancePayment: number;
+  /** Financed principal after net advance */
   financeAmount: number;
+  /** @deprecated Legacy snapshots — use netAdvancePayment */
+  downPayment?: number;
   interestAmount: number;
   discountAmount: number;
   totalPayable: number;
@@ -71,13 +79,24 @@ export interface PaymentReceiptDocumentSnapshot {
   receiptNumber: string;
   paymentCode: string;
   paymentDate: string;
-  customerName: string;
+  customer: {
+    name: string;
+    customerCode?: string;
+    nic: string;
+    phone: string;
+  };
+  /** @deprecated Legacy snapshots */
+  customerName?: string;
   loanCode: string;
+  bikeModel?: string;
+  registrationNumber?: string;
   paidAmount: number;
   discountAmount: number;
   paymentMethod: string;
   repaymentMethod: string;
   cashierName: string;
+  installmentNumberLabel?: string;
+  nextDueDate?: string;
   appliedBreakdown: {
     lateFeePaid: number;
     installmentPaid: number;
