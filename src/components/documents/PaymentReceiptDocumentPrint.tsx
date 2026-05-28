@@ -57,6 +57,8 @@ export function PaymentReceiptDocumentPrint({
 }: PaymentReceiptDocumentPrintProps) {
   const L = getDocumentLabels(language);
   const b = snapshot.appliedBreakdown;
+  const isInterestOnly =
+    snapshot.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const customerName = snapshot.customer?.name ?? snapshot.customerName ?? '—';
   const customerCode = snapshot.customer?.customerCode ?? '—';
   const customerNic = snapshot.customer?.nic ?? '—';
@@ -132,23 +134,29 @@ export function PaymentReceiptDocumentPrint({
           </section>
 
           <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">{L.balanceInformation}</h2>
+            <h2 className="mam-bill-section-heading">
+              {isInterestOnly ? L.balanceInformation : L.paymentInformation}
+            </h2>
             <div className="mam-bill-finance-box">
-              <BillRow
-                label={L.previousBalance}
-                value={formatLKR(previousBalance)}
-              />
               <BillRow
                 label={L.paymentAmount}
                 value={formatLKR(snapshot.paidAmount)}
               />
               <BillRow label={L.lateFee} value={formatLKR(b.lateFeePaid)} />
               <BillRow label={L.totalReceived} value={formatLKR(totalReceived)} />
-              <BillRow
-                label={L.remainingBalance}
-                value={formatLKR(b.remainingBalance)}
-                tone="strong"
-              />
+              {isInterestOnly && (
+                <BillRow
+                  label={L.previousBalance}
+                  value={formatLKR(previousBalance)}
+                />
+              )}
+              {isInterestOnly && (
+                <BillRow
+                  label={L.remainingBalance}
+                  value={formatLKR(b.remainingBalance)}
+                  tone="strong"
+                />
+              )}
             </div>
             <div className="mam-bill-finance-box mam-bill-due-box">
               <BillRow
