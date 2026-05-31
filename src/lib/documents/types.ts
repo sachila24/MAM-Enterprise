@@ -8,6 +8,13 @@ export type DocumentType =
 
 export type DocumentStatus = 'ISSUED' | 'VOID';
 
+export interface DocumentGuarantorSnapshot {
+  name?: string;
+  nic?: string;
+  phone?: string;
+  address?: string;
+}
+
 export interface DocumentPartySnapshot {
   name: string;
   nic: string;
@@ -40,7 +47,12 @@ export interface LoanCreationDocumentSnapshot {
   loanPurpose: string;
   repaymentMethod: string;
   customer: DocumentPartySnapshot;
+  /** @deprecated Legacy single guarantor — use guarantors */
   guarantor: DocumentPartySnapshot;
+  guarantors?: {
+    guarantor1?: DocumentGuarantorSnapshot;
+    guarantor2?: DocumentGuarantorSnapshot;
+  };
   bike?: DocumentBikeSnapshot;
   /** Gross loan amount (selling price / loan amount before financing) */
   cashPrice: number;
@@ -65,6 +77,7 @@ export interface LoanCreationDocumentSnapshot {
   collateral: Array<{
     fileNumber?: string;
     vehicleNumber?: string;
+    /** @deprecated Legacy snapshots — guarantor names moved to guarantors section */
     guarantor1Name?: string;
     guarantor2Name?: string;
     /** Legacy snapshot rows */

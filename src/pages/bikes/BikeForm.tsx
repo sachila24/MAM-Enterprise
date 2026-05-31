@@ -8,6 +8,9 @@ import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { createBike, getBike, updateBike } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
 
+const CURRENT_YEAR = new Date().getFullYear();
+const BIKE_YEAR_OPTIONS = Array.from({ length: 41 }, (_, i) => CURRENT_YEAR - i);
+
 export function BikeForm() {
   const { t } = useT();
   const navigate = useNavigate();
@@ -227,14 +230,20 @@ export function BikeForm() {
             <label htmlFor="year" className="block text-sm font-medium text-neutral-900">
               {t('yearLabel')}
             </label>
-            <input
-              type="number"
+            <select
               name="year"
               id="year"
               value={formData.year || ''}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
-            />
+            >
+              <option value="">{t('selectYear')}</option>
+              {BIKE_YEAR_OPTIONS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="sm:col-span-3">

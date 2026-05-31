@@ -2,12 +2,24 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { LoanReleaseDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
-function Field({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value }: { label: string; value: string }) {
+  if (!value?.trim() || value.trim() === '—') return null;
   return (
-    <div className="doc-field">
-      <span className="doc-field-label">{label}</span>
-      <span className="doc-field-value">{value}</span>
+    <div className="mam-bill-detail-row">
+      <span className="mam-bill-detail-label">{label}</span>
+      <span className="mam-bill-detail-value">{value.trim()}</span>
+    </div>
+  );
+}
+
+function BillRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mam-bill-row">
+      <span className="mam-bill-row-label">{label}</span>
+      <span className="mam-bill-row-leader" aria-hidden />
+      <span className="mam-bill-row-value">{value}</span>
     </div>
   );
 }
@@ -28,53 +40,64 @@ export function LoanReleaseNotePrint({
   const L = getDocumentLabels(language);
 
   return (
-    <article className="doc-sheet">
-      <header className="doc-header">
-        <h1 className="doc-title">{L.loanReleaseTitle}</h1>
-        <p className="doc-company">{L.companyName}</p>
-      </header>
+    <div id="document-print-area" className="receipt-document mam-bill">
+      <div className="receipt-sheet mam-bill-sheet">
+        <MamDocumentHeader title={L.loanReleaseTitle}>
+          <div className="mam-bill-meta">
+            <span>
+              {L.releaseNoteNumber}: <strong>{documentNumber}</strong>
+            </span>
+            <span>
+              {L.createdDate}: <strong>{formatDate(createdAt)}</strong>
+            </span>
+            <span>
+              {L.loanNumber}: <strong>{snapshot.loanCode}</strong>
+            </span>
+            <span>
+              {L.loanReleaseDate}: <strong>{formatDate(snapshot.releaseDate)}</strong>
+            </span>
+          </div>
+        </MamDocumentHeader>
 
-      <section className="doc-meta-grid">
-        <Field label={L.releaseNoteNumber} value={documentNumber} />
-        <Field label={L.createdDate} value={formatDate(createdAt)} />
-        <Field label={L.loanNumber} value={snapshot.loanCode} />
-        <Field label={L.paymentDate} value={formatDate(snapshot.releaseDate)} />
-      </section>
+        <div className="receipt-body mam-bill-body">
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
+            <div className="mam-bill-detail-block">
+              <DetailRow label={L.customerName} value={snapshot.customer.name} />
+              <DetailRow label={L.nic} value={snapshot.customer.nic} />
+              <DetailRow label={L.phone} value={snapshot.customer.phone} />
+              <DetailRow label={L.address} value={snapshot.customer.address} />
+            </div>
+          </section>
 
-      <section className="doc-section">
-        <h2 className="doc-section-title">{L.customerDetails}</h2>
-        <div className="doc-grid-2">
-          <Field label={L.customerName} value={snapshot.customer.name} />
-          <Field label={L.nic} value={snapshot.customer.nic} />
-          <Field label={L.phone} value={snapshot.customer.phone} />
-          <Field label={L.address} value={snapshot.customer.address} />
-        </div>
-      </section>
+          <section className="mam-bill-section mam-bill-finance">
+            <h2 className="mam-bill-section-heading">{L.releaseDetails}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow
+                label={L.principalReleased}
+                value={formatLKR(snapshot.principalAmount)}
+              />
+              <BillRow label={L.releasedBy} value={snapshot.releasedBy} />
+            </div>
+            {snapshot.remarks.trim() && (
+              <div className="mam-bill-detail-block">
+                <DetailRow label={L.remarks} value={snapshot.remarks} />
+              </div>
+            )}
+          </section>
 
-      <section className="doc-section">
-        <h2 className="doc-section-title">{L.releaseDetails}</h2>
-        <div className="doc-grid-2">
-          <Field
-            label={L.principalReleased}
-            value={formatLKR(snapshot.principalAmount)}
-          />
-          <Field label={L.releasedBy} value={snapshot.releasedBy} />
+          <div className="mam-bill-signatures mam-bill-signatures-two">
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.customerSignature}</span>
+            </div>
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.authorizedOfficer}</span>
+            </div>
+          </div>
         </div>
-        {snapshot.remarks.trim() && (
-          <Field label={L.remarks} value={snapshot.remarks} />
-        )}
-      </section>
-
-      <footer className="doc-signatures doc-grid-2">
-        <div>
-          <p className="doc-signature-line" />
-          <p className="doc-signature-caption">{L.customerSignature}</p>
-        </div>
-        <div>
-          <p className="doc-signature-line" />
-          <p className="doc-signature-caption">{L.authorizedOfficer}</p>
-        </div>
-      </footer>
-    </article>
+      </div>
+    </div>
   );
 }

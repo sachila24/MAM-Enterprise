@@ -1,8 +1,12 @@
 import { formatLKR, formatDate } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import { lateFeeRuleLabel } from '../../lib/documents/snapshots';
-import type { LoanCreationDocumentSnapshot } from '../../lib/documents/types';
+import type {
+  DocumentGuarantorSnapshot,
+  LoanCreationDocumentSnapshot,
+} from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
 function BillRow({ label, value }: { label: string; value: string }) {
   return (
@@ -24,6 +28,66 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function GuarantorBlock({
+  heading,
+  guarantor,
+  labels,
+}: {
+  heading: string;
+  guarantor: DocumentGuarantorSnapshot;
+  labels: {
+    customerName: string;
+    nic: string;
+    phone: string;
+    address: string;
+  };
+}) {
+  const hasData =
+    guarantor.name || guarantor.nic || guarantor.phone || guarantor.address;
+  if (!hasData) return null;
+
+  return (
+    <div className="mam-bill-detail-block mam-bill-guarantor-block">
+      <p className="mam-bill-guarantor-heading">{heading}</p>
+      <DetailRow label={labels.customerName} value={guarantor.name ?? ''} />
+      <DetailRow label={labels.nic} value={guarantor.nic ?? ''} />
+      <DetailRow label={labels.address} value={guarantor.address ?? ''} />
+      <DetailRow label={labels.phone} value={guarantor.phone ?? ''} />
+    </div>
+  );
+}
+
+function resolveGuarantors(snapshot: LoanCreationDocumentSnapshot): {
+  guarantor1?: DocumentGuarantorSnapshot;
+  guarantor2?: DocumentGuarantorSnapshot;
+} {
+  if (snapshot.guarantors?.guarantor1 || snapshot.guarantors?.guarantor2) {
+    return snapshot.guarantors;
+  }
+
+  const legacy1 = snapshot.collateral.find((c) => c.guarantor1Name)?.guarantor1Name;
+  const legacy2 = snapshot.collateral.find((c) => c.guarantor2Name)?.guarantor2Name;
+  const legacySingle =
+    snapshot.guarantor?.name && snapshot.guarantor.name !== '—'
+      ? snapshot.guarantor
+      : undefined;
+
+  return {
+    guarantor1: legacy1
+      ? { name: legacy1 }
+      : legacySingle
+        ? {
+            name: legacySingle.name !== '—' ? legacySingle.name : undefined,
+            nic: legacySingle.nic !== '—' ? legacySingle.nic : undefined,
+            phone: legacySingle.phone !== '—' ? legacySingle.phone : undefined,
+            address:
+              legacySingle.address !== '—' ? legacySingle.address : undefined,
+          }
+        : undefined,
+    guarantor2: legacy2 ? { name: legacy2 } : undefined,
+  };
+}
+
 export interface LoanInvoicePrintProps {
   documentNumber: string;
   createdAt: string;
@@ -38,6 +102,7 @@ export function LoanInvoicePrint({
   language = 'both',
 }: LoanInvoicePrintProps) {
   const L = getDocumentLabels(language);
+  const guarantors = resolveGuarantors(snapshot);
 
   const initialPaid =
     snapshot.initialPayment ??
@@ -47,14 +112,13 @@ export function LoanInvoicePrint({
   const netAdvance =
     snapshot.netAdvancePayment ?? snapshot.downPayment ?? 0;
 
+  const hasGuarantorSection =
+    guarantors.guarantor1 || guarantors.guarantor2;
+
   return (
     <div id="document-print-area" className="receipt-document doc-invoice mam-bill">
       <div className="receipt-sheet mam-bill-sheet">
-        <header className="mam-bill-header">
-          <h1 className="mam-bill-company">{L.companyName}</h1>
-          <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
-          <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
-          <p className="mam-bill-title">{L.loanInvoiceTitle}</p>
+        <MamDocumentHeader title={L.loanInvoiceTitle}>
           <div className="mam-bill-meta">
             <span>
               {L.invoiceNumber}: <strong>{documentNumber}</strong>
@@ -66,7 +130,7 @@ export function LoanInvoicePrint({
               {L.loanNumber}: <strong>{snapshot.loanCode}</strong>
             </span>
           </div>
-        </header>
+        </MamDocumentHeader>
 
         <div className="receipt-body mam-bill-body">
           <section className="mam-bill-section">
@@ -133,26 +197,51 @@ export function LoanInvoicePrint({
                 value={formatLKR(snapshot.totalPayable)}
               />
             </div>
+            <div className="mam-bill-finance-box mam-bill-dates-box">
+              <BillRow
+                label={L.loanReleaseDate}
+                value={formatDate(snapshot.startDate)}
+              />
+              <BillRow
+                label={L.firstPaymentDate}
+                value={formatDate(snapshot.firstDueDate)}
+              />
+            </div>
             <p className="mam-bill-terms-note">
               {L.lateFeeRule}:{' '}
               {lateFeeRuleLabel(
                 snapshot.lateFeeRatePercent,
                 snapshot.monthlyInstallment
               )}{' '}
-              · {L.gracePeriod}: {snapshot.gracePeriodDays} {L.days} ·{' '}
-              {L.paymentDate}: {formatDate(snapshot.firstDueDate)}
+              · {L.gracePeriod}: {snapshot.gracePeriodDays} {L.days}
             </p>
           </section>
 
-          <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">{L.guarantorDetails}</h2>
-            <div className="mam-bill-detail-block">
-              <DetailRow label={L.customerName} value={snapshot.guarantor.name} />
-              <DetailRow label={L.nic} value={snapshot.guarantor.nic} />
-              <DetailRow label={L.phone} value={snapshot.guarantor.phone} />
-              <DetailRow label={L.address} value={snapshot.guarantor.address} />
-            </div>
-          </section>
+          {hasGuarantorSection && (
+            <section className="mam-bill-section">
+              <h2 className="mam-bill-section-heading">{L.guarantorDetails}</h2>
+              <GuarantorBlock
+                heading={L.guarantor1}
+                guarantor={guarantors.guarantor1 ?? {}}
+                labels={{
+                  customerName: L.customerName,
+                  nic: L.nic,
+                  phone: L.phone,
+                  address: L.address,
+                }}
+              />
+              <GuarantorBlock
+                heading={L.guarantor2}
+                guarantor={guarantors.guarantor2 ?? {}}
+                labels={{
+                  customerName: L.customerName,
+                  nic: L.nic,
+                  phone: L.phone,
+                  address: L.address,
+                }}
+              />
+            </section>
+          )}
 
           {snapshot.collateral.length > 0 && (
             <section className="mam-bill-section">
@@ -165,14 +254,11 @@ export function LoanInvoicePrint({
                   {c.vehicleNumber && (
                     <DetailRow label={L.vehicleNumber} value={c.vehicleNumber} />
                   )}
-                  {c.guarantor1Name && (
-                    <DetailRow label={L.guarantor1} value={c.guarantor1Name} />
-                  )}
-                  {c.guarantor2Name && (
-                    <DetailRow label={L.guarantor2} value={c.guarantor2Name} />
-                  )}
                   {c.description && (
                     <DetailRow label={L.description} value={c.description} />
+                  )}
+                  {c.storageLocation && (
+                    <DetailRow label={L.storage} value={c.storageLocation} />
                   )}
                 </div>
               ))}

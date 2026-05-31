@@ -697,12 +697,6 @@ function LoanActionBar({
             {t('earlySettlement')}
           </ActionButton>
         )}
-        <ActionButton
-          variant="danger"
-          onClick={() => window.alert(t('cancelLoanSupabaseSoon'))}
-        >
-          {t('cancelLoan')}
-        </ActionButton>
       </div>
       {showEarlySettlement && !settlementEligible && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">

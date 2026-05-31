@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { navGroups } from './navConfig';
 import { Header } from './Header';
+import { MamLogo } from '../branding/MamLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useT } from '../../i18n/I18nProvider';
 import { X } from 'lucide-react';
@@ -55,9 +56,7 @@ export function AppShell() {
             
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4">
                 <div className="flex items-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-800 text-white font-bold tracking-wider shrink-0">
-                    MAM
-                  </div>
+                  <MamLogo size={40} />
                   <span className="ml-3 text-sm font-semibold text-neutral-900">
                     M A M TRADING
                   </span>

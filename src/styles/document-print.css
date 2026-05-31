@@ -20,6 +20,36 @@
   margin-bottom: 1rem;
 }
 
+.mam-bill-logo-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.mam-logo {
+  object-fit: contain;
+}
+
+.mam-logo-print {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.mam-bill-guarantor-block + .mam-bill-guarantor-block {
+  margin-top: 0.5rem;
+}
+
+.mam-bill-guarantor-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #222;
+}
+
+.mam-bill-dates-box {
+  margin-top: 0.55rem;
+}
+
 .mam-bill-company {
   font-size: 1.35rem;
   font-weight: 800;

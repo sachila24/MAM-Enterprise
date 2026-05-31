@@ -2,6 +2,7 @@ import { formatDate, formatEnum, formatLKR } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
 function BillRow({
   label,
@@ -73,11 +74,7 @@ export function PaymentReceiptDocumentPrint({
   return (
     <div id="document-print-area" className="receipt-document mam-bill">
       <div className="receipt-sheet mam-bill-sheet">
-        <header className="mam-bill-header">
-          <h1 className="mam-bill-company">MAM TRADING</h1>
-          <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
-          <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
-          <p className="mam-bill-title">{L.paymentReceiptTitle}</p>
+        <MamDocumentHeader title={L.paymentReceiptTitle}>
           <p className="mam-bill-receipt-prominent">
             {L.receiptNumber}: <strong>{snapshot.receiptNumber}</strong>
           </p>
@@ -89,7 +86,7 @@ export function PaymentReceiptDocumentPrint({
               {L.loanNumber}: <strong>{snapshot.loanCode}</strong>
             </span>
           </div>
-        </header>
+        </MamDocumentHeader>
 
         <div className="receipt-body mam-bill-body">
           <section className="mam-bill-section">

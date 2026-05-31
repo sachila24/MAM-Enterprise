@@ -10,6 +10,7 @@ import { mapBike, mapCustomer } from '../local-db/mappers';
 import type { DbDocument, DbLoan, MamDemoDb } from '../local-db/types';
 import type {
   CashSaleDocumentSnapshot,
+  DocumentGuarantorSnapshot,
   DocumentPartySnapshot,
   LoanCreationDocumentSnapshot,
   LoanReleaseDocumentSnapshot,
@@ -22,6 +23,47 @@ const EMPTY_PARTY: DocumentPartySnapshot = {
   phone: '—',
   address: '—',
 };
+
+function trimOptional(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function buildGuarantorsFromDb(
+  db: MamDemoDb,
+  loanId: string
+): LoanCreationDocumentSnapshot['guarantors'] {
+  const guarantees = db.guarantees.filter((g) => g.loan_id === loanId);
+  let guarantor1: DocumentGuarantorSnapshot | undefined;
+  let guarantor2: DocumentGuarantorSnapshot | undefined;
+
+  for (const g of guarantees) {
+    if (!guarantor1) {
+      const name =
+        trimOptional(g.guarantor1_name) ||
+        trimOptional(g.owner_name_on_document);
+      const nic = trimOptional(g.guarantor1_nic);
+      const phone = trimOptional(g.guarantor1_phone);
+      const address = trimOptional(g.guarantor1_address);
+      if (name || nic || phone || address) {
+        guarantor1 = { name, nic, phone, address };
+      }
+    }
+    if (!guarantor2) {
+      const name = trimOptional(g.guarantor2_name);
+      const nic = trimOptional(g.guarantor2_nic);
+      const phone = trimOptional(g.guarantor2_phone);
+      const address = trimOptional(g.guarantor2_address);
+      if (name || nic || phone || address) {
+        guarantor2 = { name, nic, phone, address };
+      }
+    }
+    if (guarantor1 && guarantor2) break;
+  }
+
+  if (!guarantor1 && !guarantor2) return undefined;
+  return { guarantor1, guarantor2 };
+}
 
 function partyFromCustomer(
   db: MamDemoDb,
@@ -89,22 +131,13 @@ export function buildLoanCreationSnapshot(
       const fileNumber = g.file_number?.trim();
       const vehicleNumber =
         g.vehicle_number?.trim() || g.item_reference?.trim();
-      const guarantor1Name =
-        g.guarantor1_name?.trim() || g.owner_name_on_document?.trim();
-      const guarantor2Name = g.guarantor2_name?.trim();
       const description = g.description?.trim();
       const storageLocation = g.storage_location?.trim();
-      const hasNew =
-        fileNumber ||
-        vehicleNumber ||
-        guarantor1Name ||
-        guarantor2Name;
+      const hasNew = fileNumber || vehicleNumber;
       if (hasNew) {
         return {
           fileNumber: fileNumber || undefined,
           vehicleNumber: vehicleNumber || undefined,
-          guarantor1Name: guarantor1Name || undefined,
-          guarantor2Name: guarantor2Name || undefined,
         };
       }
       return {
@@ -117,11 +150,11 @@ export function buildLoanCreationSnapshot(
       (c) =>
         c.fileNumber ||
         c.vehicleNumber ||
-        c.guarantor1Name ||
-        c.guarantor2Name ||
         c.description ||
         c.storageLocation
     );
+
+  const guarantors = buildGuarantorsFromDb(db, loan.id);
 
   return {
     kind: 'LOAN_CREATION',
@@ -130,6 +163,7 @@ export function buildLoanCreationSnapshot(
     repaymentMethod: loan.repayment_method,
     customer,
     guarantor: { ...EMPTY_PARTY },
+    guarantors,
     bike,
     cashPrice,
     initialPayment,

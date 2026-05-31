@@ -8,6 +8,7 @@ import {
   type BusinessSettingsForm,
 } from '../../lib/local-db/repositories/settingsRepo';
 import { changeAppPassword } from '../../lib/local-db/repositories/authRepo';
+import { MamLogo } from '../../components/branding/MamLogo';
 
 export function Settings() {
   const { t } = useT();
@@ -100,9 +101,7 @@ export function Settings() {
                   {t('companyLogo')}
                 </label>
                 <div className="flex items-center gap-x-6">
-                  <div className="h-16 w-16 rounded-full bg-brand-800 flex items-center justify-center text-white font-bold text-xl tracking-wider">
-                    MAM
-                  </div>
+                  <MamLogo size={64} />
                   <button
                     type="button"
                     className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50">

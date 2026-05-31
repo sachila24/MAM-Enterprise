@@ -2,18 +2,24 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { CashSaleDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
+  if (!value?.trim() || value.trim() === '—') return null;
   return (
-    <div className="doc-field">
-      <span className="doc-field-label">{label}</span>
-      <span className="doc-field-value">{value}</span>
+    <div className="mam-bill-detail-row">
+      <span className="mam-bill-detail-label">{label}</span>
+      <span className="mam-bill-detail-value">{value.trim()}</span>
+    </div>
+  );
+}
+
+function BillRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mam-bill-row">
+      <span className="mam-bill-row-label">{label}</span>
+      <span className="mam-bill-row-leader" aria-hidden />
+      <span className="mam-bill-row-value">{value}</span>
     </div>
   );
 }
@@ -32,49 +38,64 @@ export function CashSaleInvoicePrint({
   language = 'both',
 }: CashSaleInvoicePrintProps) {
   const L = getDocumentLabels(language);
+  const yearDisplay =
+    snapshot.bike.year && snapshot.bike.year > 0
+      ? String(snapshot.bike.year)
+      : '';
 
   return (
-    <div id="document-print-area" className="receipt-document doc-invoice">
-      <div className="receipt-sheet">
-        <header className="receipt-section receipt-header">
-          <h1 className="receipt-company-name">{L.companyName}</h1>
-          <p className="receipt-company-meta">No.47, Galmaduwa, Mahailuppallama</p>
-          <h2 className="doc-title">{L.cashSaleTitle}</h2>
-          <div className="doc-meta-row">
-            <p>
-              <strong>{L.invoiceNumber}:</strong> {documentNumber}
-            </p>
-            <p>
-              <strong>{L.createdDate}:</strong> {formatDate(createdAt)}
-            </p>
-            <p>
-              <strong>{L.soldDate}:</strong> {formatDate(snapshot.soldDate)}
-            </p>
+    <div id="document-print-area" className="receipt-document mam-bill">
+      <div className="receipt-sheet mam-bill-sheet">
+        <MamDocumentHeader title={L.cashSaleTitle}>
+          <div className="mam-bill-meta">
+            <span>
+              {L.invoiceNumber}: <strong>{documentNumber}</strong>
+            </span>
+            <span>
+              {L.createdDate}: <strong>{formatDate(createdAt)}</strong>
+            </span>
+            <span>
+              {L.soldDate}: <strong>{formatDate(snapshot.soldDate)}</strong>
+            </span>
           </div>
-          <p className="doc-locked-banner">{L.lockedNotice}</p>
-        </header>
+        </MamDocumentHeader>
 
-        <div className="receipt-body">
-          <h3 className="doc-section-title">{L.bikeDetails}</h3>
-          <div className="doc-grid-2">
-            <Field label={L.bikeModel} value={snapshot.bike.model} />
-            <Field label={L.brand} value={snapshot.bike.brand} />
-            <Field label={L.color} value={snapshot.bike.color} />
-            <Field label={L.chassisNo} value={snapshot.bike.chassisNo} />
-            <Field label={L.engineNo} value={snapshot.bike.engineNo} />
-          </div>
+        <div className="receipt-body mam-bill-body">
+          <section className="mam-bill-section">
+            <h2 className="mam-bill-section-heading">{L.bikeDetails}</h2>
+            <div className="mam-bill-detail-block">
+              <DetailRow label={L.bikeModel} value={snapshot.bike.model} />
+              <DetailRow
+                label={L.registrationNumber}
+                value={snapshot.bike.registrationNo}
+              />
+              <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />
+              <DetailRow label={L.engineNo} value={snapshot.bike.engineNo} />
+              <DetailRow label={L.color} value={snapshot.bike.color} />
+              <DetailRow label={L.year} value={yearDisplay} />
+            </div>
+          </section>
 
-          <h3 className="doc-section-title">{L.financeDetails}</h3>
-          <div className="doc-grid-2">
-            <Field label={L.salePrice} value={formatLKR(snapshot.soldPrice)} />
-            <Field label={L.repairCost} value={formatLKR(snapshot.repairCost)} />
-            <Field label={L.otherCost} value={formatLKR(snapshot.otherCost)} />
-          </div>
-          <p className="doc-locked-banner">{snapshot.buyerNote}</p>
+          <section className="mam-bill-section mam-bill-finance">
+            <h2 className="mam-bill-section-heading">{L.financeDetails}</h2>
+            <div className="mam-bill-finance-box">
+              <BillRow label={L.salePrice} value={formatLKR(snapshot.soldPrice)} />
+              <BillRow label={L.repairCost} value={formatLKR(snapshot.repairCost)} />
+              <BillRow label={L.otherCost} value={formatLKR(snapshot.otherCost)} />
+            </div>
+          </section>
 
-          <div className="doc-signatures">
-            <div className="doc-sig-line">{L.customerSignature}</div>
-            <div className="doc-sig-line">{L.authorizedOfficer}</div>
+          <p className="mam-bill-locked">{L.lockedNotice}</p>
+
+          <div className="mam-bill-signatures mam-bill-signatures-two">
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.customerSignature}</span>
+            </div>
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.authorizedOfficer}</span>
+            </div>
           </div>
         </div>
       </div>
