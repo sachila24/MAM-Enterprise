@@ -45,7 +45,7 @@ function BreakdownLine({
   );
 }
 
-/** Visual ගෙවූ මුදල − fees = ණයට යෙදෙන අග්‍රිම මුදල (display only). */
+/** Visual ගෙවූ මුදල − fees = ණයට යෙදෙන මූලික මුදල (display only). */
 export function LoanPaymentBreakdown({
   initialPayment,
   serviceFee,

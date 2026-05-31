@@ -1,0 +1,693 @@
+﻿{
+  "filesScanned": 151,
+  "labelKeys": 877,
+  "usedKeys": 639,
+  "unusedCount": 238,
+  "missingCount": 0,
+  "missing": [],
+  "unused": [
+    "action.add",
+    "action.confirm",
+    "action.delete",
+    "action.export",
+    "action.filter",
+    "action.save",
+    "action.search",
+    "activityActionCreate",
+    "activityActionEarlySettlement",
+    "activityActionPayment",
+    "activityActionSeed",
+    "additionalNotes",
+    "advancePaid",
+    "affectedByPayment",
+    "allocAdvance",
+    "allocPaid",
+    "allocPartial",
+    "allocPrincipal",
+    "allocRemaining",
+    "allocationSummary",
+    "arrearsInstallments",
+    "attachmentsLaterDemo",
+    "backupTypeAuto",
+    "backupTypeManual",
+    "balanceAfterShort",
+    "bikeSellingPrice",
+    "bikeStockRefEngine",
+    "cashEntered",
+    "categoryNone",
+    "changeBike",
+    "colChassisEngine",
+    "colCodeModel",
+    "colLinkedTo",
+    "colLocation",
+    "collections",
+    "collectionsTarget",
+    "completedThisMonth",
+    "csvAmount",
+    "csvBalance",
+    "csvCustomer",
+    "csvDate",
+    "csvDiscount",
+    "csvLoan",
+    "csvMethod",
+    "csvReceipt",
+    "csvStatus",
+    "csvType",
+    "currentMonth",
+    "currentPrincipal",
+    "customerCreatedSummary",
+    "daysOverdue",
+    "deactivate",
+    "defaultLateFeeHint",
+    "discount",
+    "discountApplied",
+    "discountGiven",
+    "discountGivenLabel",
+    "docFilterAll",
+    "docFilterCashSales",
+    "docFilterLoanInvoices",
+    "docFilterPaymentReceipts",
+    "docTypeAgreement",
+    "docTypeCashSale",
+    "docTypeLoanInvoice",
+    "docTypePaymentReceipt",
+    "docTypeSettlement",
+    "dueDay",
+    "earlySettlementAuditSummary",
+    "earlySettlementEligibleAfter",
+    "earlySettlementMonthsProgress",
+    "emailAddress",
+    "errorOccurred",
+    "estimatedValue",
+    "expenseAdded",
+    "expenseFuel",
+    "expenseMaintenance",
+    "expenseMarketing",
+    "expenseRent",
+    "expenseSalaries",
+    "expenseSupplies"
+  ],
+  "hardcodedSample": [
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 13,
+      "text": "void;\r\n  placeholder?: string;\r\n}\r\n\r\nexport function BikeSearchSelect({\r\n  bikes"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 26,
+      "text": "(null);\r\n  const searchRef = useRef"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 27,
+      "text": "(null);\r\n\r\n  const selected = selectedBikeId\r\n    ? bikes.find((b) => b.id === s"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 82,
+      "text": "setOpen((prev) => !prev)}\r\n        className=\"flex w-full items-center justify-b"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 87,
+      "text": "{triggerLabel}"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 94,
+      "text": "{open && ("
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 105,
+      "text": "setSearch(e.target.value)}\r\n                placeholder={t('searchBikes')}\r\n    "
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 116,
+      "text": "{filtered.map((b) => ("
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 121,
+      "text": "handleSelect(b.id)}\r\n                  className={`w-full px-3 py-2 text-left te"
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 130,
+      "text": "))}\r\n            {filtered.length === 0 && ("
+    },
+    {
+      "file": "src/components/bikes/BikeSearchSelect.tsx",
+      "line": 133,
+      "text": "{t('noBikesFound')}"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 20,
+      "text": "void;\n  placeholder?: string;\n  disabled?: boolean;\n}\n\nexport function CustomerS"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 48,
+      "text": ");\n  }\n\n  if (selected) {\n    return ("
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 55,
+      "text": "{t('selectedCustomerLabel')}"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 67,
+      "text": "{selected.customerCode && ("
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 71,
+      "text": "{selected.customerCode}"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 79,
+      "text": "{\n            onSelect(null);\n            setSearch('');\n          }}\n          "
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 87,
+      "text": ");\n  }\n\n  return ("
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 98,
+      "text": "setSearch(e.target.value)}\n          placeholder={searchPlaceholder}\n          c"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 103,
+      "text": "{filtered.map((c) => ("
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 108,
+      "text": "onSelect(c.id)}\n              className=\"w-full text-left px-4 py-3 hover:bg-bra"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 112,
+      "text": "{c.nic} ┬╖ {c.phone}\n                {c.customerCode ? ` ┬╖ ${c.customerCode}` : '"
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 117,
+      "text": "))}\n        {filtered.length === 0 && ("
+    },
+    {
+      "file": "src/components/customers/CustomerSearchSelect.tsx",
+      "line": 120,
+      "text": "{t('noCustomersMatchSearch')}"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 58,
+      "text": ";\r\n}\r\n\r\nfunction DevTimePanelInner() {\r\n  useSyncExternalStore(subscribeDevTime,"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 123,
+      "text": "{testActive && ("
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 128,
+      "text": "Simulated date"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 134,
+      "text": "setExpanded(true)}\r\n          className=\"flex items-center gap-1.5 rounded-full "
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 150,
+      "text": ");\r\n  }\r\n\r\n  return ("
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 171,
+      "text": "{testActive ? 'TEST MODE ACTIVE' : 'Dev time (simulation)'}"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 176,
+      "text": "setExpanded(false)}\r\n          className=\"shrink-0 rounded p-0.5 hover:bg-white/"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 185,
+      "text": "{testActive && ("
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 187,
+      "text": "Simulated date"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 199,
+      "text": "Real system"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 202,
+      "text": "{formatClock(real)}"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 208,
+      "text": "Set date &amp; time"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 215,
+      "text": "setInputValue(e.target.value)}\r\n          />"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 231,
+      "text": "Reset to Real Time"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 237,
+      "text": "Quick advance"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 241,
+      "text": "onAdvanceDays(1)}\r\n          >\r\n            +1 day"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 248,
+      "text": "onAdvanceDays(7)}\r\n          >\r\n            +7 days"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 255,
+      "text": "onAdvanceDays(30)}\r\n          >\r\n            +30 days"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 262,
+      "text": "onAdvanceMonths(1)}\r\n          >\r\n            +1 month"
+    },
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "line": 269,
+      "text": "onAdvanceMonths(3)}\r\n          >\r\n            +3 months"
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "line": 17,
+      "text": ");\n}\n\nexport interface CashSaleInvoicePrintProps {\n  documentNumber: string;\n  c"
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "line": 41,
+      "text": "No.47, Galmaduwa, Mahailuppallama"
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "line": 45,
+      "text": "{documentNumber}"
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "line": 48,
+      "text": "{formatDate(createdAt)}"
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "line": 51,
+      "text": "{formatDate(snapshot.soldDate)}"
+    },
+    {
+      "file": "src/components/documents/DocumentRowActions.tsx",
+      "line": 22,
+      "text": "navigate(`/documents/${documentId}`)}\n        className=\"rounded p-1.5 text-neut"
+    },
+    {
+      "file": "src/components/documents/DocumentRowActions.tsx",
+      "line": 28,
+      "text": "{isOriginal ? ("
+    },
+    {
+      "file": "src/components/documents/DocumentRowActions.tsx",
+      "line": 32,
+      "text": "navigate(`/documents/${documentId}?print=1`)}\n          className=\"rounded p-1.5"
+    },
+    {
+      "file": "src/components/documents/DocumentRowActions.tsx",
+      "line": 42,
+      "text": "navigate(`/documents/${documentId}?print=1`)}\n          className=\"rounded p-1.5"
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 10,
+      "text": "void;\n  dateFrom: string;\n  dateTo: string;\n  onDateFromChange: (value: string) "
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 26,
+      "text": "= {\n  all: 'docFilterAll',\n  loan_invoices: 'docFilterLoanInvoices',\n  payment_r"
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 50,
+      "text": "{TYPE_FILTERS.map((key) => ("
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 55,
+      "text": "onTypeFilterChange(key)}\n            className={`rounded-md px-3 py-1.5 text-sm "
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 72,
+      "text": "onDateFromChange(e.target.value)}\n            className={selectClass}\n          "
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 81,
+      "text": "onDateToChange(e.target.value)}\n            className={selectClass}\n          />"
+    },
+    {
+      "file": "src/components/documents/DocumentsFilterBar.tsx",
+      "line": 87,
+      "text": "onSortChange(e.target.value as DocumentSortOrder)}\n          className={selectCl"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 22,
+      "text": "{t('docColNumber')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 25,
+      "text": "{t('docColType')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 28,
+      "text": "{t('field.customer')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 31,
+      "text": "{t('docColLoanNumber')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 34,
+      "text": "{t('docColCreated')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 37,
+      "text": "{t('docColTotal')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 40,
+      "text": "{t('docColPrintCount')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 43,
+      "text": "{t('docColStatus')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 46,
+      "text": "{t('docColCreatedBy')}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 54,
+      "text": "{rows.map((row) => ("
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 61,
+      "text": "{row.documentNumber}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 65,
+      "text": "{row.typeLabel}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 68,
+      "text": "{row.customerName}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 71,
+      "text": "{row.loanNumber}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 74,
+      "text": "{formatDate(row.createdAt)}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 77,
+      "text": "{formatLKR(row.totalAmount)}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 80,
+      "text": "{row.printCount}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 90,
+      "text": "{printStatusLabel(row.printStatus, language)}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 94,
+      "text": "{row.createdByName}"
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 103,
+      "text": "))}\n            {rows.length === 0 && ("
+    },
+    {
+      "file": "src/components/documents/DocumentsTable.tsx",
+      "line": 110,
+      "text": "{emptyMessage}"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 13,
+      "text": ");\n}\n\nfunction DetailRow({ label, value }: { label: string; value: string }) {\n "
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 23,
+      "text": ");\n}\n\nexport interface LoanInvoicePrintProps {\n  documentNumber: string;\n  creat"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 55,
+      "text": "No.47, Galmaduwa, Mahailuppallama"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 56,
+      "text": "α╢»α╖öα╢╗α╢Üα╢«α╢▒: 071 593 1681 | 071 209 9416"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 59,
+      "text": "{L.invoiceNumber}:"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 62,
+      "text": "{L.createdDate}:"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 65,
+      "text": "{L.loanNumber}:"
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 84,
+      "text": "{snapshot.bike && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 136,
+      "text": "{L.lateFeeRule}:{' '}\n              {lateFeeRuleLabel(\n                snapshot."
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 155,
+      "text": "{snapshot.collateral.length > 0 && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 159,
+      "text": "{snapshot.collateral.map((c, i) => ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 161,
+      "text": "{c.fileNumber && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 163,
+      "text": ")}\n                  {c.vehicleNumber && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 166,
+      "text": ")}\n                  {c.guarantor1Name && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 169,
+      "text": ")}\n                  {c.guarantor2Name && ("
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "line": 172,
+      "text": ")}\n                  {c.description && ("
+    },
+    {
+      "file": "src/components/documents/LoanReleaseNotePrint.tsx",
+      "line": 11,
+      "text": ");\r\n}\r\n\r\nexport interface LoanReleaseNotePrintProps {\r\n  documentNumber: string;"
+    },
+    {
+      "file": "src/components/documents/LoanReleaseNotePrint.tsx",
+      "line": 62,
+      "text": "{snapshot.remarks.trim() && ("
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 27,
+      "text": "{value}"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 30,
+      "text": ");\n}\n\nfunction formatTimeOnly(value: string): string {\n  if (!value) return 'ΓÇö';"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 77,
+      "text": "MAM TRADING"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 78,
+      "text": "No.47, Galmaduwa, Mahailuppallama"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 79,
+      "text": "α╢»α╖öα╢╗α╢Üα╢«α╢▒: 071 593 1681 | 071 209 9416"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 81,
+      "text": "{L.receiptNumber}:"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 85,
+      "text": "{L.createdDate}:"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 88,
+      "text": "{L.loanNumber}:"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 137,
+      "text": "{isInterestOnly ? L.balanceInformation : L.paymentInformation}"
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 146,
+      "text": "{isInterestOnly && ("
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 151,
+      "text": ")}\n              {isInterestOnly && ("
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "line": 175,
+      "text": "{L.cashier}: {snapshot.cashierName}"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeDraftSummary.tsx",
+      "line": 33,
+      "text": "{t('guaranteeInformation')}"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeDraftSummary.tsx",
+      "line": 39,
+      "text": "{displayField(draft.fileNumber)}"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeDraftSummary.tsx",
+      "line": 45,
+      "text": "{displayField(draft.vehicleNumber)}"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeDraftSummary.tsx",
+      "line": 48,
+      "text": "{linkedBikeLine && ("
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeFieldsForm.tsx",
+      "line": 7,
+      "text": ") => void;\n};\n\nfunction TextField({\n  label,\n  value,\n  onChange,\n}: {\n  label: "
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeFieldsForm.tsx",
+      "line": 21,
+      "text": "{label}"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeFieldsForm.tsx",
+      "line": 27,
+      "text": "onChange(e.target.value)}\n        className=\"block w-full rounded-md border-0 py"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeFieldsForm.tsx",
+      "line": 30,
+      "text": ");\n}\n\nexport function GuaranteeFieldsForm({ values, onChange }: Props) {\n  const"
+    },
+    {
+      "file": "src/components/guarantees/GuaranteeFieldsForm.tsx",
+      "line": 40,
+      "text": "{t('guaranteeInformation')}"
+    }
+  ],
+  "hardcodedCount": 1217
+}

@@ -10,10 +10,13 @@ function walk(dir, ext, out = []) {
   return out;
 }
 
-const simpleLabels = fs.readFileSync('src/lib/i18n/simpleLabels.ts', 'utf8');
+const appLocale = fs.readFileSync('src/lib/i18n/locales/en.ts', 'utf8');
+const appBlock = appLocale.match(/export const app = \{([\s\S]*?)\} as const;/);
 const allKeys = new Set();
-for (const m of simpleLabels.matchAll(/^\s+([a-zA-Z0-9_.]+):\s+bi\(/gm)) allKeys.add(m[1]);
-for (const m of simpleLabels.matchAll(/'([^']+)':\s+bi\(/g)) allKeys.add(m[1]);
+if (appBlock) {
+  for (const m of appBlock[1].matchAll(/^\s+([a-zA-Z0-9_.]+):\s+'/gm)) allKeys.add(m[1]);
+  for (const m of appBlock[1].matchAll(/'([^']+)':\s+'/g)) allKeys.add(m[1]);
+}
 
 const srcFiles = walk('src', ['.ts', '.tsx']);
 const usedKeys = new Set();
@@ -27,7 +30,7 @@ const patterns = [
 ];
 
 for (const f of srcFiles) {
-  if (f.includes('simpleLabels.ts')) continue;
+  if (f.includes('simpleLabels.ts') || f.includes('locales/')) continue;
   const c = fs.readFileSync(f, 'utf8');
   for (const re of patterns) {
     re.lastIndex = 0;
@@ -50,7 +53,7 @@ const skipPatterns = [
 
 for (const f of srcFiles) {
   if (
-    f.includes('simpleLabels.ts') ||
+    f.includes('locales/') ||
     f.includes('dictionaries/') ||
     f.includes('seedDemoData') ||
     f.includes('vite-env')

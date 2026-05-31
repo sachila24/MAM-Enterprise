@@ -1,4 +1,12 @@
 import type { DisplayMode } from './simpleLabels';
+import {
+  receipt as receiptEn,
+  receiptPaymentMethods as receiptPaymentMethodsEn,
+} from './locales/en';
+import {
+  receipt as receiptSi,
+  receiptPaymentMethods as receiptPaymentMethodsSi,
+} from './locales/si';
 
 /** Receipt-only labels — no bilingual brackets; natural Sinhala or plain English. */
 export interface ReceiptLabelSet {
@@ -44,95 +52,11 @@ export interface ReceiptLabelSet {
   keepReceipt: string;
 }
 
-const RECEIPT_EN: ReceiptLabelSet = {
-  receiptTitle: 'Payment Receipt',
-  receiptNo: 'Receipt No',
-  date: 'Date',
-  time: 'Time',
-  customerName: 'Customer Name',
-  paymentMethod: 'Payment Method',
-  cashReceived: 'Cash Received',
-  discount: 'Discount',
-  totalPaid: 'Total Paid',
-  installmentSettled: 'Installment settled',
-  balanceAfter: 'Balance After Payment',
-  paymentBreakdown: 'Payment Breakdown',
-  paymentAllocation: 'Payment Allocation',
-  installmentAmount: 'Installment Amount',
-  lateFees: 'Late Fees',
-  lateFeePaid: 'Late Fee Paid',
-  lateFeeBreakdown: 'Late fee by installment',
-  lateFeeInstallmentLine: 'Inst. #{n} ({months} mo.)',
-  extraPayment: 'Extra Payment',
-  loanImpact: 'Loan Impact',
-  installmentCoverage: 'This Installment',
-  installmentFull: 'Full',
-  installmentPartial: 'Partial',
-  lateFeeSettled: 'Late Fees Settled',
-  yes: 'Yes',
-  no: 'No',
-  nextInstallmentDate: 'Next Installment Date',
-  balanceMovement: 'Balance Movement',
-  balanceUpdate: 'Balance Update',
-  previousBalance: 'Previous Balance',
-  paidToday: 'Paid Today',
-  installmentApplied: 'Installment Applied',
-  newBalance: 'New Balance',
-  loanSummary: 'Loan Summary',
-  paidInterest: 'Interest Paid',
-  paidInstallment: 'Installment Paid',
-  paidPrincipal: 'Principal Paid',
-  remainingBalance: 'Remaining Balance',
-  thankYou: 'Thank you for your payment',
-  keepReceipt: 'Please keep this receipt safe',
-};
-
-const RECEIPT_SI: ReceiptLabelSet = {
-  receiptTitle: 'ගෙවීම් ලදුපත',
-  receiptNo: 'ලදුපත් අංකය',
-  date: 'දිනය',
-  time: 'වේලාව',
-  customerName: 'පාරිභෝගිකයාගේ නම',
-  paymentMethod: 'ගෙවූ ක්‍රමය',
-  cashReceived: 'ලැබුණු මුදල',
-  discount: 'වට්ටම',
-  totalPaid: 'මුළු ගෙවූ මුදල',
-  installmentSettled: 'වාරිකය සම්පූර්ණයි',
-  balanceAfter: 'ගෙවීමෙන් පසු ඉතිරිය',
-  paymentBreakdown: 'ගෙවීම් විස්තරය',
-  paymentAllocation: 'ගෙවීම් වෙන්වීම',
-  installmentAmount: 'වාරික මුදල',
-  lateFees: 'ප්‍රමාද ගාස්තු',
-  lateFeePaid: 'ගෙවූ ප්‍රමාද ගාස්තු',
-  lateFeeBreakdown: 'වාරික අනුව ප්‍රමාද ගාස්තු',
-  lateFeeInstallmentLine: 'වාරික #{n} ({months} මාස)',
-  extraPayment: 'අමතර ගෙවීම',
-  loanImpact: 'ණය බලපෑම',
-  installmentCoverage: 'මෙම වාරිකය',
-  installmentFull: 'සම්පූර්ණ',
-  installmentPartial: 'අර්ධ',
-  lateFeeSettled: 'ප්‍රමාද ගාස්තු ගෙවීද',
-  yes: 'ඔව්',
-  no: 'නැත',
-  nextInstallmentDate: 'ඊළඟ වාරික දිනය',
-  balanceMovement: 'ශේෂ වෙනස්වීම',
-  balanceUpdate: 'ණය ශේෂය වෙනස්වීම',
-  previousBalance: 'පෙර ශේෂය',
-  paidToday: 'අද ගෙවූ මුදල',
-  installmentApplied: 'වාරිකයට යොදන ලදී',
-  newBalance: 'නව ශේෂය',
-  loanSummary: 'ණය පිලිබඳ සාරාංශය',
-  paidInterest: 'ගෙවූ පොලී',
-  paidInstallment: 'ගෙවූ වාරිකය',
-  paidPrincipal: 'ගෙවූ මුල් මුදල',
-  remainingBalance: 'ඉතිරි ශේෂය',
-  thankYou: 'ඔබගේ ගෙවීමට ස්තූතියි',
-  keepReceipt: 'මෙය සුරක්ෂිතව තබාගන්න',
-};
+type ReceiptPaymentMethodKey = keyof typeof receiptPaymentMethodsEn;
 
 export function getReceiptLabels(mode: DisplayMode): ReceiptLabelSet {
-  if (mode === 'en') return RECEIPT_EN;
-  return RECEIPT_SI;
+  if (mode === 'en') return receiptEn;
+  return receiptSi;
 }
 
 /** Strip internal prefixes (CUS-0004 → omit; LN-IO-0001 → 0001). */
@@ -142,27 +66,20 @@ export function formatReceiptLoanRef(loanCode: string): string | null {
   return match ? match[1].padStart(4, '0') : null;
 }
 
-const PAYMENT_METHOD_LABELS: Record<
-  string,
-  { en: string; si: string }
-> = {
-  CASH: { en: 'Cash', si: 'මුදල්' },
-  BANK_TRANSFER: { en: 'Bank transfer', si: 'බැංකු මාරුව' },
-  CHEQUE: { en: 'Cheque', si: 'චෙක්පත' },
-  OTHER: { en: 'Other', si: 'වෙනත්' },
-};
-
 export function formatReceiptPaymentMethod(
   method: string,
   mode: DisplayMode
 ): string {
   const key = method?.toUpperCase().replace(/\s+/g, '_') ?? '';
-  const labels = PAYMENT_METHOD_LABELS[key];
-  if (!labels) {
+  const en =
+    receiptPaymentMethodsEn[key as ReceiptPaymentMethodKey];
+  const si =
+    receiptPaymentMethodsSi[key as ReceiptPaymentMethodKey];
+  if (en === undefined || si === undefined) {
     return method
       .toLowerCase()
       .replace(/_/g, ' ')
       .replace(/^\w/, (c) => c.toUpperCase());
   }
-  return mode === 'en' ? labels.en : labels.si;
+  return mode === 'en' ? en : si;
 }
