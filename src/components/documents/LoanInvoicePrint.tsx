@@ -6,7 +6,7 @@ import type {
   LoanCreationDocumentSnapshot,
 } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
-import { MamDocumentHeader } from '../branding/MamLogo';
+import { MamDocumentFooter, MamDocumentHeader } from '../branding/MamLogo';
 
 function BillRow({ label, value }: { label: string; value: string }) {
   return (
@@ -243,29 +243,11 @@ export function LoanInvoicePrint({
             </section>
           )}
 
-          {snapshot.collateral.length > 0 && (
-            <section className="mam-bill-section">
-              <h2 className="mam-bill-section-heading">{L.collateralHeld}</h2>
-              {snapshot.collateral.map((c, i) => (
-                <div key={i} className="mam-bill-detail-block mam-bill-collateral">
-                  {c.fileNumber && (
-                    <DetailRow label={L.fileNumber} value={c.fileNumber} />
-                  )}
-                  {c.vehicleNumber && (
-                    <DetailRow label={L.vehicleNumber} value={c.vehicleNumber} />
-                  )}
-                  {c.description && (
-                    <DetailRow label={L.description} value={c.description} />
-                  )}
-                  {c.storageLocation && (
-                    <DetailRow label={L.storage} value={c.storageLocation} />
-                  )}
-                </div>
-              ))}
-            </section>
-          )}
-
           <p className="mam-bill-locked">{L.lockedNotice}</p>
+          <div className="mam-bill-notices">
+            <p>අළෙවි කරන ලද යතුරුපැදියක් වෙනත් යතුරුපැදියකට මාරු කරනු නොලැබේ.</p>
+            <p>මෙම බිල්පත සුරක්ෂිතව තබා ගන්න.</p>
+          </div>
 
           <div className="mam-bill-signatures">
             <div className="mam-bill-sig">
@@ -282,6 +264,8 @@ export function LoanInvoicePrint({
             </div>
           </div>
         </div>
+
+        <MamDocumentFooter />
       </div>
     </div>
   );

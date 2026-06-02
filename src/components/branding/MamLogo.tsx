@@ -31,20 +31,41 @@ export function MamLogo({
 export interface MamDocumentHeaderProps {
   title: string;
   children?: React.ReactNode;
+  /** Slightly smaller logo for compact single-page receipts */
+  compact?: boolean;
 }
 
-/** Shared print header — logo, company lines, document title, optional meta */
-export function MamDocumentHeader({ title, children }: MamDocumentHeaderProps) {
+/** Print header — logo left, company details right, title below */
+export function MamDocumentHeader({
+  title,
+  children,
+  compact = false,
+}: MamDocumentHeaderProps) {
+  const logoSize = compact ? 48 : 52;
   return (
-    <header className="mam-bill-header">
-      <div className="mam-bill-logo-row">
-        <MamLogo size={64} variant="print" />
+    <header className="mam-bill-header mam-bill-header-split">
+      <div className="mam-bill-header-row">
+        <div className="mam-bill-header-brand">
+          <MamLogo size={logoSize} variant="print" />
+        </div>
+        <div className="mam-bill-header-info">
+          <h1 className="mam-bill-company">MAM TRADING</h1>
+          <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
+          <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
+        </div>
       </div>
-      <h1 className="mam-bill-company">MAM TRADING</h1>
-      <p className="mam-bill-company-line">No.47, Galmaduwa, Mahailuppallama</p>
-      <p className="mam-bill-company-line">දුරකථන: 071 593 1681 | 071 209 9416</p>
       <p className="mam-bill-title">{title}</p>
       {children}
     </header>
+  );
+}
+
+/** Centered developer credit — all printed MAM documents */
+export function MamDocumentFooter() {
+  return (
+    <footer className="mam-bill-footer" aria-hidden="true">
+      <p>System Developed &amp; Maintained by Sachila Dissanayake</p>
+      <p>Contact: 0764608628 | Emali : sathmika7@gmail.com</p>
+    </footer>
   );
 }

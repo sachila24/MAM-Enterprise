@@ -117,7 +117,7 @@ function DevTimePanelInner() {
   if (collapsed) {
     return (
       <div
-        className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-1"
+        className="no-print fixed bottom-4 right-4 z-30 flex flex-col items-end gap-1"
         role="region"
         aria-label="Developer time simulation (collapsed)"
       >
@@ -153,7 +153,7 @@ function DevTimePanelInner() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-30 flex max-h-[min(85vh,calc(100vh-2rem))] w-[min(100vw-1.5rem,300px)] flex-col overflow-hidden rounded-lg border text-sm shadow-xl"
+      className="no-print dev-time-panel fixed bottom-4 right-4 z-30 flex max-h-[min(85vh,calc(100vh-2rem))] w-[min(100vw-1.5rem,300px)] flex-col overflow-hidden rounded-lg border text-sm shadow-xl"
       style={{
         borderColor: testActive ? '#f59e0b' : '#d4d4d4',
         background: testActive ? '#fffbeb' : '#fafafa',

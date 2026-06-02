@@ -2,7 +2,7 @@ import { formatDate, formatEnum, formatLKR } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
-import { MamDocumentHeader } from '../branding/MamLogo';
+import { MamDocumentFooter, MamDocumentHeader } from '../branding/MamLogo';
 
 function BillRow({
   label,
@@ -72,9 +72,12 @@ export function PaymentReceiptDocumentPrint({
   const totalReceived = b.cashReceived;
 
   return (
-    <div id="document-print-area" className="receipt-document mam-bill">
+    <div
+      id="document-print-area"
+      className="receipt-document mam-bill mam-bill-payment-receipt"
+    >
       <div className="receipt-sheet mam-bill-sheet">
-        <MamDocumentHeader title={L.paymentReceiptTitle}>
+        <MamDocumentHeader title={L.paymentReceiptTitle} compact>
           <p className="mam-bill-receipt-prominent">
             {L.receiptNumber}: <strong>{snapshot.receiptNumber}</strong>
           </p>
@@ -90,24 +93,27 @@ export function PaymentReceiptDocumentPrint({
 
         <div className="receipt-body mam-bill-body">
           <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">{L.customerInformation}</h2>
-            <div className="mam-bill-finance-box">
-              <BillRow label={L.customerName} value={customerName} />
-              <BillRow label={L.customerCode} value={customerCode} />
-              <BillRow label={L.nic} value={customerNic} />
-              <BillRow label={L.phone} value={customerPhone} />
-            </div>
-          </section>
-
-          <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">{L.loanInformation}</h2>
-            <div className="mam-bill-finance-box">
-              <BillRow label={L.loanNumber} value={snapshot.loanCode} />
-              <BillRow label={L.bikeModel} value={snapshot.bikeModel ?? '—'} />
-              <BillRow
-                label={L.registrationNumber}
-                value={snapshot.registrationNumber ?? '—'}
-              />
+            <div className="mam-bill-duo-grid">
+              <div className="mam-bill-duo-col">
+                <h2 className="mam-bill-section-heading">{L.customerInformation}</h2>
+                <div className="mam-bill-finance-box">
+                  <BillRow label={L.customerName} value={customerName} />
+                  <BillRow label={L.customerCode} value={customerCode} />
+                  <BillRow label={L.nic} value={customerNic} />
+                  <BillRow label={L.phone} value={customerPhone} />
+                </div>
+              </div>
+              <div className="mam-bill-duo-col">
+                <h2 className="mam-bill-section-heading">{L.loanInformation}</h2>
+                <div className="mam-bill-finance-box">
+                  <BillRow label={L.loanNumber} value={snapshot.loanCode} />
+                  <BillRow label={L.bikeModel} value={snapshot.bikeModel ?? '—'} />
+                  <BillRow
+                    label={L.registrationNumber}
+                    value={snapshot.registrationNumber ?? '—'}
+                  />
+                </div>
+              </div>
             </div>
           </section>
 
@@ -127,14 +133,6 @@ export function PaymentReceiptDocumentPrint({
                 label={L.paymentMethod}
                 value={formatEnum(snapshot.paymentMethod, language)}
               />
-            </div>
-          </section>
-
-          <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">
-              {isInterestOnly ? L.balanceInformation : L.paymentInformation}
-            </h2>
-            <div className="mam-bill-finance-box">
               <BillRow
                 label={L.paymentAmount}
                 value={formatLKR(snapshot.paidAmount)}
@@ -154,8 +152,6 @@ export function PaymentReceiptDocumentPrint({
                   tone="strong"
                 />
               )}
-            </div>
-            <div className="mam-bill-finance-box mam-bill-due-box">
               <BillRow
                 label={L.nextDueDate}
                 value={
@@ -173,19 +169,22 @@ export function PaymentReceiptDocumentPrint({
               {L.cashier}: {snapshot.cashierName}
             </p>
           </section>
-        </div>
-        <p className="mam-bill-locked">{L.lockedNotice}</p>
 
-        <div className="mam-bill-signatures mam-bill-signatures-two">
-          <div className="mam-bill-sig">
-            <div className="mam-bill-sig-line" />
-            <span>{L.customerSignature}</span>
-          </div>
-          <div className="mam-bill-sig">
-            <div className="mam-bill-sig-line" />
-            <span>{L.authorizedOfficer}</span>
+          <p className="mam-bill-locked">{L.lockedNotice}</p>
+
+          <div className="mam-bill-signatures mam-bill-signatures-two">
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.customerSignature}</span>
+            </div>
+            <div className="mam-bill-sig">
+              <div className="mam-bill-sig-line" />
+              <span>{L.authorizedOfficer}</span>
+            </div>
           </div>
         </div>
+
+        <MamDocumentFooter />
       </div>
     </div>
   );

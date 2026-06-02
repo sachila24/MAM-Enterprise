@@ -2,7 +2,7 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { LoanReleaseDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
-import { MamDocumentHeader } from '../branding/MamLogo';
+import { MamDocumentFooter, MamDocumentHeader } from '../branding/MamLogo';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   if (!value?.trim() || value.trim() === '—') return null;
@@ -97,6 +97,8 @@ export function LoanReleaseNotePrint({
             </div>
           </div>
         </div>
+
+        <MamDocumentFooter />
       </div>
     </div>
   );

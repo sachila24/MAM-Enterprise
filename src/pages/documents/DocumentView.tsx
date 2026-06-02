@@ -113,7 +113,7 @@ export function DocumentView() {
   }
 
   return (
-    <div className="document-view-page pb-16">
+    <div className="document-view-page pb-16 print:pb-0 print:m-0">
       <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 max-w-4xl mx-auto">
         <button
           type="button"
@@ -133,7 +133,7 @@ export function DocumentView() {
         </button>
       </div>
 
-      <div className="mx-auto max-w-[210mm] bg-white shadow-sm ring-1 ring-neutral-200 p-4 print:shadow-none print:ring-0">
+      <div className="mx-auto max-w-[210mm] bg-white shadow-sm ring-1 ring-neutral-200 p-4 print:max-w-none print:p-0 print:shadow-none print:ring-0">
         {body}
       </div>
     </div>

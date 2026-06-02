@@ -71,7 +71,7 @@ export function PaymentSuccess() {
       : undefined;
 
   return (
-    <div className="payment-success-page pb-16">
+    <div className="payment-success-page pb-16 print:pb-0 print:m-0">
       <div className="no-print mb-4">
         <button
           type="button"
