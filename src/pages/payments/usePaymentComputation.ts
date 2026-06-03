@@ -39,6 +39,8 @@ import {
 import type { PaymentPreviewBundle } from './paymentPreviewData';
 import type { PaymentAllocationResult } from '../../lib/finance/paymentAllocation';
 import { roundLKR } from '../../lib/finance/money';
+import { getDb } from '../../lib/local-db/localDb';
+import { createLateFeeExemptAfterAllocationFn } from '../../lib/finance/lateFeeExemption';
 
 export interface PaymentFormState {
   amount: number;
@@ -100,26 +102,50 @@ export function usePaymentComputation(
     };
   }, [loan, cycles]);
 
-  const fixedDueSummary = useMemo(() => {
+  const lateFeeExemptByInstallmentId = useMemo(() => {
+    if (!loan || !bundle) return undefined;
+    return bundle.lateFeeExemptByInstallmentIdByLoanId?.[loan.id];
+  }, [loan, bundle]);
+
+  const fixedAllocationCtx = useMemo(() => {
     if (!loan || !isFixedInstallmentLoan(loan) || installments.length === 0) {
       return null;
     }
-    return summarizeFixedInstallmentDue(
-      {
-        installments,
-        paymentDate: form.paymentDate,
-        lateFeeRatePercent: loan.lateFeeRate,
-        monthlyInstallmentAmount: loan.installmentAmount,
-        currentInstallmentNumber,
-      },
-      form.paymentDate
-    );
+    const db = getDb();
+    return {
+      installments,
+      paymentDate: form.paymentDate,
+      lateFeeRatePercent: loan.lateFeeRate,
+      monthlyInstallmentAmount: loan.installmentAmount,
+      currentInstallmentNumber,
+      loanBalanceAmount: loan.balanceAmount,
+      lateFeeExemptByInstallmentId,
+      recomputeLateFeeExemptAfterAllocation:
+        lateFeeExemptByInstallmentId !== undefined
+          ? createLateFeeExemptAfterAllocationFn(
+              db,
+              loan.id,
+              lateFeeExemptByInstallmentId,
+              installments,
+              form.paymentDate
+            )
+          : undefined,
+    };
   }, [
     loan,
     installments,
     form.paymentDate,
     currentInstallmentNumber,
+    lateFeeExemptByInstallmentId,
   ]);
+
+  const fixedDueSummary = useMemo(() => {
+    if (!fixedAllocationCtx) return null;
+    return summarizeFixedInstallmentDue(
+      fixedAllocationCtx,
+      form.paymentDate
+    );
+  }, [fixedAllocationCtx, form.paymentDate]);
 
   const allocation = useMemo(() => {
     if (!loan || settlementTotal <= 0) return null;
@@ -135,16 +161,9 @@ export function usePaymentComputation(
         },
         settlementTotal
       );
-    } else if (isFixedInstallmentLoan(loan) && installments.length > 0) {
+    } else if (fixedAllocationCtx) {
       base = allocateFixedInstallmentPayment(
-        {
-          installments,
-          paymentDate: form.paymentDate,
-          lateFeeRatePercent: loan.lateFeeRate,
-          monthlyInstallmentAmount: loan.installmentAmount,
-          currentInstallmentNumber,
-          loanBalanceAmount: loan.balanceAmount,
-        },
+        fixedAllocationCtx,
         settlementTotal
       );
     } else {
@@ -180,8 +199,7 @@ export function usePaymentComputation(
     disc,
     form.paymentDate,
     cycles,
-    installments,
-    currentInstallmentNumber,
+    fixedAllocationCtx,
   ]);
 
   const allocationRows = useMemo(() => {
@@ -195,7 +213,8 @@ export function usePaymentComputation(
         allocation,
         form.paymentDate,
         loan.lateFeeRate,
-        loan.installmentAmount
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
       );
     }
     return [];
@@ -231,6 +250,7 @@ export function usePaymentComputation(
             paidAmount: i.paidAmount,
             lateFeePaid: i.lateFeePaid,
           })),
+          lateFeeExemptByInstallmentId,
         }
       );
     }
@@ -262,11 +282,19 @@ export function usePaymentComputation(
       return getNextDueDateForFixedInstallments(
         installments as InstallmentArrearsInput[],
         loan.lateFeeRate,
-        form.paymentDate
+        form.paymentDate,
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
       );
     }
     return null;
-  }, [loan, cycles, installments, form.paymentDate, loan?.lateFeeRate]);
+  }, [
+    loan,
+    cycles,
+    installments,
+    form.paymentDate,
+    lateFeeExemptByInstallmentId,
+  ]);
 
   const amountDue = roundLKR(
     fixedDueSummary?.totalDue ?? interestOnlySummary?.totalInterestDue ?? 0

@@ -1,10 +1,15 @@
 import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../finance/lateFeeExemption';
+import {
   getInstallmentDisplayStatus,
   runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../finance/fixedInstallmentStatus';
 import { getLateFeeLineByInstallmentId } from '../finance/lateFeeEngineV3';
 import { preserveLateFeeChargedAmount } from '../display/paymentLedgerBreakdown';
+import { roundLKR } from '../finance/money';
 import { getDb, saveDb } from './localDb';
 import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { MamDemoDb } from './types';
@@ -40,22 +45,28 @@ function mutateFixedInstallmentLateFees(
     ...toInput(inst),
     id: inst.id,
   }));
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
   const engine = runLateFeeEngine(
     engineInputs,
     loan.installment_amount,
     loan.late_fee_rate,
-    { asOfDate }
+    { asOfDate, lateFeeExemptByInstallmentId }
   );
 
   for (const inst of loanInstallments) {
     const input = toInput(inst);
     const line = getLateFeeLineByInstallmentId(engine, inst.id);
-    const computedLateFee = line?.lateFee ?? 0;
-    const lateFeeAmount = preserveLateFeeChargedAmount(
-      inst.late_fee_amount,
-      computedLateFee,
-      inst.late_fee_paid
-    );
+    const isExempt = lateFeeExemptByInstallmentId[inst.id] === true;
+    const computedLateFee = isExempt ? 0 : (line?.lateFee ?? 0);
+    const lateFeeAmount = isExempt
+      ? roundLKR(Math.max(inst.late_fee_paid, 0))
+      : preserveLateFeeChargedAmount(
+          inst.late_fee_amount,
+          computedLateFee,
+          inst.late_fee_paid
+        );
     const nextStatus = getInstallmentDisplayStatus(
       input,
       asOfDate,

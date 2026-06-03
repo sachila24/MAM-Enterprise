@@ -303,6 +303,7 @@ export const app: Record<AppLabelKey, string> = {
   loanTerm: 'කාලය',
   loanNextDue: 'ඊළඟ ගෙවීම',
   noDuePayments: 'ගෙවිය යුතු ගෙවීම් නැත',
+  overdueAmount: 'ප්‍රමාද මුදල',
   overdueAmountLive: 'ප්‍රමාද මුදල (සජීව)',
   lateFeeAccruedLabel: 'සැකසූ ප්‍රමාද ගාස්තු',
   lateFeeRemainingLabel: 'ඉතිරි ප්‍රමාද ගාස්තු',
@@ -749,6 +750,8 @@ export const app: Record<AppLabelKey, string> = {
   paymentUnallocated: 'මෙම ගෙවීමේ {amount} LKR යොදා ගත නොහැක. මුදල හෝ වට්ටම සකසන්න.',
   bikeSaveInProgress: 'බයික් සුරකිමින්. කරුණාකර රැඳී සිටින්න.',
   chassisExists: 'මෙම රථ අංකය සහිත බයික් දැනටමත් ඇත',
+  registrationExists:
+    'විකුණා නොමැති බයික් එකකට මෙම ලියාපදිංචි අංකය දැනටමත් භාවිතයේ ඇත',
   bikeInstallmentMustFixedTerm: 'බයික් වාරික සඳහා ස්ථිර කාල වාරික අවශ්‍යයි',
   selectedBikeNotFound: 'තෝරාගත් බයික් හමු නොවීය',
   selectedBikeNotInStock: 'තෝරාගත් බයික් තවදුරටත් තොගයේ නැත',

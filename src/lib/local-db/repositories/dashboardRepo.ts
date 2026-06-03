@@ -8,6 +8,10 @@ import {
   runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../../finance/fixedInstallmentStatus';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../../finance/lateFeeExemption';
 import { countInterestCyclesDueByDate } from '../../finance/dueDates';
 import {
   interestOutstandingOnCycle,
@@ -21,6 +25,7 @@ import {
   countOpenOverdueLoans,
   isOpenLoanStatus,
   loanHasArrears,
+  overdueCollectibleAmountForLoan,
   overdueDaysForLoan,
 } from '../../finance/loanOverdue';
 import { getDb } from '../localDb';
@@ -40,6 +45,8 @@ const today = () => getSystemToday();
 
 export type DashboardOverdueLoan = Loan & {
   customer?: Customer;
+  /** Past-due installments + collectible late fees (not full loan balance). */
+  overdueAmount: number;
   daysOverdue: number;
   monthsOverdue: number;
   severity: OverdueSeverity;
@@ -90,12 +97,14 @@ function fixedDueTodayAmount(
   installments: (InstallmentArrearsInput & { id: string })[],
   asOf: string,
   lateFeeRate: number,
-  monthlyInstallment?: number
+  monthlyInstallment?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): number {
   if (installments.length === 0) return 0;
   const base = monthlyInstallment ?? installments[0]?.installmentAmount ?? 0;
   const engine = runLateFeeEngine(installments, base, lateFeeRate, {
     asOfDate: asOf,
+    lateFeeExemptByInstallmentId,
   });
   let dueToday = 0;
   for (const inst of installments) {
@@ -139,6 +148,9 @@ function expectedCollectionForLoan(
   if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return 0;
 
   const installments = mapInstallments(loanId, db);
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
   if (loanHasArrears(loanId, db, asOf)) {
     return summarizeFixedInstallmentDue(
       {
@@ -147,6 +159,7 @@ function expectedCollectionForLoan(
         lateFeeRatePercent: loan.late_fee_rate,
         monthlyInstallmentAmount: loan.installment_amount,
         currentInstallmentNumber: 1,
+        lateFeeExemptByInstallmentId,
       },
       asOf
     ).totalDue;
@@ -155,7 +168,8 @@ function expectedCollectionForLoan(
     installments,
     asOf,
     loan.late_fee_rate,
-    loan.installment_amount
+    loan.installment_amount,
+    lateFeeExemptByInstallmentId
   );
 }
 
@@ -210,6 +224,7 @@ export function getOverdueLoans(
         ...mapLoan(l),
         status: 'OVERDUE' as const,
         customer: c ? mapCustomer(c, db) : undefined,
+        overdueAmount: overdueCollectibleAmountForLoan(l.id, db, asOf),
         daysOverdue,
         monthsOverdue,
         severity: getOverdueSeverity(daysOverdue),

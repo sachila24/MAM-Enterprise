@@ -54,7 +54,10 @@ export interface EnrichedFixedInstallment extends InstallmentArrearsInput {
 
 export function toLateFeeEngineInstallments<
   T extends InstallmentArrearsInput & { id: string },
->(installments: T[]): LateFeeEngineInput['installments'] {
+>(
+  installments: T[],
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
+): LateFeeEngineInput['installments'] {
   return installments.map((inst) => ({
     installmentId: inst.id,
     installmentNumber: inst.installmentNumber,
@@ -63,6 +66,7 @@ export function toLateFeeEngineInstallments<
     paidAmount: inst.paidAmount,
     lateFeePaid: inst.lateFeePaid,
     lateFeeCharged: inst.lateFeeAmount,
+    lateFeeExempt: lateFeeExemptByInstallmentId?.[inst.id] === true,
   }));
 }
 
@@ -71,13 +75,20 @@ export function runLateFeeEngine(
   installments: (InstallmentArrearsInput & { id: string })[],
   monthlyInstallment: number,
   lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
-  options?: { paymentDate?: string | null; asOfDate?: string | null }
+  options?: {
+    paymentDate?: string | null;
+    asOfDate?: string | null;
+    lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>;
+  }
 ): LateFeeEngineResult {
   const asOf = getAsOfDate(options?.paymentDate ?? options?.asOfDate ?? undefined);
   return computeLoanLateFeesV3({
     monthlyInstallment,
     lateFeeRatePercent,
-    installments: toLateFeeEngineInstallments(installments),
+    installments: toLateFeeEngineInstallments(
+      installments,
+      options?.lateFeeExemptByInstallmentId
+    ),
     paymentDate: asOf,
   });
 }
@@ -232,11 +243,14 @@ export function getFixedLoanArrearsSummary(
   installments: InstallmentArrearsInput[],
   today: string,
   lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
-  monthlyInstallment?: number
+  monthlyInstallment?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): FixedLoanArrearsSummary {
   const withIds = installments.map((inst, index) => ({
     ...inst,
-    id: `arrears-${inst.installmentNumber}-${index}`,
+    id:
+      (inst as InstallmentArrearsInput & { id?: string }).id ??
+      `arrears-${inst.installmentNumber}-${index}`,
   }));
   const base =
     monthlyInstallment ??
@@ -246,7 +260,7 @@ export function getFixedLoanArrearsSummary(
     withIds,
     base,
     lateFeeRatePercent,
-    { asOfDate: today }
+    { asOfDate: today, lateFeeExemptByInstallmentId }
   );
   return arrearsSummaryFromEngine(engine, installments, today);
 }

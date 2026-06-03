@@ -294,17 +294,22 @@
 }
 
 .mam-bill-footer {
-  margin-top: 0.75rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #e5e5e5;
+  margin-top: 0.85rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
   text-align: center;
-  font-size: 0.62rem;
-  line-height: 1.45;
-  color: #888;
+  font-size: 7pt;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #a3a3a3;
 }
 
-.mam-bill-footer p {
-  margin: 0.1rem 0;
+.mam-bill-footer-line {
+  margin: 0.08rem 0;
+  padding: 0;
+  background: transparent;
 }
 
 /* Payment receipt — tighter vertical rhythm for single A4 page */
@@ -354,8 +359,7 @@
 }
 
 .mam-bill-payment-receipt .mam-bill-footer {
-  margin-top: 0.5rem;
-  padding-top: 0.35rem;
+  margin-top: 0.65rem;
 }
 
 .mam-bill-duo-grid {
@@ -606,6 +610,11 @@
   .mam-bill-footer {
     break-inside: avoid;
     page-break-inside: avoid;
+    font-size: 6.5pt;
+    color: #ababab;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   /* Payment receipts: single-page layout — no extra page from orphan blocks */
@@ -640,7 +649,6 @@
   }
 
   .mam-bill-payment-receipt .mam-bill-footer {
-    margin-top: 0.4rem;
-    padding-top: 0.3rem;
+    margin-top: 0.55rem;
   }
 }

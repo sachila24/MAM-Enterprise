@@ -303,6 +303,7 @@ export const app = {
   loanTerm: 'Term',
   loanNextDue: 'Next due',
   noDuePayments: 'No due payments',
+  overdueAmount: 'Overdue amount',
   overdueAmountLive: 'Overdue amount (live)',
   lateFeeAccruedLabel: 'Late fee accrued',
   lateFeeRemainingLabel: 'Late fee remaining',
@@ -749,6 +750,8 @@ export const app = {
   paymentUnallocated: 'Could not apply {amount} LKR of this payment. Adjust cash or discount.',
   bikeSaveInProgress: 'Bike save already in progress. Please wait.',
   chassisExists: 'A bike with this chassis number already exists',
+  registrationExists:
+    'A bike that is not sold already uses this registration number',
   bikeInstallmentMustFixedTerm: 'Bike installment loans must use fixed-term installments',
   selectedBikeNotFound: 'Selected bike not found',
   selectedBikeNotInStock: 'Selected bike is no longer in stock',

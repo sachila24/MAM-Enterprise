@@ -8,6 +8,26 @@ import { uiError } from '../../i18n/messages';
 
 const inFlightBikeCreates = new Set<string>();
 
+function normalizeRegistrationNo(registrationNo: string): string {
+  return registrationNo.trim().toLowerCase();
+}
+
+/** True when a non-SOLD bike already uses this registration (IN_STOCK / HELD). */
+export function isRegistrationUsedByNonSoldBike(
+  db: MamDemoDb,
+  registrationNo: string,
+  excludeBikeId?: string
+): boolean {
+  const normalized = normalizeRegistrationNo(registrationNo);
+  if (!normalized) return false;
+  return db.bikes.some(
+    (b) =>
+      b.id !== excludeBikeId &&
+      b.status !== 'SOLD' &&
+      normalizeRegistrationNo(b.registration_no ?? '') === normalized
+  );
+}
+
 export function listBikes(db: MamDemoDb = getDb()): Bike[] {
   return db.bikes.map(mapBike);
 }
@@ -68,6 +88,11 @@ export function createBike(
     throw new Error(uiError('bikePricesRequired'));
   }
 
+  const registration = input.registrationNo.trim();
+  if (isRegistrationUsedByNonSoldBike(db, registration)) {
+    throw new Error(uiError('registrationExists'));
+  }
+
   const chassis = input.chassisNo?.trim() ?? '';
   if (chassis) {
     const duplicateChassis = db.bikes.some(
@@ -116,6 +141,18 @@ export function updateBike(
 ): Bike | undefined {
   const row = db.bikes.find((b) => b.id === id);
   if (!row) return undefined;
+
+  if (input.registration_no !== undefined) {
+    const registration = input.registration_no.trim();
+    if (!registration) {
+      throw new Error(uiError('registrationRequired'));
+    }
+    if (isRegistrationUsedByNonSoldBike(db, registration, id)) {
+      throw new Error(uiError('registrationExists'));
+    }
+    input.registration_no = registration;
+  }
+
   Object.assign(row, input, { updated_at: new Date().toISOString() });
   saveDb(db);
   return mapBike(row);

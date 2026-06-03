@@ -269,6 +269,36 @@ export const EXAMPLE_LATE_FEE_GRACE = (() => {
   };
 })();
 
+/** ≥50% paid before grace-end — installment never accrues late fees */
+export const EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT = (() => {
+  const row = {
+    installmentId: 'half-exempt-1',
+    installmentNumber: 1,
+    dueDate: '2026-03-01',
+    installmentAmount: 15_000,
+    paidAmount: 8_000,
+    lateFeeExempt: true,
+  };
+  const afterGrace = computeLoanLateFeesV3({
+    monthlyInstallment: 15_000,
+    lateFeeRatePercent: 5,
+    paymentDate: '2026-06-01',
+    installments: [row],
+  });
+  const withoutExempt = computeLoanLateFeesV3({
+    monthlyInstallment: 15_000,
+    lateFeeRatePercent: 5,
+    paymentDate: '2026-06-01',
+    installments: [{ ...row, lateFeeExempt: false }],
+  });
+  return {
+    exemptFee: afterGrace.lines[0]?.lateFee ?? 0,
+    exemptOutstanding: afterGrace.lines[0]?.lateFeeOutstanding ?? 0,
+    wouldAccrue: withoutExempt.lines[0]?.lateFee ?? 0,
+    expected: { exemptFee: 0, exemptOutstanding: 0, wouldAccrueGreaterThan: 0 },
+  };
+})();
+
 /** Late fee paid in full — locked; installment may remain unpaid */
 export const EXAMPLE_LATE_FEE_PAID_LOCK = (() => {
   const result = computeLoanLateFeesV3({
@@ -997,6 +1027,20 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       pass: EXAMPLE_LATE_FEE_GRACE.afterGrace === 500,
       expected: 500,
       actual: EXAMPLE_LATE_FEE_GRACE.afterGrace,
+    },
+    {
+      name: '50% pre-grace: exempt installment accrues zero',
+      pass:
+        EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.exemptFee === 0 &&
+        EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.exemptOutstanding === 0 &&
+        EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.wouldAccrue > 0,
+      expected: EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.expected,
+      actual: {
+        exemptFee: EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.exemptFee,
+        exemptOutstanding:
+          EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.exemptOutstanding,
+        wouldAccrue: EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.wouldAccrue,
+      },
     },
     {
       name: 'Late fee paid lock: no outstanding',

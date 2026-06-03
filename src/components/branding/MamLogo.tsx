@@ -60,12 +60,15 @@ export function MamDocumentHeader({
   );
 }
 
-/** Centered developer credit — all printed MAM documents */
+/** Unobtrusive vendor credit — below signatures on all printed MAM documents */
 export function MamDocumentFooter() {
   return (
-    <footer className="mam-bill-footer" aria-hidden="true">
-      <p>System Developed &amp; Maintained by Sachila Dissanayake</p>
-      <p>Contact: 0764608628 | Email: sathmika7@gmail.com</p>
+    <footer className="mam-bill-footer" aria-label="System vendor">
+      <p className="mam-bill-footer-line">
+        System Developed &amp; Maintained by Sachila Dissanayake
+      </p>
+      <p className="mam-bill-footer-line">0764608628</p>
+      <p className="mam-bill-footer-line">sathmika7@gmail.com</p>
     </footer>
   );
 }

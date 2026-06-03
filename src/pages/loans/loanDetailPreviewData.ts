@@ -59,6 +59,8 @@ export interface LoanDetailData {
   ledgerPayments: LoanLedgerPayment[];
   ledgerInstallments: LoanLedgerInstallment[];
   monthsCompleted: number;
+  /** Fixed-term: installments with ≥50% paid pre-grace (no late-fee accrual). */
+  lateFeeExemptByInstallmentId?: Record<string, boolean>;
 }
 
 const ts = '2026-05-15T00:00:00Z';

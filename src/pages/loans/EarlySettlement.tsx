@@ -71,6 +71,7 @@ export function EarlySettlement() {
       lateFeeRatePercent: loan.lateFeeRate,
       monthlyInstallmentAmount: loan.installmentAmount,
       currentInstallmentNumber: currentNum,
+      lateFeeExemptByInstallmentId: detail.lateFeeExemptByInstallmentId,
     });
     return {
       remainingPrincipal,

@@ -17,6 +17,10 @@ import {
 } from '../display/ledgerDisplay';
 import { findPaymentReceiptDocument } from '../documents/documentService';
 import { getLabel } from '../i18n/simpleLabels';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../finance/lateFeeExemption';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -147,6 +151,11 @@ export function getLoanDetailFromDb(
           );
         })();
 
+  const lateFeeExemptByInstallmentId =
+    dbLoan.repayment_method === 'FIXED_TERM_INSTALLMENT'
+      ? toLateFeeExemptRecord(buildLateFeeExemptByInstallmentId(db, loanId))
+      : undefined;
+
   return {
     loan: {
       ...loan,
@@ -162,6 +171,7 @@ export function getLoanDetailFromDb(
     ledgerPayments,
     ledgerInstallments,
     monthsCompleted,
+    lateFeeExemptByInstallmentId,
   };
 }
 

@@ -36,6 +36,11 @@ export interface LateFeeEngineInstallmentInput {
   lateFeePaid?: number;
   /** Historical charged snapshot from DB — used when principal is settled. */
   lateFeeCharged?: number;
+  /**
+   * Fixed-term rule: ≥50% of installment paid before grace-end — never accrue
+   * late fees on this installment (set by lateFeeExemption helpers).
+   */
+  lateFeeExempt?: boolean;
 }
 
 export interface LateFeeEngineInput {
@@ -195,6 +200,16 @@ function computeAccruedLateFee(
   lateFee: number;
   lateFeeSettled: boolean;
 } {
+  if (inst.lateFeeExempt) {
+    const lateFeePaid = inst.lateFeePaid ?? 0;
+    const charged = inst.lateFeeCharged ?? 0;
+    return {
+      lateMonths: 0,
+      lateFee: roundLKR(Math.max(lateFeePaid, charged)),
+      lateFeeSettled: true,
+    };
+  }
+
   const due = normalizeDate(inst.dueDate);
   const cycleStart = getLateFeeStartDate(due);
   const lateMonths = calculateLateFeeCyclesFromGraceEnd(cycleStart, asOf);

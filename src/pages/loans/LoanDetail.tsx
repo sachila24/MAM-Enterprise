@@ -304,6 +304,7 @@ function FixedInstallmentLoanDetail({
     bike,
     ledgerPayments,
     ledgerInstallments,
+    lateFeeExemptByInstallmentId,
   } = detail;
   const asOfDate = useSystemToday();
 
@@ -322,25 +323,33 @@ function FixedInstallmentLoanDetail({
         installmentsWithIds,
         loan.installmentAmount ?? 0,
         loan.lateFeeRate,
-        { asOfDate }
+        { asOfDate, lateFeeExemptByInstallmentId }
       ),
     [
       installmentsWithIds,
       loan.installmentAmount,
       loan.lateFeeRate,
       asOfDate,
+      lateFeeExemptByInstallmentId,
     ]
   );
 
   const arrearsSummary = useMemo(
     () =>
       getFixedLoanArrearsSummary(
-        installments as InstallmentArrearsInput[],
+        installmentsWithIds,
         asOfDate,
         loan.lateFeeRate,
-        loan.installmentAmount
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
       ),
-    [installments, asOfDate, loan.lateFeeRate, loan.installmentAmount]
+    [
+      installmentsWithIds,
+      asOfDate,
+      loan.lateFeeRate,
+      loan.installmentAmount,
+      lateFeeExemptByInstallmentId,
+    ]
   );
 
   const displayLoanStatus = useMemo(

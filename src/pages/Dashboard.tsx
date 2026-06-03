@@ -317,10 +317,10 @@ function OverdueQueueRow({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              {t('field.balance')}
+              {t('overdueAmount')}
             </p>
-            <p className="mt-0.5 text-sm font-semibold text-neutral-900 tabular-nums">
-              {formatLKR(loan.balanceAmount)}
+            <p className="mt-0.5 text-sm font-semibold text-danger-700 tabular-nums">
+              {formatLKR(loan.overdueAmount)}
             </p>
           </div>
           <div>

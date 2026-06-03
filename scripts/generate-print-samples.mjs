@@ -29,8 +29,9 @@ function headerHtml(title) {
 
 const footerHtml = `
 <footer class="mam-bill-footer">
-  <p>System Developed &amp; Maintained by Sachila Dissanayake</p>
-  <p>Contact: 0764608628 | sathmika7@gmail.com</p>
+  <p class="mam-bill-footer-line">System Developed &amp; Maintained by Sachila Dissanayake</p>
+  <p class="mam-bill-footer-line">0764608628</p>
+  <p class="mam-bill-footer-line">sathmika7@gmail.com</p>
 </footer>`;
 
 function wrap(title, bodyClass, body) {

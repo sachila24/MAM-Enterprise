@@ -57,7 +57,9 @@ export function buildLateFeeReceiptLines(
     installmentAmount: number;
     paidAmount: number;
     lateFeePaid?: number;
-  }>
+    lateFeeExempt?: boolean;
+  }>,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): { totalLateFeeDue: number; lines: LateFeeReceiptLine[] } {
   const engine = computeLoanLateFeesV3({
     monthlyInstallment,
@@ -70,6 +72,10 @@ export function buildLateFeeReceiptLines(
       installmentAmount: row.installmentAmount,
       paidAmount: row.paidAmount,
       lateFeePaid: row.lateFeePaid,
+      lateFeeExempt:
+        row.lateFeeExempt === true ||
+        (row.id != null &&
+          lateFeeExemptByInstallmentId?.[row.id] === true),
     })),
   });
   const lines = engine.lines
@@ -171,6 +177,7 @@ export function buildFixedInstallmentReceipt(
       paidAmount: number;
       lateFeePaid?: number;
     }>;
+    lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>;
   }
 ): FixedInstallmentReceiptBreakdown {
   const totalApplied = roundLKR(cashReceived + discountApplied);
@@ -194,7 +201,8 @@ export function buildFixedInstallmentReceipt(
       lateFeeContext.monthlyInstallment,
       lateFeeContext.lateFeeRate,
       lateFeeContext.paymentDate,
-      lateFeeContext.schedule
+      lateFeeContext.schedule,
+      lateFeeContext.lateFeeExemptByInstallmentId
     );
     totalLateFeeDue = lf.totalLateFeeDue;
     lateFeeBreakdown =

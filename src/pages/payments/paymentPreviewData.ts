@@ -16,6 +16,11 @@ export interface PaymentPreviewBundle {
   interestCyclesByLoanId: Record<string, InterestCycleForAllocation[]>;
   installmentsByLoanId: Record<string, InstallmentForAllocation[]>;
   currentInstallmentNumberByLoanId: Record<string, number>;
+  /** 50% pre-grace late-fee exemption flags (fixed-term loans from local DB). */
+  lateFeeExemptByInstallmentIdByLoanId?: Record<
+    string,
+    Record<string, boolean>
+  >;
 }
 
 const previewCustomer: Customer = {

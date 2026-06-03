@@ -8,6 +8,10 @@ import {
   oldestArrearsDueDate,
   type InstallmentArrearsInput,
 } from './fixedInstallmentStatus';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from './lateFeeExemption';
 import { countInterestCyclesDueByDate } from './dueDates';
 import {
   interestOutstandingOnCycle,
@@ -79,12 +83,47 @@ export function loanHasArrears(
   if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return false;
 
   const installments = mapInstallments(loanId, db);
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
   return getFixedLoanArrearsSummary(
     installments,
     asOf,
     loan.late_fee_rate,
-    loan.installment_amount
+    loan.installment_amount,
+    lateFeeExemptByInstallmentId
   ).hasArrears;
+}
+
+/**
+ * Collectible overdue amount for dashboard / collections (read-only).
+ * Fixed-term: past-due installment principal + outstanding late fees.
+ * Interest-only: total unpaid interest on open cycles.
+ */
+export function overdueCollectibleAmountForLoan(
+  loanId: string,
+  db: MamDemoDb,
+  asOf: string = getSystemToday()
+): number {
+  const loan = db.loans.find((l) => l.id === loanId);
+  if (!loan) return 0;
+
+  if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+    return totalPendingInterest(mapInterestCycles(loanId, db, asOf));
+  }
+
+  if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return 0;
+
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
+  return getFixedLoanArrearsSummary(
+    mapInstallments(loanId, db),
+    asOf,
+    loan.late_fee_rate,
+    loan.installment_amount,
+    lateFeeExemptByInstallmentId
+  ).totalArrearsDue;
 }
 
 /** Whole days since the oldest unpaid overdue obligation. */
