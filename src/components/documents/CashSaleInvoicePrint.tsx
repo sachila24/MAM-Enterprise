@@ -85,8 +85,6 @@ export function CashSaleInvoicePrint({
             </div>
           </section>
 
-          <p className="mam-bill-locked">{L.lockedNotice}</p>
-
           <div className="mam-bill-signatures mam-bill-signatures-two">
             <div className="mam-bill-sig">
               <div className="mam-bill-sig-line" />

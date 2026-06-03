@@ -145,6 +145,28 @@
   margin-top: 0.5rem;
 }
 
+.mam-bill-guarantor-grid {
+  display: grid;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.mam-bill-guarantor-grid-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mam-bill-guarantor-grid-one {
+  grid-template-columns: 1fr;
+}
+
+.mam-bill-guarantor-grid .mam-bill-guarantor-block {
+  height: 100%;
+}
+
+.mam-bill-guarantor-grid .mam-bill-guarantor-block + .mam-bill-guarantor-block {
+  margin-top: 0;
+}
+
 .mam-bill-guarantor-heading {
   font-size: 0.78rem;
   font-weight: 700;
@@ -219,17 +241,26 @@
   text-align: center;
 }
 
-.mam-bill-notices {
+.mam-bill-notice-box {
   margin-top: 0.35rem;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid #dedede;
-  background: #fafafa;
-  font-size: 0.72rem;
+  padding: 0.45rem 0.65rem;
+  border: 2px solid #6a6a6a;
+  background: #fff;
+  font-size: 0.74rem;
   line-height: 1.45;
+  text-align: center;
+  font-weight: 600;
+  max-width: 85%;
+  margin-left: auto;
+  margin-right: auto;
+  box-shadow: inset 0 0 0 1px #f1f1f1;
 }
 
-.mam-bill-notices p {
-  margin: 0.12rem 0;
+.mam-bill-notice-secondary {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  color: #666;
+  text-align: center;
 }
 
 .mam-bill-due-box {
@@ -332,6 +363,10 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem 0.75rem;
   align-items: start;
+}
+
+.mam-bill-loan-top-grid .mam-bill-duo-col {
+  min-width: 0;
 }
 
 .mam-bill-duo-col .mam-bill-section-heading {
@@ -537,13 +572,23 @@
     page-break-inside: auto;
   }
 
-  .mam-bill-notices {
+  .mam-bill-guarantor-grid {
+    gap: 0.4rem;
+  }
+
+  .mam-bill-notice-box {
     margin-top: 0.3rem;
-    padding: 0.25rem 0.4rem;
-    font-size: 0.68rem;
+    padding: 0.32rem 0.45rem;
+    font-size: 0.67rem;
     line-height: 1.35;
     break-inside: auto;
     page-break-inside: auto;
+    max-width: 88%;
+  }
+
+  .mam-bill-notice-secondary {
+    margin-top: 0.14rem;
+    font-size: 0.64rem;
   }
 
   .mam-bill-signatures,

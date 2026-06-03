@@ -112,8 +112,9 @@ export function LoanInvoicePrint({
   const netAdvance =
     snapshot.netAdvancePayment ?? snapshot.downPayment ?? 0;
 
-  const hasGuarantorSection =
-    guarantors.guarantor1 || guarantors.guarantor2;
+  const hasGuarantor1 = Boolean(guarantors.guarantor1);
+  const hasGuarantor2 = Boolean(guarantors.guarantor2);
+  const hasGuarantorSection = hasGuarantor1 || hasGuarantor2;
 
   return (
     <div id="document-print-area" className="receipt-document doc-invoice mam-bill">
@@ -133,31 +134,40 @@ export function LoanInvoicePrint({
         </MamDocumentHeader>
 
         <div className="receipt-body mam-bill-body">
-          <section className="mam-bill-section">
-            <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
-            <div className="mam-bill-detail-block">
-              <DetailRow label={L.customerName} value={snapshot.customer.name} />
-              <DetailRow
-                label={L.customerCode}
-                value={snapshot.customer.customerCode ?? ''}
-              />
-              <DetailRow label={L.nic} value={snapshot.customer.nic} />
-              <DetailRow label={L.address} value={snapshot.customer.address} />
-              <DetailRow label={L.phone} value={snapshot.customer.phone} />
-            </div>
-          </section>
-
-          {snapshot.bike && (
+          {snapshot.bike ? (
             <section className="mam-bill-section">
-              <h2 className="mam-bill-section-heading">{L.bikeDetails}</h2>
+              <div className="mam-bill-duo-grid mam-bill-loan-top-grid">
+                <div className="mam-bill-duo-col">
+                  <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
+                  <div className="mam-bill-detail-block">
+                    <DetailRow label={L.customerName} value={snapshot.customer.name} />
+                    <DetailRow label={L.nic} value={snapshot.customer.nic} />
+                    <DetailRow label={L.phone} value={snapshot.customer.phone} />
+                    <DetailRow label={L.address} value={snapshot.customer.address} />
+                  </div>
+                </div>
+                <div className="mam-bill-duo-col">
+                  <h2 className="mam-bill-section-heading">{L.bikeDetails}</h2>
+                  <div className="mam-bill-detail-block">
+                    <DetailRow
+                      label={L.bikeModel}
+                      value={`${snapshot.bike.brand} ${snapshot.bike.model}`.trim()}
+                    />
+                    <DetailRow label={L.color} value={snapshot.bike.color} />
+                    <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />
+                    <DetailRow label={L.engineNo} value={snapshot.bike.engineNo} />
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="mam-bill-section">
+              <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
               <div className="mam-bill-detail-block">
-                <DetailRow
-                  label={L.bikeModel}
-                  value={`${snapshot.bike.brand} ${snapshot.bike.model}`.trim()}
-                />
-                <DetailRow label={L.color} value={snapshot.bike.color} />
-                <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />
-                <DetailRow label={L.engineNo} value={snapshot.bike.engineNo} />
+                <DetailRow label={L.customerName} value={snapshot.customer.name} />
+                <DetailRow label={L.nic} value={snapshot.customer.nic} />
+                <DetailRow label={L.phone} value={snapshot.customer.phone} />
+                <DetailRow label={L.address} value={snapshot.customer.address} />
               </div>
             </section>
           )}
@@ -220,34 +230,41 @@ export function LoanInvoicePrint({
           {hasGuarantorSection && (
             <section className="mam-bill-section">
               <h2 className="mam-bill-section-heading">{L.guarantorDetails}</h2>
-              <GuarantorBlock
-                heading={L.guarantor1}
-                guarantor={guarantors.guarantor1 ?? {}}
-                labels={{
-                  customerName: L.customerName,
-                  nic: L.nic,
-                  phone: L.phone,
-                  address: L.address,
-                }}
-              />
-              <GuarantorBlock
-                heading={L.guarantor2}
-                guarantor={guarantors.guarantor2 ?? {}}
-                labels={{
-                  customerName: L.customerName,
-                  nic: L.nic,
-                  phone: L.phone,
-                  address: L.address,
-                }}
-              />
+              <div
+                className={`mam-bill-guarantor-grid ${
+                  hasGuarantor1 && hasGuarantor2
+                    ? 'mam-bill-guarantor-grid-two'
+                    : 'mam-bill-guarantor-grid-one'
+                }`}
+              >
+                <GuarantorBlock
+                  heading={L.guarantor1}
+                  guarantor={guarantors.guarantor1 ?? {}}
+                  labels={{
+                    customerName: L.customerName,
+                    nic: L.nic,
+                    phone: L.phone,
+                    address: L.address,
+                  }}
+                />
+                <GuarantorBlock
+                  heading={L.guarantor2}
+                  guarantor={guarantors.guarantor2 ?? {}}
+                  labels={{
+                    customerName: L.customerName,
+                    nic: L.nic,
+                    phone: L.phone,
+                    address: L.address,
+                  }}
+                />
+              </div>
             </section>
           )}
 
-          <p className="mam-bill-locked">{L.lockedNotice}</p>
-          <div className="mam-bill-notices">
-            <p>අළෙවි කරන ලද යතුරුපැදියක් වෙනත් යතුරුපැදියකට මාරු කරනු නොලැබේ.</p>
-            <p>මෙම බිල්පත සුරක්ෂිතව තබා ගන්න.</p>
+          <div className="mam-bill-notice-box">
+            අළෙවි කරන ලද යතුරුපැදියක් වෙනත් යතුරුපැදියකට මාරු කරනු නොලැබේ.
           </div>
+          <p className="mam-bill-notice-secondary">මෙම බිල්පත සුරක්ෂිතව තබා ගන්න.</p>
 
           <div className="mam-bill-signatures">
             <div className="mam-bill-sig">

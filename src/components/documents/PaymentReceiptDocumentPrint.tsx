@@ -61,7 +61,6 @@ export function PaymentReceiptDocumentPrint({
   const isInterestOnly =
     snapshot.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const customerName = snapshot.customer?.name ?? snapshot.customerName ?? '—';
-  const customerCode = snapshot.customer?.customerCode ?? '—';
   const customerNic = snapshot.customer?.nic ?? '—';
   const customerPhone = snapshot.customer?.phone ?? '—';
   const hasPaymentTimePart = /:\d{2}/.test(snapshot.paymentDate);
@@ -98,7 +97,6 @@ export function PaymentReceiptDocumentPrint({
                 <h2 className="mam-bill-section-heading">{L.customerInformation}</h2>
                 <div className="mam-bill-finance-box">
                   <BillRow label={L.customerName} value={customerName} />
-                  <BillRow label={L.customerCode} value={customerCode} />
                   <BillRow label={L.nic} value={customerNic} />
                   <BillRow label={L.phone} value={customerPhone} />
                 </div>
@@ -169,8 +167,6 @@ export function PaymentReceiptDocumentPrint({
               {L.cashier}: {snapshot.cashierName}
             </p>
           </section>
-
-          <p className="mam-bill-locked">{L.lockedNotice}</p>
 
           <div className="mam-bill-signatures mam-bill-signatures-two">
             <div className="mam-bill-sig">

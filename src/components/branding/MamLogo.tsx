@@ -65,7 +65,7 @@ export function MamDocumentFooter() {
   return (
     <footer className="mam-bill-footer" aria-hidden="true">
       <p>System Developed &amp; Maintained by Sachila Dissanayake</p>
-      <p>Contact: 0764608628 | Emali : sathmika7@gmail.com</p>
+      <p>Contact: 0764608628 | Email: sathmika7@gmail.com</p>
     </footer>
   );
 }
