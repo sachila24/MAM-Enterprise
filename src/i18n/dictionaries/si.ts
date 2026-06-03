@@ -9,7 +9,7 @@ export const si = {
   'nav.guarantees': 'ඇපකර',
   'nav.expenses': 'වියදම්',
   'nav.reports': 'වාර්තා',
-  'nav.backup': 'උපස්ථ',
+  'nav.backup': 'බැකප්',
   'nav.staff': 'කාර්ය මණ්ඩලය',
   'nav.settings': 'ව්‍යාපාරික සැකසුම්',
   'nav.activityLog': 'ක්‍රියාකාරකම් ලොගය',
