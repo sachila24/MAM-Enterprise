@@ -43,13 +43,36 @@ for (const { pattern, label } of FORBIDDEN_IN_PRINT) {
 }
 
 const required = [
-  { pattern: /@page[\s\S]*size:\s*A4/, label: '@page size: A4' },
+  { pattern: /@page\s+receipt-b5[\s\S]*size:\s*B5/, label: '@page receipt-b5 size: B5' },
+  { pattern: /@page\s+agreement-a4[\s\S]*size:\s*A4/, label: '@page agreement-a4 size: A4' },
+  { pattern: /\.receipt-print-b5[\s\S]*page:\s*receipt-b5/, label: 'receipt-print-b5 page binding' },
+  { pattern: /\.agreement-print-a4[\s\S]*page:\s*agreement-a4/, label: 'agreement-print-a4 page binding' },
+  { pattern: /@page\s+cash-sale[\s\S]*size:\s*auto/, label: '@page cash-sale size: auto' },
+  { pattern: /\.cash-sale-print-b5[\s\S]*page:\s*cash-sale/, label: 'cash-sale-print-b5 page binding' },
   { pattern: /#document-print-area[\s\S]*overflow:\s*visible/, label: 'print area overflow: visible' },
   { pattern: /#document-print-area[\s\S]*max-height:\s*none/, label: 'print area max-height: none' },
   { pattern: /break-inside:\s*auto/, label: 'sections allow break-inside: auto' },
-  { pattern: /break-inside:\s*avoid[\s\S]*mam-bill-signatures/, label: 'signatures break-inside: avoid only' },
   { pattern: /\.no-print[\s\S]*display:\s*none/, label: '.no-print display:none' },
+  {
+    pattern: /\.receipt-print-b5[\s\S]*min-height:\s*var\(--mam-b5-printable-height\)/,
+    label: 'receipt B5 min-height fill',
+  },
+  {
+    pattern: /\.cash-sale-print-b5[\s\S]*min-height:\s*var\(--mam-b5-printable-height\)/,
+    label: 'cash sale B5 min-height fill (screen)',
+  },
+  {
+    pattern: /#document-print-area\.cash-sale-print-b5[\s\S]*min-height:\s*100%/,
+    label: 'cash sale paper-adaptive min-height (print)',
+  },
 ];
+
+const printClassByComponent = {
+  'src/components/documents/LoanInvoicePrint.tsx': 'agreement-print-a4',
+  'src/components/documents/LoanReleaseNotePrint.tsx': 'agreement-print-a4',
+  'src/components/documents/PaymentReceiptDocumentPrint.tsx': 'receipt-print-b5',
+  'src/components/documents/CashSaleInvoicePrint.tsx': 'cash-sale-print-b5',
+};
 
 for (const { pattern, label } of required) {
   if (!pattern.test(css)) {
@@ -68,16 +91,23 @@ for (const rel of printComponents) {
     console.log(`FAIL  ${rel} missing mam-bill-sheet wrapper`);
     failed = true;
   }
+  const expectedClass = printClassByComponent[rel];
+  if (expectedClass && !src.includes(expectedClass)) {
+    console.log(`FAIL  ${rel} missing ${expectedClass}`);
+    failed = true;
+  }
 }
 
-// A4 printable height estimate (10mm top + bottom margin)
-const A4_PRINTABLE_PX = Math.round(((297 - 20) / 25.4) * 96); // ~1046px at 96dpi
+// A4 printable height estimate (8mm top + bottom margin)
+const A4_PRINTABLE_PX = Math.round(((297 - 16) / 25.4) * 96);
+// B5 printable height estimate (8mm top + bottom margin)
+const B5_PRINTABLE_PX = Math.round(((250 - 16) / 25.4) * 96);
 
 const typicalHeights = {
   'Loan Agreement / Bill': 980,
   'Loan Release Note': 520,
-  'Payment Receipt': 780,
-  'Cash Sale Invoice': 560,
+  'Payment Receipt (B5 fill)': 860,
+  'Cash Sale Invoice (B5 fill)': 780,
 };
 
 const largeHeights = {
@@ -87,12 +117,15 @@ const largeHeights = {
   'Cash Sale Invoice (large)': 1080,
 };
 
-console.log('\n--- Estimated page counts (96dpi, 10mm vertical margins) ---');
-console.log(`A4 printable height: ~${A4_PRINTABLE_PX}px\n`);
+console.log('\n--- Estimated page counts (96dpi, 8mm vertical margins) ---');
+console.log(`A4 printable height: ~${A4_PRINTABLE_PX}px`);
+console.log(`B5 printable height: ~${B5_PRINTABLE_PX}px\n`);
 
 console.log('Typical records (expect 1 page):');
 for (const [name, px] of Object.entries(typicalHeights)) {
-  const pages = Math.ceil(px / A4_PRINTABLE_PX);
+  const pageHeight =
+    name.includes('Receipt') || name.includes('Cash Sale') ? B5_PRINTABLE_PX : A4_PRINTABLE_PX;
+  const pages = Math.ceil(px / pageHeight);
   const ok = pages === 1;
   console.log(`  ${ok ? 'OK' : 'WARN'}  ${name}: ~${px}px → ${pages} page(s)`);
   if (!ok) failed = true;

@@ -133,7 +133,13 @@ export function DocumentView() {
         </button>
       </div>
 
-      <div className="mx-auto max-w-[210mm] bg-white shadow-sm ring-1 ring-neutral-200 p-4 print:max-w-none print:p-0 print:shadow-none print:ring-0">
+      <div
+        className={`mx-auto bg-white shadow-sm ring-1 ring-neutral-200 p-4 print:max-w-none print:p-0 print:shadow-none print:ring-0 ${
+          snapshot.kind === 'PAYMENT_RECEIPT' || snapshot.kind === 'CASH_SALE'
+            ? 'max-w-[176mm]'
+            : 'max-w-[210mm]'
+        }`}
+      >
         {body}
       </div>
     </div>

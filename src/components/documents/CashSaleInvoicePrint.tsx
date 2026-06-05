@@ -44,9 +44,12 @@ export function CashSaleInvoicePrint({
       : '';
 
   return (
-    <div id="document-print-area" className="receipt-document mam-bill">
+    <div
+      id="document-print-area"
+      className="receipt-document mam-bill cash-sale-print-b5"
+    >
       <div className="receipt-sheet mam-bill-sheet">
-        <MamDocumentHeader title={L.cashSaleTitle}>
+        <MamDocumentHeader title={L.cashSaleTitle} logoSize={58}>
           <div className="mam-bill-meta">
             <span>
               {L.invoiceNumber}: <strong>{documentNumber}</strong>

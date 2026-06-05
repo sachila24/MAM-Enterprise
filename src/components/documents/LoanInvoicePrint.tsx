@@ -117,7 +117,10 @@ export function LoanInvoicePrint({
   const hasGuarantorSection = hasGuarantor1 || hasGuarantor2;
 
   return (
-    <div id="document-print-area" className="receipt-document doc-invoice mam-bill">
+    <div
+      id="document-print-area"
+      className="receipt-document doc-invoice mam-bill agreement-print-a4"
+    >
       <div className="receipt-sheet mam-bill-sheet">
         <MamDocumentHeader title={L.loanInvoiceTitle}>
           <div className="mam-bill-meta">

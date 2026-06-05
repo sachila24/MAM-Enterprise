@@ -31,7 +31,6 @@ const footerHtml = `
 <footer class="mam-bill-footer">
   <p class="mam-bill-footer-line">System Developed &amp; Maintained by Sachila Dissanayake</p>
   <p class="mam-bill-footer-line">0764608628</p>
-  <p class="mam-bill-footer-line">sathmika7@gmail.com</p>
 </footer>`;
 
 function wrap(title, bodyClass, body) {
@@ -55,7 +54,7 @@ ${footerHtml}
 const samples = {
   'loan-invoice-typical.html': wrap(
     'Loan Agreement / Bill',
-    'doc-invoice',
+    'doc-invoice agreement-print-a4',
     `<div class="receipt-body mam-bill-body">
 <section class="mam-bill-section"><h2 class="mam-bill-section-heading">Customer Details</h2>
 <div class="mam-bill-detail-block"><div class="mam-bill-detail-row"><span class="mam-bill-detail-label">Name</span><span class="mam-bill-detail-value">Sample Customer</span></div></div></section>
@@ -70,7 +69,7 @@ const samples = {
   ),
   'payment-receipt.html': wrap(
     'Payment Receipt',
-    'mam-bill-payment-receipt',
+    'mam-bill-payment-receipt receipt-print-b5',
     `<div class="receipt-body mam-bill-body">
 <section class="mam-bill-section"><div class="mam-bill-duo-grid">
 <div class="mam-bill-duo-col"><h2 class="mam-bill-section-heading">Customer</h2><div class="mam-bill-finance-box"><div class="mam-bill-row"><span class="mam-bill-row-label">Name</span><span class="mam-bill-row-leader"></span><span class="mam-bill-row-value">Sample</span></div></div></div>
@@ -84,7 +83,7 @@ const samples = {
   ),
   'cash-sale.html': wrap(
     'Cash Sale Invoice',
-    '',
+    'cash-sale-print-b5',
     `<div class="receipt-body mam-bill-body">
 <section class="mam-bill-section"><h2 class="mam-bill-section-heading">Bike</h2>
 <div class="mam-bill-detail-block"><div class="mam-bill-detail-row"><span class="mam-bill-detail-label">Model</span><span class="mam-bill-detail-value">Honda CB</span></div></div></section>

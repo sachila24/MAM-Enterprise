@@ -73,10 +73,10 @@ export function PaymentReceiptDocumentPrint({
   return (
     <div
       id="document-print-area"
-      className="receipt-document mam-bill mam-bill-payment-receipt"
+      className="receipt-document mam-bill mam-bill-payment-receipt receipt-print-b5"
     >
       <div className="receipt-sheet mam-bill-sheet">
-        <MamDocumentHeader title={L.paymentReceiptTitle} compact>
+        <MamDocumentHeader title={L.paymentReceiptTitle} logoSize={58}>
           <p className="mam-bill-receipt-prominent">
             {L.receiptNumber}: <strong>{snapshot.receiptNumber}</strong>
           </p>
@@ -180,7 +180,7 @@ export function PaymentReceiptDocumentPrint({
           </div>
         </div>
 
-        <MamDocumentFooter />
+        <MamDocumentFooter showEmail={false} />
       </div>
     </div>
   );

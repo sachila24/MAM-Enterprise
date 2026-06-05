@@ -33,6 +33,8 @@ export interface MamDocumentHeaderProps {
   children?: React.ReactNode;
   /** Slightly smaller logo for compact single-page receipts */
   compact?: boolean;
+  /** Override default logo size (px) */
+  logoSize?: number;
 }
 
 /** Print header — logo left, company details right, title below */
@@ -40,8 +42,9 @@ export function MamDocumentHeader({
   title,
   children,
   compact = false,
+  logoSize: logoSizeProp,
 }: MamDocumentHeaderProps) {
-  const logoSize = compact ? 48 : 52;
+  const logoSize = logoSizeProp ?? (compact ? 48 : 52);
   return (
     <header className="mam-bill-header mam-bill-header-split">
       <div className="mam-bill-header-row">
@@ -60,15 +63,22 @@ export function MamDocumentHeader({
   );
 }
 
+export interface MamDocumentFooterProps {
+  /** When false, omits the vendor email line (B5 payment receipts). */
+  showEmail?: boolean;
+}
+
 /** Unobtrusive vendor credit — below signatures on all printed MAM documents */
-export function MamDocumentFooter() {
+export function MamDocumentFooter({ showEmail = true }: MamDocumentFooterProps) {
   return (
     <footer className="mam-bill-footer" aria-label="System vendor">
       <p className="mam-bill-footer-line">
         System Developed &amp; Maintained by Sachila Dissanayake
       </p>
       <p className="mam-bill-footer-line">0764608628</p>
-      <p className="mam-bill-footer-line">sathmika7@gmail.com</p>
+      {showEmail && (
+        <p className="mam-bill-footer-line">sathmika7@gmail.com</p>
+      )}
     </footer>
   );
 }

@@ -104,12 +104,14 @@ export function PaymentSuccess() {
       </div>
 
       {officialDoc && officialSnapshot?.kind === 'PAYMENT_RECEIPT' ? (
-        <PaymentReceiptDocumentPrint
-          documentNumber={officialDoc.document_number}
-          createdAt={officialDoc.created_at}
-          snapshot={officialSnapshot}
-          language={language}
-        />
+        <div className="mx-auto max-w-[176mm] print:max-w-none">
+          <PaymentReceiptDocumentPrint
+            documentNumber={officialDoc.document_number}
+            createdAt={officialDoc.created_at}
+            snapshot={officialSnapshot}
+            language={language}
+          />
+        </div>
       ) : (
         <div className="rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-900">
           {t('documentNotFoundHint')}

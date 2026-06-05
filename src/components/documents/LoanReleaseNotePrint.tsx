@@ -40,7 +40,10 @@ export function LoanReleaseNotePrint({
   const L = getDocumentLabels(language);
 
   return (
-    <div id="document-print-area" className="receipt-document mam-bill">
+    <div
+      id="document-print-area"
+      className="receipt-document mam-bill agreement-print-a4"
+    >
       <div className="receipt-sheet mam-bill-sheet">
         <MamDocumentHeader title={L.loanReleaseTitle}>
           <div className="mam-bill-meta">
