@@ -2,7 +2,8 @@ import { formatLKR, formatDate } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { LoanReleaseDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
-import { MamDocumentFooter, MamDocumentHeader } from '../branding/MamLogo';
+import { MamDocumentBottomSection } from '../branding/MamDocumentBottomSection';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   if (!value?.trim() || value.trim() === '—') return null;
@@ -88,20 +89,14 @@ export function LoanReleaseNotePrint({
               </div>
             )}
           </section>
-
-          <div className="mam-bill-signatures mam-bill-signatures-two">
-            <div className="mam-bill-sig">
-              <div className="mam-bill-sig-line" />
-              <span>{L.customerSignature}</span>
-            </div>
-            <div className="mam-bill-sig">
-              <div className="mam-bill-sig-line" />
-              <span>{L.authorizedOfficer}</span>
-            </div>
-          </div>
         </div>
 
-        <MamDocumentFooter />
+        <MamDocumentBottomSection
+          documentLegalNotice={L.documentLegalNotice}
+          customerSignature={L.customerSignature}
+          authorizedOfficer={L.authorizedOfficer}
+          variant="two"
+        />
       </div>
     </div>
   );

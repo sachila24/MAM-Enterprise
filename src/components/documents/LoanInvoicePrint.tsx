@@ -6,7 +6,8 @@ import type {
   LoanCreationDocumentSnapshot,
 } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
-import { MamDocumentFooter, MamDocumentHeader } from '../branding/MamLogo';
+import { MamDocumentBottomSection } from '../branding/MamDocumentBottomSection';
+import { MamDocumentHeader } from '../branding/MamLogo';
 
 function BillRow({ label, value }: { label: string; value: string }) {
   return (
@@ -264,28 +265,15 @@ export function LoanInvoicePrint({
             </section>
           )}
 
-          <div className="mam-bill-notice-box">
-            අළෙවි කරන ලද යතුරුපැදියක් වෙනත් යතුරුපැදියකට මාරු කරනු නොලැබේ.
-          </div>
-          <p className="mam-bill-notice-secondary">මෙම බිල්පත සුරක්ෂිතව තබා ගන්න.</p>
-
-          <div className="mam-bill-signatures">
-            <div className="mam-bill-sig">
-              <div className="mam-bill-sig-line" />
-              <span>{L.customerSignature}</span>
-            </div>
-            <div className="mam-bill-sig">
-              <div className="mam-bill-sig-line" />
-              <span>{L.guarantorSignature}</span>
-            </div>
-            <div className="mam-bill-sig">
-              <div className="mam-bill-sig-line" />
-              <span>{L.authorizedOfficer}</span>
-            </div>
-          </div>
         </div>
 
-        <MamDocumentFooter />
+        <MamDocumentBottomSection
+          documentLegalNotice={L.documentLegalNotice}
+          customerSignature={L.customerSignature}
+          guarantorSignature={L.guarantorSignature}
+          authorizedOfficer={L.authorizedOfficer}
+          variant="three"
+        />
       </div>
     </div>
   );

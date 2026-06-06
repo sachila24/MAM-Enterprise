@@ -135,11 +135,22 @@ export interface LoanReleaseDocumentSnapshot {
 export interface CashSaleDocumentSnapshot {
   kind: 'CASH_SALE';
   soldDate: string;
-  soldPrice: number;
-  repairCost: number;
-  otherCost: number;
   bike: DocumentBikeSnapshot;
-  buyerNote: string;
+  /** Commercial cash sale (fully settled) */
+  sellingPrice?: number;
+  discountAmount?: number;
+  additionalCharges?: number;
+  finalAmount?: number;
+  paymentMethod?: string;
+  notes?: string;
+  customer?: DocumentPartySnapshot;
+  soldBy?: string;
+  createdBy?: string;
+  /** @deprecated Legacy snapshots — use finalAmount + customer */
+  soldPrice?: number;
+  repairCost?: number;
+  otherCost?: number;
+  buyerNote?: string;
 }
 
 export type DocumentMetadataSnapshot =

@@ -294,27 +294,53 @@ export function buildLoanReleaseSnapshot(
   };
 }
 
+export interface BuildCashSaleSnapshotInput {
+  soldDate: string;
+  sellingPrice: number;
+  discountAmount: number;
+  additionalCharges: number;
+  finalAmount: number;
+  paymentMethod: string;
+  notes?: string;
+  customer: DocumentPartySnapshot;
+  soldBy?: string;
+  createdBy?: string;
+}
+
+function staffDisplayName(db: MamDemoDb): string {
+  return db.profiles[0]?.full_name?.trim() || 'Staff';
+}
+
 export function buildCashSaleSnapshot(
   db: MamDemoDb,
   bikeId: string,
-  soldPrice: number,
-  soldDate: string,
-  repairCost: number,
-  otherCost: number
+  input: BuildCashSaleSnapshotInput
 ): CashSaleDocumentSnapshot {
   const bike = bikeSnapshotFromId(db, bikeId);
   if (!bike) {
     throw new Error('Bike not found for cash sale document');
   }
+  const officer = input.soldBy ?? staffDisplayName(db);
   return {
     kind: 'CASH_SALE',
-    soldDate,
-    soldPrice,
-    repairCost,
-    otherCost,
+    soldDate: input.soldDate,
+    sellingPrice: input.sellingPrice,
+    discountAmount: input.discountAmount,
+    additionalCharges: input.additionalCharges,
+    finalAmount: input.finalAmount,
+    paymentMethod: input.paymentMethod,
+    notes: trimOptional(input.notes),
+    customer: input.customer,
+    soldBy: officer,
+    createdBy: input.createdBy ?? officer,
     bike,
-    buyerNote: 'Cash sale — walk-in buyer',
   };
+}
+
+export function isLegacyCashSaleSnapshot(
+  snapshot: CashSaleDocumentSnapshot
+): boolean {
+  return snapshot.finalAmount == null && snapshot.soldPrice != null;
 }
 
 export function readDocumentSnapshot(

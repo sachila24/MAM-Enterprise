@@ -39,6 +39,7 @@ const AUDIT_ACTION_KEYS: Record<string, LabelKey> = {
   CREATE: 'activityActionCreate',
   PAYMENT: 'activityActionPayment',
   EARLY_SETTLEMENT: 'activityActionEarlySettlement',
+  SALE: 'activityActionSale',
   SEED: 'activityActionSeed',
 };
 

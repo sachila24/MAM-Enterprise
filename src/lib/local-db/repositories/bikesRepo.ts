@@ -1,12 +1,24 @@
 import type { Bike } from '../../../types/entities';
+import type { PaymentMethod } from '../../../types/loan';
 import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapBike } from '../mappers';
-import type { DbBike, MamDemoDb } from '../types';
+import type { DbBike, DbDocument, MamDemoDb } from '../types';
 import { createCashSaleDocument } from '../../documents/documentService';
-import { uiError } from '../../i18n/messages';
+import type { DocumentPartySnapshot } from '../../documents/types';
+import { buildAuditSummary, uiError } from '../../i18n/messages';
+import {
+  createCustomer,
+  findCustomerByPhoneOrNic,
+  getCustomer,
+} from './customersRepo';
+import {
+  isValidSriLankanPhone,
+  normalizeSriLankanPhone,
+} from '../../validation/phone';
 
 const inFlightBikeCreates = new Set<string>();
+const inFlightCashSales = new Set<string>();
 
 function normalizeRegistrationNo(registrationNo: string): string {
   return registrationNo.trim().toLowerCase();
@@ -153,6 +165,21 @@ export function updateBike(
     input.registration_no = registration;
   }
 
+  if (row.status === 'SOLD') {
+    const locked: (keyof DbBike)[] = [
+      'cost_price',
+      'selling_price',
+      'sold_price',
+      'repair_cost',
+      'other_cost',
+    ];
+    for (const key of locked) {
+      if (key in input && input[key] !== undefined && input[key] !== row[key]) {
+        throw new Error(uiError('bikeSaleFinancialsLocked'));
+      }
+    }
+  }
+
   Object.assign(row, input, { updated_at: new Date().toISOString() });
   saveDb(db);
   return mapBike(row);
@@ -192,12 +219,201 @@ export function markBikeSold(
   const updated = updateBike(bikeId, patch, db);
   if (updated && !opts.loanId) {
     createCashSaleDocument(db, bikeId, {
-      soldPrice: opts.soldPrice,
       soldDate,
-      repairCost: opts.repairCost ?? row.repair_cost ?? 0,
-      otherCost: opts.otherCost ?? row.other_cost ?? 0,
+      sellingPrice: opts.soldPrice,
+      discountAmount: 0,
+      additionalCharges: 0,
+      finalAmount: opts.soldPrice,
+      paymentMethod: 'CASH',
+      customer: {
+        name: 'Walk-in buyer',
+        nic: '—',
+        phone: '—',
+        address: '—',
+      },
     });
     saveDb(db);
   }
   return updated;
+}
+
+export interface CompleteCashSaleInput {
+  sellingPrice: number;
+  discountAmount: number;
+  additionalCharges: number;
+  paymentMethod: PaymentMethod;
+  notes?: string;
+  soldDate?: string;
+  customerId?: string;
+  customer?: {
+    name: string;
+    phone: string;
+    nic?: string;
+    address?: string;
+  };
+  clientSubmitId?: string;
+}
+
+export interface CompleteCashSaleResult {
+  bike: Bike;
+  document: DbDocument;
+  customerId: string;
+}
+
+function partyFromCustomerEntity(
+  customer: {
+    name: string;
+    phone: string;
+    nic: string;
+    address: string;
+    customerCode?: string;
+  }
+): DocumentPartySnapshot {
+  return {
+    name: customer.name,
+    phone: customer.phone,
+    nic: customer.nic || '—',
+    address: customer.address || '—',
+    customerCode: customer.customerCode,
+  };
+}
+
+/** Fully settled cash sale — creates customer (or reuses), marks bike sold, locks invoice. */
+export function completeCashSale(
+  bikeId: string,
+  input: CompleteCashSaleInput,
+  db: MamDemoDb = getDb()
+): CompleteCashSaleResult {
+  if (input.clientSubmitId) {
+    if (inFlightCashSales.has(input.clientSubmitId)) {
+      throw new Error(uiError('cashSaleInProgress'));
+    }
+    inFlightCashSales.add(input.clientSubmitId);
+  }
+
+  try {
+    const row = db.bikes.find((b) => b.id === bikeId);
+    if (!row || row.status !== 'IN_STOCK') {
+      throw new Error(uiError('bikeNotAvailableForSale'));
+    }
+
+    const existingInvoice = db.documents?.find(
+      (d) => d.bike_id === bikeId && d.document_type === 'CASH_SALE'
+    );
+    if (existingInvoice) {
+      throw new Error(uiError('cashSaleAlreadyExists'));
+    }
+
+    const discountAmount = roundLKR(Math.max(0, input.discountAmount));
+    const additionalCharges = roundLKR(Math.max(0, input.additionalCharges));
+    const sellingPrice = roundLKR(input.sellingPrice);
+
+    if (sellingPrice <= 0) {
+      throw new Error(uiError('enterValidSoldPrice'));
+    }
+    if (discountAmount > sellingPrice) {
+      throw new Error(uiError('discountExceedsSellingPrice'));
+    }
+
+    const finalAmount = roundLKR(
+      sellingPrice - discountAmount + additionalCharges
+    );
+    if (finalAmount <= 0) {
+      throw new Error(uiError('invalidFinalSaleAmount'));
+    }
+
+    let resolvedCustomerId = input.customerId;
+    let party: DocumentPartySnapshot;
+
+    if (resolvedCustomerId) {
+      const existing = getCustomer(resolvedCustomerId, db);
+      if (!existing) {
+        throw new Error(uiError('customerNotFound'));
+      }
+      party = partyFromCustomerEntity(existing);
+    } else {
+      const draft = input.customer;
+      if (!draft?.name?.trim() || !draft.phone?.trim()) {
+        throw new Error(uiError('cashSaleCustomerRequired'));
+      }
+      if (!isValidSriLankanPhone(draft.phone)) {
+        throw new Error(uiError('invalidSriLankanPhone'));
+      }
+      const normalizedPhone = normalizeSriLankanPhone(draft.phone);
+      const matched = findCustomerByPhoneOrNic(
+        db,
+        normalizedPhone,
+        draft.nic
+      );
+      if (matched) {
+        resolvedCustomerId = matched.id;
+        party = partyFromCustomerEntity(matched);
+      } else {
+        const created = createCustomer(
+          {
+            full_name: draft.name.trim(),
+            phone: normalizedPhone,
+            address: draft.address?.trim() ?? '',
+            nic: draft.nic?.trim() ?? '',
+          },
+          db
+        );
+        resolvedCustomerId = created.id;
+        party = partyFromCustomerEntity(created);
+      }
+    }
+
+    const soldDate =
+      input.soldDate ?? new Date().toISOString().split('T')[0];
+    const ts = new Date().toISOString();
+    const staffId = db.profiles[0]?.id;
+    const staffName = db.profiles[0]?.full_name?.trim() || 'Staff';
+
+    row.status = 'SOLD';
+    row.sold_date = soldDate;
+    row.sold_price = finalAmount;
+    row.updated_at = ts;
+
+    const document = createCashSaleDocument(db, bikeId, {
+      soldDate,
+      sellingPrice,
+      discountAmount,
+      additionalCharges,
+      finalAmount,
+      paymentMethod: input.paymentMethod,
+      notes: input.notes,
+      customer: party,
+      customerId: resolvedCustomerId,
+      createdBy: staffId,
+      soldBy: staffName,
+    });
+
+    db.audit_logs.push({
+      id: generateId(),
+      user_id: staffId ?? 'system',
+      action: 'SALE',
+      entity_type: 'bike',
+      entity_id: bikeId,
+      summary: buildAuditSummary('bikeCashSaleAuditSummary', {
+        bikeCode: row.bike_code,
+        docNumber: document.document_number,
+        customer: party.name,
+        amount: finalAmount,
+        soldBy: staffName,
+      }),
+      created_at: ts,
+    });
+
+    saveDb(db);
+
+    return {
+      bike: mapBike(row),
+      document,
+      customerId: resolvedCustomerId,
+    };
+  } finally {
+    if (input.clientSubmitId) {
+      inFlightCashSales.delete(input.clientSubmitId);
+    }
+  }
 }

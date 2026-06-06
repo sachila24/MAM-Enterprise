@@ -5,7 +5,7 @@ import {
   buildLoanReleaseSnapshot,
   buildPaymentReceiptSnapshot,
 } from './snapshots';
-import type { LoanReleaseDocumentSnapshot } from './types';
+import type { DocumentPartySnapshot, LoanReleaseDocumentSnapshot } from './types';
 import { generateId } from '../local-db/localDb';
 import type { DbDocument, MamDemoDb } from '../local-db/types';
 import type {
@@ -125,13 +125,24 @@ export function createCashSaleDocument(
   db: MamDemoDb,
   bikeId: string,
   input: {
-    soldPrice: number;
     soldDate: string;
-    repairCost: number;
-    otherCost: number;
+    sellingPrice: number;
+    discountAmount: number;
+    additionalCharges: number;
+    finalAmount: number;
+    paymentMethod: string;
+    notes?: string;
+    customer: DocumentPartySnapshot;
+    customerId?: string;
     createdBy?: string;
+    soldBy?: string;
   }
 ): DbDocument {
+  const existingCashSale = db.documents?.find(
+    (d) => d.bike_id === bikeId && d.document_type === 'CASH_SALE'
+  );
+  if (existingCashSale) return existingCashSale;
+
   const existing = db.documents?.find(
     (d) =>
       d.bike_id === bikeId &&
@@ -141,22 +152,33 @@ export function createCashSaleDocument(
   );
   if (existing) return existing;
 
-  const snapshot = buildCashSaleSnapshot(
-    db,
-    bikeId,
-    input.soldPrice,
-    input.soldDate,
-    input.repairCost,
-    input.otherCost
-  );
+  const officer =
+    input.soldBy ??
+    db.profiles.find((p) => p.id === input.createdBy)?.full_name?.trim() ??
+    db.profiles[0]?.full_name?.trim() ??
+    'Staff';
+
+  const snapshot = buildCashSaleSnapshot(db, bikeId, {
+    soldDate: input.soldDate,
+    sellingPrice: input.sellingPrice,
+    discountAmount: input.discountAmount,
+    additionalCharges: input.additionalCharges,
+    finalAmount: input.finalAmount,
+    paymentMethod: input.paymentMethod,
+    notes: input.notes,
+    customer: input.customer,
+    soldBy: officer,
+    createdBy: officer,
+  });
   const documentNumber = generateDocumentNumber('CASH_SALE', db.counters);
 
   return pushDocument(db, {
     document_number: documentNumber,
     document_type: 'CASH_SALE',
     bike_id: bikeId,
+    customer_id: input.customerId,
     created_by: input.createdBy ?? db.profiles[0]?.id,
-    total_amount: input.soldPrice,
+    total_amount: input.finalAmount,
     metadata_json: snapshot,
   });
 }

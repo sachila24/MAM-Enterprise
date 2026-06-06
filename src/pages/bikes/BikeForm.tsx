@@ -21,6 +21,7 @@ export function BikeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const clientSubmitIdRef = useRef<string | null>(null);
+  const [isSoldBike, setIsSoldBike] = useState(false);
   const [formData, setFormData] = useState({
     model: '',
     registrationNo: '',
@@ -40,6 +41,7 @@ export function BikeForm() {
     if (isEdit && id) {
       const bike = getBike(id, db);
       if (bike) {
+        setIsSoldBike(bike.status === 'sold');
         setFormData({
           model: bike.model,
           registrationNo: bike.registrationNo ?? '',
@@ -161,6 +163,11 @@ export function BikeForm() {
       />
 
       <form onSubmit={handleSubmit} className="space-y-10 divide-y divide-neutral-200">
+        {isSoldBike && (
+          <div className="rounded-lg bg-warning-50 ring-1 ring-warning-200 p-4 text-sm text-warning-900">
+            {t('bikeSaleFinancialsLocked')}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">
           <div className="sm:col-span-6">
             <h2 className="text-base font-semibold leading-7 text-neutral-900">
@@ -283,6 +290,7 @@ export function BikeForm() {
               label={`${t('boughtPrice')} *`}
               value={formData.costPrice}
               onChange={(costPrice) => setFormData((p) => ({ ...p, costPrice }))}
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
@@ -292,6 +300,7 @@ export function BikeForm() {
               onChange={(sellingPrice) =>
                 setFormData((p) => ({ ...p, sellingPrice }))
               }
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
@@ -299,6 +308,7 @@ export function BikeForm() {
               label={t('repairCostOptional')}
               value={formData.repairCost}
               onChange={(repairCost) => setFormData((p) => ({ ...p, repairCost }))}
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
@@ -306,6 +316,7 @@ export function BikeForm() {
               label={t('otherCostOptional')}
               value={formData.otherCost}
               onChange={(otherCost) => setFormData((p) => ({ ...p, otherCost }))}
+              disabled={isSoldBike}
             />
           </div>
         </div>
