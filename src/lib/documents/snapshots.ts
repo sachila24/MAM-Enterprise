@@ -114,7 +114,7 @@ export function buildLoanCreationSnapshot(
     loan.original_principal_amount ??
     bike?.sellingPrice ??
     loan.principal_amount;
-  const cashPrice = bike?.sellingPrice ?? grossLoanAmount;
+  const cashPrice = grossLoanAmount;
   const initialPayment = loan.customer_paid_amount ?? 0;
   const serviceFee = loan.service_fee ?? 0;
   const registrationFee = loan.registration_fee ?? 0;

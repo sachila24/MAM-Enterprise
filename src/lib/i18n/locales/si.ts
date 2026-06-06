@@ -776,9 +776,11 @@ export const app: Record<AppLabelKey, string> = {
   enterPaymentAmount: 'ගෙවීම් මුදල හෝ වට්ටම ඇතුළත් කරන්න',
   paymentUnallocated: 'මෙම ගෙවීමේ {amount} LKR යොදා ගත නොහැක. මුදල හෝ වට්ටම සකසන්න.',
   bikeSaveInProgress: 'බයික් සුරකිමින්. කරුණාකර රැඳී සිටින්න.',
-  chassisExists: 'මෙම රථ අංකය සහිත බයික් දැනටමත් ඇත',
+  chassisExists: 'මෙම රථ අංකය සහිත යතුරුපැදියක් දැනටමත් ගබඩාවේ ඇත.',
   registrationExists:
-    'විකුණා නොමැති බයික් එකකට මෙම ලියාපදිංචි අංකය දැනටමත් භාවිතයේ ඇත',
+    'මෙම ලියාපදිංචි අංකය සහිත යතුරුපැදියක් දැනටමත් ගබඩාවේ ඇත.',
+  previouslySoldRegistrationNotice:
+    'මෙම ලියාපදිංචි අංකය සඳහා پیشتر විකිණූ යතුරුපැදි වාර්තාවක් හමු විය.',
   bikeInstallmentMustFixedTerm: 'බයික් වාරික සඳහා ස්ථිර කාල වාරික අවශ්‍යයි',
   selectedBikeNotFound: 'තෝරාගත් බයික් හමු නොවීය',
   selectedBikeNotInStock: 'තෝරාගත් බයික් තවදුරටත් තොගයේ නැත',

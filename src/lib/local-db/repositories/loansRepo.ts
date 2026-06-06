@@ -291,6 +291,7 @@ export function createLoan(
       if (bike) {
         bike.status = 'SOLD';
         bike.sold_date = ts;
+        bike.sold_price = grossLoanAmount;
         bike.sold_loan_id = id;
         bike.updated_at = ts;
       }

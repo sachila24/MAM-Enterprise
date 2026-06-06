@@ -776,9 +776,11 @@ export const app = {
   enterPaymentAmount: 'Enter a payment amount and/or discount to apply',
   paymentUnallocated: 'Could not apply {amount} LKR of this payment. Adjust cash or discount.',
   bikeSaveInProgress: 'Bike save already in progress. Please wait.',
-  chassisExists: 'A bike with this chassis number already exists',
+  chassisExists: 'A bike with this chassis number is already in active stock.',
   registrationExists:
-    'A bike that is not sold already uses this registration number',
+    'A bike with this registration number is already in active stock.',
+  previouslySoldRegistrationNotice:
+    'Previously sold bike record found for this registration.',
   bikeInstallmentMustFixedTerm: 'Bike installment loans must use fixed-term installments',
   selectedBikeNotFound: 'Selected bike not found',
   selectedBikeNotInStock: 'Selected bike is no longer in stock',

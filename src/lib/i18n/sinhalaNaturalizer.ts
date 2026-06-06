@@ -283,9 +283,9 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   enterPaymentAmount: 'ගෙවීමක් හෝ වට්ටමක් දාන්න',
   paymentUnallocated: 'මෙම ගෙවීමෙන් {amount} LKR යොදන්න බැරි වුණා. මුදල හෝ වට්ටම වෙනස් කරන්න.',
   bikeSaveInProgress: 'බයික් විස්තර සුරකිමින් ඉන්නවා. ටිකක් ඉන්න.',
-  chassisExists: 'මෙම chassis අංකය තියෙන බයික් එකක් දැනටමත් තියෙනවා',
+  chassisExists: 'මේ chassis අංකය තියෙන යතුරුපැදියක් දැනටමත් ගබඩාවේ තියෙනවා',
   registrationExists:
-    'විකුණා නොමැති බයික් එකකට මේ ලියාපදිංචි අංකය දැනටමත් තියෙනවා',
+    'මෙම ලියාපදිංචි අංකය සහිත යතුරුපැදියක් දැනටමත් ගබඩාවේ ඇත.',
   bikeInstallmentMustFixedTerm: 'බයික් වාරිකයට ස්ථිර කාල වාරික ක්‍රමය භාවිතා කරන්න',
   selectedBikeNotFound: 'තෝරාගත් බයික් එක හමු වුණේ නැහැ',
   selectedBikeNotInStock: 'තෝරාගත් බයික් එක දැන් තොගයේ නැහැ',

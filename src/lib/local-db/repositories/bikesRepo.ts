@@ -24,8 +24,22 @@ function normalizeRegistrationNo(registrationNo: string): string {
   return registrationNo.trim().toLowerCase();
 }
 
-/** True when a non-SOLD bike already uses this registration (IN_STOCK / HELD). */
-export function isRegistrationUsedByNonSoldBike(
+function normalizeChassisNo(chassisNo: string): string {
+  return chassisNo.trim().toLowerCase();
+}
+
+/** Inventory statuses that block re-using the same registration or chassis. */
+const ACTIVE_BIKE_STATUSES: ReadonlySet<DbBike['status']> = new Set([
+  'IN_STOCK',
+  'HELD',
+]);
+
+function isActiveBikeStatus(status: DbBike['status']): boolean {
+  return ACTIVE_BIKE_STATUSES.has(status);
+}
+
+/** True when an in-stock / held bike already uses this registration. */
+export function isRegistrationUsedByActiveBike(
   db: MamDemoDb,
   registrationNo: string,
   excludeBikeId?: string
@@ -35,7 +49,42 @@ export function isRegistrationUsedByNonSoldBike(
   return db.bikes.some(
     (b) =>
       b.id !== excludeBikeId &&
-      b.status !== 'SOLD' &&
+      isActiveBikeStatus(b.status) &&
+      normalizeRegistrationNo(b.registration_no ?? '') === normalized
+  );
+}
+
+/** @deprecated Use isRegistrationUsedByActiveBike */
+export const isRegistrationUsedByNonSoldBike = isRegistrationUsedByActiveBike;
+
+/** True when an in-stock / held bike already uses this chassis number. */
+export function isChassisUsedByActiveBike(
+  db: MamDemoDb,
+  chassisNo: string,
+  excludeBikeId?: string
+): boolean {
+  const normalized = normalizeChassisNo(chassisNo);
+  if (!normalized) return false;
+  return db.bikes.some(
+    (b) =>
+      b.id !== excludeBikeId &&
+      isActiveBikeStatus(b.status) &&
+      normalizeChassisNo(b.chassis_no ?? '') === normalized
+  );
+}
+
+/** Sold bike records sharing this registration (business history). */
+export function hasSoldBikeHistoryForRegistration(
+  db: MamDemoDb,
+  registrationNo: string,
+  excludeBikeId?: string
+): boolean {
+  const normalized = normalizeRegistrationNo(registrationNo);
+  if (!normalized) return false;
+  return db.bikes.some(
+    (b) =>
+      b.id !== excludeBikeId &&
+      b.status === 'SOLD' &&
       normalizeRegistrationNo(b.registration_no ?? '') === normalized
   );
 }
@@ -101,18 +150,13 @@ export function createBike(
   }
 
   const registration = input.registrationNo.trim();
-  if (isRegistrationUsedByNonSoldBike(db, registration)) {
+  if (isRegistrationUsedByActiveBike(db, registration)) {
     throw new Error(uiError('registrationExists'));
   }
 
   const chassis = input.chassisNo?.trim() ?? '';
-  if (chassis) {
-    const duplicateChassis = db.bikes.some(
-      (b) => b.chassis_no.trim().toLowerCase() === chassis.toLowerCase()
-    );
-    if (duplicateChassis) {
-      throw new Error(uiError('chassisExists'));
-    }
+  if (chassis && isChassisUsedByActiveBike(db, chassis)) {
+    throw new Error(uiError('chassisExists'));
   }
 
   try {
@@ -159,10 +203,18 @@ export function updateBike(
     if (!registration) {
       throw new Error(uiError('registrationRequired'));
     }
-    if (isRegistrationUsedByNonSoldBike(db, registration, id)) {
+    if (isRegistrationUsedByActiveBike(db, registration, id)) {
       throw new Error(uiError('registrationExists'));
     }
     input.registration_no = registration;
+  }
+
+  if (input.chassis_no !== undefined) {
+    const chassis = input.chassis_no.trim();
+    if (chassis && isChassisUsedByActiveBike(db, chassis, id)) {
+      throw new Error(uiError('chassisExists'));
+    }
+    input.chassis_no = chassis;
   }
 
   if (row.status === 'SOLD') {

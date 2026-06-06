@@ -9,7 +9,7 @@ import { formatLKR } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listBikes } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
-import type { Bike } from '../../types/entities';
+import { bikeDisplayPrice } from '../../lib/display/bikeDisplay';
 
 function bikeRegistrationLabel(bike: Bike, notRegisteredLabel: string): string {
   const reg = bike.registrationNo?.trim();
@@ -146,7 +146,7 @@ export function BikesList() {
                       {bike.year} • {bike.color}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums font-medium">
-                      {formatLKR(bike.sellingPrice)}
+                      {formatLKR(bikeDisplayPrice(bike))}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                       <StatusChip status={bike.status} />
@@ -200,7 +200,7 @@ export function BikesList() {
                   {bike.year} • {bike.color}
                 </div>
                 <div className="text-sm font-medium text-neutral-900 tabular-nums">
-                  {formatLKR(bike.sellingPrice)}
+                  {formatLKR(bikeDisplayPrice(bike))}
                 </div>
               </div>
             </div>

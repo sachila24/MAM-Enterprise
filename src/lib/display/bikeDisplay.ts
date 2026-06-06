@@ -12,22 +12,32 @@ export function parseBikeBrandModel(model: string): {
 }
 
 export function bikeRegistrationDisplay(
-  bike: Pick<Bike, 'registrationNo'>,
+  bike: Pick<Bike, 'registrationNo' | 'bikeCode'>,
   notRegisteredLabel: string
 ): string {
-  return bike.registrationNo?.trim() || notRegisteredLabel;
+  return bike.registrationNo?.trim() || bike.bikeCode?.trim() || notRegisteredLabel;
 }
 
-/** Staff-facing bike picker label: `WP CAB-1234 - TVS Pept` */
+/** Staff-facing bike picker label: `BGR-7113 - TVS Pept` (falls back to bike code). */
 export function formatBikeSelectLabel(
   bike: Bike,
   notRegisteredLabel: string
 ): string {
-  return `${bikeRegistrationDisplay(bike, notRegisteredLabel)} - ${bike.model}`;
+  const reg = bike.registrationNo?.trim();
+  const identifier = reg || bike.bikeCode?.trim() || notRegisteredLabel;
+  return `${identifier} - ${bike.model}`;
 }
 
 export function formatBikeBrandModelLine(bike: Pick<Bike, 'model'>): string {
   return bike.model.trim() || '—';
+}
+
+/** List/report price — sold bikes use actual sold amount when recorded. */
+export function bikeDisplayPrice(bike: Bike): number {
+  if (bike.status === 'sold') {
+    return bike.soldPrice ?? bike.sellingPrice;
+  }
+  return bike.sellingPrice;
 }
 
 export function matchesBikeSearchQuery(
@@ -39,6 +49,7 @@ export function matchesBikeSearchQuery(
   const { brand, modelName } = parseBikeBrandModel(bike.model);
   const haystack = [
     bike.registrationNo,
+    bike.bikeCode,
     bike.model,
     brand,
     modelName,

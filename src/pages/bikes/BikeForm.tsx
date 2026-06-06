@@ -5,7 +5,7 @@ import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
-import { createBike, getBike, updateBike } from '../../lib/local-db/repositories';
+import { createBike, getBike, hasSoldBikeHistoryForRegistration, isRegistrationUsedByActiveBike, updateBike } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -22,6 +22,7 @@ export function BikeForm() {
   const isSubmittingRef = useRef(false);
   const clientSubmitIdRef = useRef<string | null>(null);
   const [isSoldBike, setIsSoldBike] = useState(false);
+  const [showPreviouslySoldNotice, setShowPreviouslySoldNotice] = useState(false);
   const [formData, setFormData] = useState({
     model: '',
     registrationNo: '',
@@ -59,6 +60,22 @@ export function BikeForm() {
       }
     }
   }, [id, isEdit, db]);
+
+  useEffect(() => {
+    if (isEdit) {
+      setShowPreviouslySoldNotice(false);
+      return;
+    }
+    const registration = formData.registrationNo.trim();
+    if (!registration) {
+      setShowPreviouslySoldNotice(false);
+      return;
+    }
+    setShowPreviouslySoldNotice(
+      hasSoldBikeHistoryForRegistration(db, registration) &&
+        !isRegistrationUsedByActiveBike(db, registration)
+    );
+  }, [db, formData.registrationNo, isEdit]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -166,6 +183,11 @@ export function BikeForm() {
         {isSoldBike && (
           <div className="rounded-lg bg-warning-50 ring-1 ring-warning-200 p-4 text-sm text-warning-900">
             {t('bikeSaleFinancialsLocked')}
+          </div>
+        )}
+        {!isEdit && showPreviouslySoldNotice && (
+          <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 text-sm text-brand-900">
+            {t('previouslySoldRegistrationNotice')}
           </div>
         )}
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">

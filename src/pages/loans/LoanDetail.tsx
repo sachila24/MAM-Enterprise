@@ -30,6 +30,7 @@ import {
   enrichLedgerInstallmentsWithLiveLateFees,
 } from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
 import { getNextDueDateForFixedInstallments } from '../../lib/finance/loanNextDue';
 import {
@@ -506,12 +507,8 @@ function FixedInstallmentLoanDetail({
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
               {t('linkedBike')}
             </p>
-            <p className="mt-1 font-semibold text-neutral-900">{bike.model}</p>
-            <p className="text-sm text-neutral-600">
-              {tf('bikeStockRefEngine', {
-                code: bike.bikeCode,
-                engine: bike.engineNo,
-              })}
+            <p className="mt-1 font-semibold text-neutral-900">
+              {formatBikeSelectLabel(bike, t('notRegistered'))}
             </p>
           </div>
           <div>
@@ -519,7 +516,7 @@ function FixedInstallmentLoanDetail({
               {t('loanAmountField')}
             </p>
             <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-              {formatLKR(loan.originalPrincipalAmount ?? bike.sellingPrice)}
+              {formatLKR(loan.originalPrincipalAmount ?? bike.soldPrice ?? bike.sellingPrice)}
             </p>
           </div>
           <div>

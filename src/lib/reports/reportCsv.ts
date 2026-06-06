@@ -1,6 +1,10 @@
 import type { ReportCsvType } from '../i18n/messages';
 import { getDb } from '../local-db/localDb';
 import { listBikes } from '../local-db/repositories/bikesRepo';
+import {
+  bikeDisplayPrice,
+  formatBikeSelectLabel,
+} from '../display/bikeDisplay';
 import { getOverdueLoans } from '../local-db/repositories/dashboardRepo';
 import { listExpenses } from '../local-db/repositories/expensesRepo';
 import { listGuarantees } from '../local-db/repositories/guaranteesRepo';
@@ -10,6 +14,7 @@ import { listCashTransactions } from '../local-db/repositories/cashTransactionsR
 import type { CashTransactionType } from '../local-db/types';
 import { formatEnum } from '../format';
 import type { DisplayMode } from '../i18n/simpleLabels';
+import { getLabel } from '../i18n/simpleLabels';
 import { normalizeDate } from '../time/systemTime';
 import type { MamDemoDb } from '../local-db/types';
 
@@ -287,14 +292,15 @@ function generateOverdueLoans(
 }
 
 function generateBikeStock(db: MamDemoDb, language: DisplayMode): string[] {
+  const notRegistered = getLabel('notRegistered', language);
   return listBikes(db)
     .sort((a, b) => a.bikeCode.localeCompare(b.bikeCode))
     .map((b) =>
       csvRow([
         label('BIKE', language),
-        `${b.bikeCode} — ${b.model}`,
-        `${b.chassisNo} / ${b.engineNo}`,
-        b.sellingPrice,
+        formatBikeSelectLabel(b, notRegistered),
+        b.bikeCode,
+        bikeDisplayPrice(b),
         label(b.status.toUpperCase(), language),
       ])
     );
