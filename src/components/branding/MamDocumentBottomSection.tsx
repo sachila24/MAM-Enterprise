@@ -12,6 +12,17 @@ export interface MamDocumentBottomSectionProps {
   showLegalNotice?: boolean;
 }
 
+function SignatureCell({ label }: { label: string }) {
+  return (
+    <div className="mam-bill-sig">
+      <div className="mam-bill-sig-write-area">
+        <div className="mam-bill-sig-line" aria-hidden="true" />
+      </div>
+      <span className="mam-bill-sig-label">{label}</span>
+    </div>
+  );
+}
+
 /** Shared legal notice, signatures, and vendor footer for all printed MAM bills. */
 export function MamDocumentBottomSection({
   documentLegalNotice,
@@ -32,20 +43,11 @@ export function MamDocumentBottomSection({
           variant === 'two' ? ' mam-bill-signatures-two' : ''
         }`}
       >
-        <div className="mam-bill-sig">
-          <div className="mam-bill-sig-line" />
-          <span>{customerSignature}</span>
-        </div>
+        <SignatureCell label={customerSignature} />
         {variant === 'three' && guarantorSignature ? (
-          <div className="mam-bill-sig">
-            <div className="mam-bill-sig-line" />
-            <span>{guarantorSignature}</span>
-          </div>
+          <SignatureCell label={guarantorSignature} />
         ) : null}
-        <div className="mam-bill-sig">
-          <div className="mam-bill-sig-line" />
-          <span>{authorizedOfficer}</span>
-        </div>
+        <SignatureCell label={authorizedOfficer} />
       </div>
       <MamDocumentFooter showEmail={showEmail} />
     </div>

@@ -3,6 +3,7 @@ import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import { isLegacyCashSaleSnapshot } from '../../lib/documents/snapshots';
 import type { CashSaleDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { formatDocumentBikeModel } from '../../lib/display/bikeDisplay';
 import { MamDocumentBottomSection } from '../branding/MamDocumentBottomSection';
 import { MamDocumentHeader } from '../branding/MamLogo';
 
@@ -104,7 +105,13 @@ export function CashSaleInvoicePrint({
           <section className="mam-bill-section mam-cash-sale-section">
             <h2 className="mam-bill-section-heading">{L.bikeDetails}</h2>
             <div className="mam-bill-detail-block">
-              <DetailRow label={L.bikeModel} value={snapshot.bike.model} />
+              <DetailRow
+                label={L.bikeModel}
+                value={formatDocumentBikeModel(
+                  snapshot.bike.brand,
+                  snapshot.bike.model
+                )}
+              />
               <DetailRow
                 label={L.registrationNumber}
                 value={snapshot.bike.registrationNo}

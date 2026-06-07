@@ -6,6 +6,7 @@ import type {
   LoanCreationDocumentSnapshot,
 } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { formatDocumentBikeModel } from '../../lib/display/bikeDisplay';
 import { MamDocumentBottomSection } from '../branding/MamDocumentBottomSection';
 import { MamDocumentHeader } from '../branding/MamLogo';
 
@@ -155,7 +156,10 @@ export function LoanInvoicePrint({
                   <div className="mam-bill-detail-block">
                     <DetailRow
                       label={L.bikeModel}
-                      value={`${snapshot.bike.brand} ${snapshot.bike.model}`.trim()}
+                      value={formatDocumentBikeModel(
+                        snapshot.bike.brand,
+                        snapshot.bike.model
+                      )}
                     />
                     <DetailRow label={L.color} value={snapshot.bike.color} />
                     <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />

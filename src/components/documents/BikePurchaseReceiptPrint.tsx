@@ -2,6 +2,7 @@ import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { getDocumentLabels } from '../../lib/i18n/documentLabels';
 import type { BikePurchaseDocumentSnapshot } from '../../lib/documents/types';
 import type { DisplayMode } from '../../lib/i18n/simpleLabels';
+import { formatDocumentBikeModel } from '../../lib/display/bikeDisplay';
 import { MamDocumentHeader } from '../branding/MamLogo';
 import { MamDocumentBottomSection } from '../branding/MamDocumentBottomSection';
 
@@ -91,7 +92,13 @@ export function BikePurchaseReceiptPrint({
                 label={L.registrationNumber}
                 value={snapshot.bike.registrationNo}
               />
-              <DetailRow label={L.bikeModel} value={snapshot.bike.model} />
+              <DetailRow
+                label={L.bikeModel}
+                value={formatDocumentBikeModel(
+                  snapshot.bike.brand,
+                  snapshot.bike.model
+                )}
+              />
               <DetailRow label={L.chassisNo} value={snapshot.bike.chassisNo} />
               <DetailRow label={L.engineNo} value={snapshot.bike.engineNo} />
               <DetailRow label={L.color} value={snapshot.bike.color} />

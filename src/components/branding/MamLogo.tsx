@@ -70,15 +70,19 @@ export interface MamDocumentFooterProps {
 
 /** Unobtrusive vendor credit — below signatures on all printed MAM documents */
 export function MamDocumentFooter({ showEmail = true }: MamDocumentFooterProps) {
+  const parts = [
+    'System Developed & Maintained by Sachila Dissanayake',
+    '0764608628',
+  ];
+  if (showEmail) {
+    parts.push('sathmika7@gmail.com');
+  }
+
   return (
     <footer className="mam-bill-footer" aria-label="System vendor">
-      <p className="mam-bill-footer-line">
-        System Developed &amp; Maintained by Sachila Dissanayake
+      <p className="mam-bill-footer-line mam-bill-footer-compact">
+        {parts.join(' · ')}
       </p>
-      <p className="mam-bill-footer-line">0764608628</p>
-      {showEmail && (
-        <p className="mam-bill-footer-line">sathmika7@gmail.com</p>
-      )}
     </footer>
   );
 }

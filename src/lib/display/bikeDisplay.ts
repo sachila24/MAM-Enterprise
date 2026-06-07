@@ -32,6 +32,32 @@ export function formatBikeBrandModelLine(bike: Pick<Bike, 'model'>): string {
   return bike.model.trim() || '—';
 }
 
+/**
+ * Print-safe bike model line — avoids duplicating brand when model already includes it.
+ * e.g. brand=TVS, model=TVS Pept → "TVS Pept" (not "TVS TVS Pept")
+ */
+export function formatDocumentBikeModel(brand: string, model: string): string {
+  const trimmedModel = model.trim();
+  if (!trimmedModel || trimmedModel === '—') {
+    const trimmedBrand = brand.trim();
+    return trimmedBrand && trimmedBrand !== '—' ? trimmedBrand : '—';
+  }
+
+  const trimmedBrand = brand.trim();
+  if (!trimmedBrand || trimmedBrand === '—') {
+    return trimmedModel;
+  }
+
+  const brandLower = trimmedBrand.toLowerCase();
+  const modelLower = trimmedModel.toLowerCase();
+
+  if (modelLower === brandLower || modelLower.startsWith(`${brandLower} `)) {
+    return trimmedModel;
+  }
+
+  return `${trimmedBrand} ${trimmedModel}`;
+}
+
 /** List/report price — sold bikes use actual sold amount when recorded. */
 export function bikeDisplayPrice(bike: Bike): number {
   if (bike.status === 'sold') {
