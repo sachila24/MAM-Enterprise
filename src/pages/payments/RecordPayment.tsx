@@ -566,16 +566,6 @@ export function RecordPayment() {
                   setForm((f) => ({ ...f, discountAmount }))
                 }
               />
-              {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
-                <AppliedPreview
-                  amountDue={computation.amountDue}
-                  discount={form.discountAmount ?? 0}
-                  cash={form.amount}
-                  netPayable={computation.netPayable}
-                  settlementTotal={computation.settlementTotal}
-                  isFixedInstallment={isFixedInstallmentLoan(selectedLoan)}
-                />
-              )}
               <p className="text-xs text-neutral-500">
                 {t('loanBalanceReducesHint')}
               </p>
@@ -649,6 +639,16 @@ export function RecordPayment() {
                   className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
                 />
               </div>
+              {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
+                <AppliedPreview
+                  amountDue={computation.amountDue}
+                  discount={form.discountAmount ?? 0}
+                  cash={form.amount}
+                  netPayable={computation.netPayable}
+                  settlementTotal={computation.settlementTotal}
+                  isFixedInstallment={isFixedInstallmentLoan(selectedLoan)}
+                />
+              )}
                 </>
               )}
             </div>
@@ -660,35 +660,21 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('confirmPayment')}
               </h3>
-              {(() => {
-                const isFixed = isFixedInstallmentLoan(selectedLoan);
-                const coverage = getInstallmentCoverage(
-                  computation.amountDue,
-                  computation.settlementTotal
-                );
-                const statusSuffix =
-                  isFixed && computation.amountDue > 0 && computation.settlementTotal > 0
-                    ? coverage.covered
-                      ? ` · ${t('installmentCovered')}`
-                      : ` · ${t('remainingForInstallment')} ${formatLKR(coverage.remaining)}`
-                    : '';
-                return (
-                  <p className="text-sm font-medium text-neutral-800 rounded-lg bg-brand-50 border border-brand-100 px-4 py-3">
-                    {form.paymentMethod === 'CASH'
-                      ? `${t('confirmPayment')}: ${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
-                      : `${t('confirmPayment')}: ${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
-                    {(form.discountAmount ?? 0) > 0 &&
-                      ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
-                    {statusSuffix}.
-                  </p>
-                );
-              })()}
-              <dl className="divide-y divide-neutral-200 text-sm">
+              <p className="text-xs text-neutral-600 rounded-md bg-neutral-50 border border-neutral-200 px-3 py-2">
+                {form.paymentMethod === 'CASH'
+                  ? `${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
+                  : `${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
+                {(form.discountAmount ?? 0) > 0 &&
+                  ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
+                .
+              </p>
+              <dl className="divide-y divide-neutral-100 text-sm">
                 <Row label={t('field.customer')} value={selectedCustomer?.name ?? '—'} />
                 <Row label={t('field.loan')} value={selectedLoan.loanCode} />
                 <Row
                   label={t('field.type')}
                   value={formatLoanTypeLabel(selectedLoan)}
+                  muted
                 />
                 {computation.amountDue > 0 && (
                   <Row
@@ -780,17 +766,29 @@ function Row({
   label,
   value,
   bold,
+  muted,
 }: {
   label: string;
   value: string;
   bold?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="py-2.5 flex justify-between items-baseline gap-4">
-      <dt className="text-neutral-500 text-left shrink-0">{label}</dt>
+    <div className="py-2 flex justify-between items-baseline gap-4">
+      <dt
+        className={`text-left shrink-0 ${
+          muted ? 'text-neutral-400 text-xs' : 'text-neutral-500'
+        }`}
+      >
+        {label}
+      </dt>
       <dd
-        className={`text-neutral-900 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
-          bold ? 'font-bold text-brand-600' : ''
+        className={`tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
+          bold
+            ? 'font-semibold text-neutral-900'
+            : muted
+              ? 'text-neutral-500 text-xs'
+              : 'text-neutral-800'
         }`}
       >
         {value}
@@ -905,7 +903,7 @@ function AppliedPreview({
       )}
       <div className="flex justify-between items-baseline gap-4">
         <span className="text-neutral-600 text-left shrink-0">{t('customerPays')}</span>
-        <span className="font-semibold tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+        <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
           {formatLKR(cash)}
         </span>
       </div>
@@ -934,17 +932,24 @@ function InstallmentCoverageStatus({
 
   return (
     <div
-      className={`flex justify-between items-baseline gap-4 border-t border-neutral-200 pt-2.5 ${
+      className={`border-t border-neutral-200 pt-2.5 ${
         covered ? 'text-success-700' : 'text-amber-800'
       }`}
     >
-      <span className="font-medium text-left shrink-0">
-        {covered ? t('installmentCovered') : t('remainingForInstallment')}
-      </span>
-      {!covered && (
-        <span className="font-bold tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-          {formatLKR(remaining)}
-        </span>
+      {covered ? (
+        <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+          <span aria-hidden="true">✓</span>
+          {t('installmentCovered')}
+        </p>
+      ) : (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="font-medium text-left shrink-0">
+            {t('remainingForInstallment')}
+          </span>
+          <span className="font-semibold tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(remaining)}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -964,7 +969,14 @@ function InstallmentCoverageRow({
   );
 
   if (covered) {
-    return <Row label={t('installmentCovered')} value="—" />;
+    return (
+      <div className="py-2 text-sm text-success-700">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <span aria-hidden="true">✓</span>
+          {t('installmentCovered')}
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -1032,20 +1044,39 @@ function SummaryPanel({
         )}
         {isFixed && (
           <>
-            <SummaryLine
-              label={
-                loan.loanPurpose === 'BIKE_INSTALLMENT'
-                  ? t('financeAmount')
-                  : t('loanAmount')
-              }
-              value={formatLKR(loan.principalAmount)}
-            />
-            <SummaryLine
-              label={t('totalPayable')}
-              value={formatLKR(loan.totalPayable ?? 0)}
-            />
-            <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
-            <SummaryLine label={t('field.balance')} value={formatLKR(loan.balanceAmount)} />
+            {loan.loanPurpose === 'BIKE_INSTALLMENT' ? (
+              <>
+                <SummaryLine
+                  label={t('paymentSidebarSellingPrice')}
+                  value={formatLKR(loan.originalPrincipalAmount)}
+                />
+                <SummaryLine
+                  label={t('loanAmount')}
+                  value={formatLKR(loan.principalAmount)}
+                />
+                <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
+                <SummaryLine
+                  label={t('paymentSidebarRemainingBalance')}
+                  value={formatLKR(loan.balanceAmount)}
+                />
+              </>
+            ) : (
+              <>
+                <SummaryLine
+                  label={t('loanAmount')}
+                  value={formatLKR(loan.principalAmount)}
+                />
+                <SummaryLine
+                  label={t('totalPayable')}
+                  value={formatLKR(loan.totalPayable ?? 0)}
+                />
+                <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
+                <SummaryLine
+                  label={t('field.balance')}
+                  value={formatLKR(loan.balanceAmount)}
+                />
+              </>
+            )}
             {loan.installmentAmount != null && loan.installmentAmount > 0 && (
               <SummaryLine
                 label={t('monthlyInstallment')}
@@ -1062,7 +1093,7 @@ function SummaryPanel({
             />
           </>
         )}
-        {step >= 2 && computation.receipt && (
+        {step >= 3 && computation.receipt && (
           <>
             <div className="pt-3 border-t border-brand-700" />
             <SimpleLedgerReceiptSummary receipt={computation.receipt} loan={loan} />
