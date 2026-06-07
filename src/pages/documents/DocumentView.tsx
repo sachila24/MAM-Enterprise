@@ -5,6 +5,7 @@ import { CashSaleInvoicePrint } from '../../components/documents/CashSaleInvoice
 import { LoanInvoicePrint } from '../../components/documents/LoanInvoicePrint';
 import { LoanReleaseNotePrint } from '../../components/documents/LoanReleaseNotePrint';
 import { PaymentReceiptDocumentPrint } from '../../components/documents/PaymentReceiptDocumentPrint';
+import { BikePurchaseReceiptPrint } from '../../components/documents/BikePurchaseReceiptPrint';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { readDocumentSnapshot } from '../../lib/documents/snapshots';
 import type {
@@ -12,6 +13,7 @@ import type {
   LoanCreationDocumentSnapshot,
   LoanReleaseDocumentSnapshot,
   PaymentReceiptDocumentSnapshot,
+  BikePurchaseDocumentSnapshot,
 } from '../../lib/documents/types';
 import { getDocument } from '../../lib/local-db/repositories/documentsRepo';
 import { incrementDocumentPrintCount } from '../../lib/local-db/repositories/documentsRepo';
@@ -101,6 +103,15 @@ export function DocumentView() {
         language={language}
       />
     );
+  } else if (snapshot.kind === 'BIKE_PURCHASE_RECEIPT') {
+    body = (
+      <BikePurchaseReceiptPrint
+        documentNumber={doc.document_number}
+        createdAt={doc.created_at}
+        snapshot={snapshot as BikePurchaseDocumentSnapshot}
+        language={language}
+      />
+    );
   } else {
     body = (
       <CashSaleInvoicePrint
@@ -135,7 +146,9 @@ export function DocumentView() {
 
       <div
         className={`mx-auto bg-white shadow-sm ring-1 ring-neutral-200 p-4 print:max-w-none print:p-0 print:shadow-none print:ring-0 ${
-          snapshot.kind === 'PAYMENT_RECEIPT' || snapshot.kind === 'CASH_SALE'
+          snapshot.kind === 'PAYMENT_RECEIPT' ||
+          snapshot.kind === 'CASH_SALE' ||
+          snapshot.kind === 'BIKE_PURCHASE_RECEIPT'
             ? 'max-w-[176mm]'
             : 'max-w-[210mm]'
         }`}

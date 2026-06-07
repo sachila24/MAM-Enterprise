@@ -4,7 +4,7 @@ import { roundLKR } from '../../finance/money';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapBike } from '../mappers';
 import type { DbBike, DbDocument, MamDemoDb } from '../types';
-import { createCashSaleDocument } from '../../documents/documentService';
+import { createCashSaleDocument, createBikePurchaseDocument } from '../../documents/documentService';
 import type { DocumentPartySnapshot } from '../../documents/types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import {
@@ -19,6 +19,7 @@ import {
 
 const inFlightBikeCreates = new Set<string>();
 const inFlightCashSales = new Set<string>();
+const inFlightBikePurchases = new Set<string>();
 
 function normalizeRegistrationNo(registrationNo: string): string {
   return registrationNo.trim().toLowerCase();
@@ -466,6 +467,203 @@ export function completeCashSale(
   } finally {
     if (input.clientSubmitId) {
       inFlightCashSales.delete(input.clientSubmitId);
+    }
+  }
+}
+
+export interface CompleteBikePurchaseInput {
+  model: string;
+  registrationNo: string;
+  chassisNo?: string;
+  engineNo?: string;
+  color?: string;
+  year?: number;
+  purchasePrice: number;
+  repairCost?: number;
+  transportCost?: number;
+  documentCost?: number;
+  otherCost?: number;
+  sellingPrice: number;
+  purchaseDate: string;
+  purchaseNotes?: string;
+  paymentMethod: PaymentMethod;
+  paymentReference?: string;
+  paymentNotes?: string;
+  customerId?: string;
+  customer?: {
+    name: string;
+    phone: string;
+    nic?: string;
+    address?: string;
+  };
+  clientSubmitId?: string;
+}
+
+export interface CompleteBikePurchaseResult {
+  bike: Bike;
+  document: DbDocument;
+  sellerCustomerId: string;
+}
+
+/** Purchase from seller → receipt → stock entry (single transaction). */
+export function completeBikePurchase(
+  input: CompleteBikePurchaseInput,
+  db: MamDemoDb = getDb()
+): CompleteBikePurchaseResult {
+  if (input.clientSubmitId) {
+    if (inFlightBikePurchases.has(input.clientSubmitId)) {
+      throw new Error(uiError('bikePurchaseInProgress'));
+    }
+    inFlightBikePurchases.add(input.clientSubmitId);
+  }
+
+  try {
+    if (!input.model.trim()) {
+      throw new Error(uiError('bikeFormRequiredFields'));
+    }
+    if (!input.registrationNo.trim()) {
+      throw new Error(uiError('registrationRequired'));
+    }
+
+    const purchasePrice = roundLKR(input.purchasePrice);
+    const repairCost = roundLKR(input.repairCost ?? 0);
+    const transportCost = roundLKR(input.transportCost ?? 0);
+    const documentCost = roundLKR(input.documentCost ?? 0);
+    const extraOther = roundLKR(input.otherCost ?? 0);
+    const sellingPrice = roundLKR(input.sellingPrice);
+
+    if (purchasePrice <= 0 || sellingPrice <= 0) {
+      throw new Error(uiError('bikePricesRequired'));
+    }
+
+    const registration = input.registrationNo.trim();
+    if (isRegistrationUsedByActiveBike(db, registration)) {
+      throw new Error(uiError('registrationExists'));
+    }
+
+    const chassis = input.chassisNo?.trim() ?? '';
+    if (chassis && isChassisUsedByActiveBike(db, chassis)) {
+      throw new Error(uiError('chassisExists'));
+    }
+
+    let resolvedSellerId = input.customerId;
+    let party: DocumentPartySnapshot;
+
+    if (resolvedSellerId) {
+      const existing = getCustomer(resolvedSellerId, db);
+      if (!existing) {
+        throw new Error(uiError('customerNotFound'));
+      }
+      party = partyFromCustomerEntity(existing);
+    } else {
+      const draft = input.customer;
+      if (!draft?.name?.trim() || !draft.phone?.trim()) {
+        throw new Error(uiError('bikePurchaseSellerRequired'));
+      }
+      if (!isValidSriLankanPhone(draft.phone)) {
+        throw new Error(uiError('invalidSriLankanPhone'));
+      }
+      const normalizedPhone = normalizeSriLankanPhone(draft.phone);
+      const matched = findCustomerByPhoneOrNic(db, normalizedPhone, draft.nic);
+      if (matched) {
+        resolvedSellerId = matched.id;
+        party = partyFromCustomerEntity(matched);
+      } else {
+        const created = createCustomer(
+          {
+            full_name: draft.name.trim(),
+            phone: normalizedPhone,
+            address: draft.address?.trim() ?? '',
+            nic: draft.nic?.trim() ?? '',
+          },
+          db
+        );
+        resolvedSellerId = created.id;
+        party = partyFromCustomerEntity(created);
+      }
+    }
+
+    const ts = new Date().toISOString();
+    const staffId = db.profiles[0]?.id;
+    const staffName = db.profiles[0]?.full_name?.trim() || 'Staff';
+    const otherCostTotal = roundLKR(transportCost + documentCost + extraOther);
+    const totalPaidAmount = purchasePrice;
+
+    const row: DbBike = {
+      id: generateId(),
+      client_submit_id: input.clientSubmitId,
+      bike_code: generateCode('BIK', db.counters),
+      status: 'IN_STOCK',
+      created_at: ts,
+      updated_at: ts,
+      model: input.model.trim(),
+      registration_no: registration,
+      chassis_no: chassis,
+      engine_no: input.engineNo?.trim() ?? '',
+      color: input.color?.trim() ?? '',
+      year: input.year ?? 0,
+      cost_price: purchasePrice,
+      selling_price: sellingPrice,
+      repair_cost: repairCost,
+      other_cost: otherCostTotal,
+      purchase_date: input.purchaseDate,
+      purchased_from_customer_id: resolvedSellerId,
+      purchase_payment_method: input.paymentMethod,
+      purchase_payment_reference: input.paymentReference?.trim() || undefined,
+      acquired_by_user_id: staffId,
+      acquisition_source: 'PURCHASE',
+    };
+
+    db.bikes.push(row);
+
+    const document = createBikePurchaseDocument(db, row.id, {
+      purchaseDate: input.purchaseDate,
+      seller: party,
+      sellerCustomerId: resolvedSellerId,
+      purchasePrice,
+      repairCost,
+      transportCost,
+      documentCost,
+      otherCost: extraOther,
+      totalPaidAmount,
+      expectedSellingPrice: sellingPrice,
+      paymentMethod: input.paymentMethod,
+      paymentReference: input.paymentReference,
+      paymentNotes: input.paymentNotes,
+      purchaseNotes: input.purchaseNotes,
+      handledBy: staffName,
+      createdBy: staffId,
+    });
+
+    row.purchase_receipt_id = document.id;
+    row.updated_at = ts;
+
+    db.audit_logs.push({
+      id: generateId(),
+      user_id: staffId ?? 'system',
+      action: 'CREATE',
+      entity_type: 'bike',
+      entity_id: row.id,
+      summary: buildAuditSummary('bikePurchaseAuditSummary', {
+        bikeCode: row.bike_code,
+        docNumber: document.document_number,
+        seller: party.name,
+        amount: totalPaidAmount,
+        handledBy: staffName,
+      }),
+      created_at: ts,
+    });
+
+    saveDb(db);
+
+    return {
+      bike: mapBike(row),
+      document,
+      sellerCustomerId: resolvedSellerId,
+    };
+  } finally {
+    if (input.clientSubmitId) {
+      inFlightBikePurchases.delete(input.clientSubmitId);
     }
   }
 }

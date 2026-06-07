@@ -21,6 +21,7 @@ const TYPE_FILTERS: DocumentTypeFilter[] = [
   'loan_invoices',
   'payment_receipts',
   'cash_sales',
+  'bike_purchases',
 ];
 
 const TYPE_FILTER_LABELS: Record<DocumentTypeFilter, LabelKey> = {
@@ -28,6 +29,7 @@ const TYPE_FILTER_LABELS: Record<DocumentTypeFilter, LabelKey> = {
   loan_invoices: 'docFilterLoanInvoices',
   payment_receipts: 'docFilterPaymentReceipts',
   cash_sales: 'docFilterCashSales',
+  bike_purchases: 'docFilterBikePurchases',
 };
 
 const selectClass =

@@ -9,6 +9,7 @@ import {
 import { mapBike, mapCustomer } from '../local-db/mappers';
 import type { DbDocument, DbLoan, MamDemoDb } from '../local-db/types';
 import type {
+  BikePurchaseDocumentSnapshot,
   CashSaleDocumentSnapshot,
   DocumentGuarantorSnapshot,
   DocumentPartySnapshot,
@@ -337,6 +338,66 @@ export function buildCashSaleSnapshot(
   };
 }
 
+export interface BuildBikePurchaseSnapshotInput {
+  purchaseDate: string;
+  seller: DocumentPartySnapshot;
+  bike: DocumentBikeSnapshot;
+  purchasePrice: number;
+  repairCost: number;
+  transportCost: number;
+  documentCost: number;
+  otherCost: number;
+  totalPaidAmount: number;
+  expectedSellingPrice: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  paymentNotes?: string;
+  purchaseNotes?: string;
+  handledBy: string;
+}
+
+export function buildBikePurchaseSnapshotFromBike(
+  db: MamDemoDb,
+  bikeId: string,
+  input: Omit<BuildBikePurchaseSnapshotInput, 'bike'>
+): BikePurchaseDocumentSnapshot {
+  const bike = bikeSnapshotFromId(db, bikeId);
+  if (!bike) {
+    throw new Error('Bike not found for purchase receipt');
+  }
+  return {
+    kind: 'BIKE_PURCHASE_RECEIPT',
+    ...input,
+    bike,
+    paymentReference: trimOptional(input.paymentReference),
+    paymentNotes: trimOptional(input.paymentNotes),
+    purchaseNotes: trimOptional(input.purchaseNotes),
+  };
+}
+
+export function buildBikePurchasePreviewSnapshot(
+  input: BuildBikePurchaseSnapshotInput
+): BikePurchaseDocumentSnapshot {
+  return {
+    kind: 'BIKE_PURCHASE_RECEIPT',
+    purchaseDate: input.purchaseDate,
+    seller: input.seller,
+    bike: input.bike,
+    purchasePrice: input.purchasePrice,
+    repairCost: input.repairCost,
+    transportCost: input.transportCost,
+    documentCost: input.documentCost,
+    otherCost: input.otherCost,
+    totalPaidAmount: input.totalPaidAmount,
+    expectedSellingPrice: input.expectedSellingPrice,
+    paymentMethod: input.paymentMethod,
+    paymentReference: trimOptional(input.paymentReference),
+    paymentNotes: trimOptional(input.paymentNotes),
+    purchaseNotes: trimOptional(input.purchaseNotes),
+    handledBy: input.handledBy,
+  };
+}
+
 export function isLegacyCashSaleSnapshot(
   snapshot: CashSaleDocumentSnapshot
 ): boolean {
@@ -349,7 +410,8 @@ export function readDocumentSnapshot(
   | LoanCreationDocumentSnapshot
   | LoanReleaseDocumentSnapshot
   | PaymentReceiptDocumentSnapshot
-  | CashSaleDocumentSnapshot {
+  | CashSaleDocumentSnapshot
+  | BikePurchaseDocumentSnapshot {
   const meta = doc.metadata_json as LoanCreationDocumentSnapshot;
   if (meta?.kind) return meta;
   throw new Error('Invalid document snapshot');

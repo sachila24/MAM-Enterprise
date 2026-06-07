@@ -66,6 +66,12 @@ export function mapBike(b: DbBike): Bike {
     color: b.color,
     year: b.year,
     soldLoanId: b.sold_loan_id,
+    purchasedFromCustomerId: b.purchased_from_customer_id,
+    purchaseReceiptId: b.purchase_receipt_id,
+    purchasePaymentMethod: b.purchase_payment_method,
+    acquisitionSource: b.acquisition_source
+      ? (b.acquisition_source.toLowerCase() as 'purchase' | 'import' | 'trade_in')
+      : undefined,
   };
 }
 

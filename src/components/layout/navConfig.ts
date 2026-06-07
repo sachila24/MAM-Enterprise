@@ -39,6 +39,7 @@ export const navGroups: NavGroup[] = [
     labelKey: 'navGroup.inventory',
     items: [
       { nameKey: 'nav.bikeStock', href: '/bikes', icon: Bike },
+      { nameKey: 'nav.bikePurchase', href: '/bikes/purchase', icon: Bike },
       { nameKey: 'nav.guarantees', href: '/guarantees', icon: Shield },
     ],
   },

@@ -16,7 +16,10 @@ import {
 } from '../../lib/local-db/repositories';
 import { CreateCashSaleDialog } from '../../components/bikes/CreateCashSaleDialog';
 import { useT } from '../../i18n/I18nProvider';
-import { findCashSaleDocumentForBike } from '../../lib/documents/documentService';
+import {
+  findCashSaleDocumentForBike,
+  findBikePurchaseDocumentForBike,
+} from '../../lib/documents/documentService';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 
 export function BikeDetail() {
@@ -45,6 +48,12 @@ export function BikeDetail() {
 
   const cashSaleDoc = useMemo(
     () => (bike?.id ? findCashSaleDocumentForBike(db, bike.id) : undefined),
+    [db, bike?.id]
+  );
+
+  const purchaseReceiptDoc = useMemo(
+    () =>
+      bike?.id ? findBikePurchaseDocumentForBike(db, bike.id) : undefined,
     [db, bike?.id]
   );
 
@@ -104,6 +113,28 @@ export function BikeDetail() {
               >
                 {t('createCashSaleInvoice')}
               </button>
+            )}
+            {purchaseReceiptDoc && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/documents/${purchaseReceiptDoc.id}`)
+                  }
+                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+                >
+                  {t('viewPurchaseReceipt')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/documents/${purchaseReceiptDoc.id}?print=1`)
+                  }
+                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+                >
+                  {t('printPurchaseReceipt')}
+                </button>
+              </>
             )}
             {cashSaleDoc && !saleLoan && (
               <>

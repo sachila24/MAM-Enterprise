@@ -30,6 +30,10 @@ export interface Bike {
   year: number;
   soldDate?: string;
   soldLoanId?: string;
+  purchasedFromCustomerId?: string;
+  purchaseReceiptId?: string;
+  purchasePaymentMethod?: string;
+  acquisitionSource?: 'purchase' | 'import' | 'trade_in';
 }
 
 export type {

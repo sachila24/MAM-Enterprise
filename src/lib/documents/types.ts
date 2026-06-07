@@ -4,7 +4,8 @@ export type DocumentType =
   | 'LOAN_CREATION'
   | 'LOAN_RELEASE'
   | 'PAYMENT_RECEIPT'
-  | 'CASH_SALE';
+  | 'CASH_SALE'
+  | 'BIKE_PURCHASE_RECEIPT';
 
 export type DocumentStatus = 'ISSUED' | 'VOID';
 
@@ -153,8 +154,28 @@ export interface CashSaleDocumentSnapshot {
   buyerNote?: string;
 }
 
+export interface BikePurchaseDocumentSnapshot {
+  kind: 'BIKE_PURCHASE_RECEIPT';
+  purchaseDate: string;
+  seller: DocumentPartySnapshot;
+  bike: DocumentBikeSnapshot;
+  purchasePrice: number;
+  repairCost: number;
+  transportCost: number;
+  documentCost: number;
+  otherCost: number;
+  totalPaidAmount: number;
+  expectedSellingPrice: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  paymentNotes?: string;
+  purchaseNotes?: string;
+  handledBy: string;
+}
+
 export type DocumentMetadataSnapshot =
   | LoanCreationDocumentSnapshot
   | LoanReleaseDocumentSnapshot
   | PaymentReceiptDocumentSnapshot
-  | CashSaleDocumentSnapshot;
+  | CashSaleDocumentSnapshot
+  | BikePurchaseDocumentSnapshot;

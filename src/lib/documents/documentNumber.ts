@@ -5,6 +5,7 @@ const PREFIX: Record<DocumentType, string> = {
   LOAN_RELEASE: 'RLN',
   PAYMENT_RECEIPT: 'RCPT',
   CASH_SALE: 'CS',
+  BIKE_PURCHASE_RECEIPT: 'BP',
 };
 
 /** Sequential document numbers: LN-2026-000001, RCPT-2026-000001, CS-2026-000001 */

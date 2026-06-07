@@ -19,6 +19,7 @@ import { RecordPayment } from './pages/payments/RecordPayment';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
 import { BikesList } from './pages/bikes/BikesList';
 import { BikeForm } from './pages/bikes/BikeForm';
+import { BikePurchase } from './pages/bikes/BikePurchase';
 import { BikeDetail } from './pages/bikes/BikeDetail';
 import { GuaranteesList } from './pages/guarantees/GuaranteesList';
 import { AddGuarantee } from './pages/guarantees/AddGuarantee';
@@ -79,7 +80,8 @@ export function App() {
 
               <Route path="bikes">
                 <Route index element={<BikesList />} />
-                <Route path="new" element={<BikeForm />} />
+                <Route path="purchase" element={<BikePurchase />} />
+                <Route path="new" element={<Navigate to="/bikes/purchase" replace />} />
                 <Route path=":id/edit" element={<BikeForm />} />
                 <Route path=":id" element={<BikeDetail />} />
               </Route>

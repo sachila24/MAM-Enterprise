@@ -191,7 +191,7 @@ export function Dashboard() {
               </div>
               <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200 flex items-center justify-center">
                 <Link
-                  to="/bikes/new"
+                  to="/bikes/purchase"
                   className="text-sm font-medium text-brand-600 hover:text-brand-500 flex items-center gap-1"
                 >
                   <PlusIcon className="h-4 w-4" /> {t('addBikeLink')}

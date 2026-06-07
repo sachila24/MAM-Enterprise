@@ -32,6 +32,7 @@ function registryTypeLabel(
     LOAN_INVOICE: 'docTypeLoanInvoice',
     PAYMENT_RECEIPT: 'docTypePaymentReceipt',
     CASH_SALE: 'docTypeCashSale',
+    BIKE_PURCHASE: 'docTypeBikePurchase',
     SETTLEMENT: 'docTypeSettlement',
     AGREEMENT: 'docTypeAgreement',
   };
@@ -73,6 +74,13 @@ function snapshotFields(doc: DbDocument): {
         customerName: snap.customerName,
         customerNic: '—',
         loanNumber: snap.loanCode,
+      };
+    }
+    if (snap.kind === 'BIKE_PURCHASE_RECEIPT') {
+      return {
+        customerName: snap.seller.name,
+        customerNic: snap.seller.nic,
+        loanNumber: '—',
       };
     }
     return {

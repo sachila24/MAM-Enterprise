@@ -4,8 +4,12 @@ import {
   buildLoanCreationSnapshot,
   buildLoanReleaseSnapshot,
   buildPaymentReceiptSnapshot,
+  buildBikePurchaseSnapshotFromBike,
 } from './snapshots';
-import type { DocumentPartySnapshot, LoanReleaseDocumentSnapshot } from './types';
+import type {
+  DocumentPartySnapshot,
+  LoanReleaseDocumentSnapshot,
+} from './types';
 import { generateId } from '../local-db/localDb';
 import type { DbDocument, MamDemoDb } from '../local-db/types';
 import type {
@@ -216,6 +220,75 @@ export function findCashSaleDocumentForBike(
 ): DbDocument | undefined {
   const docs = (db.documents ?? []).filter(
     (d) => d.bike_id === bikeId && d.document_type === 'CASH_SALE'
+  );
+  return docs.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )[0];
+}
+
+export function createBikePurchaseDocument(
+  db: MamDemoDb,
+  bikeId: string,
+  input: {
+    purchaseDate: string;
+    seller: DocumentPartySnapshot;
+    sellerCustomerId?: string;
+    purchasePrice: number;
+    repairCost: number;
+    transportCost: number;
+    documentCost: number;
+    otherCost: number;
+    totalPaidAmount: number;
+    expectedSellingPrice: number;
+    paymentMethod: string;
+    paymentReference?: string;
+    paymentNotes?: string;
+    purchaseNotes?: string;
+    handledBy: string;
+    createdBy?: string;
+  }
+): DbDocument {
+  const existing = db.documents?.find(
+    (d) => d.bike_id === bikeId && d.document_type === 'BIKE_PURCHASE_RECEIPT'
+  );
+  if (existing) return existing;
+
+  const snapshot = buildBikePurchaseSnapshotFromBike(db, bikeId, {
+    purchaseDate: input.purchaseDate,
+    seller: input.seller,
+    purchasePrice: input.purchasePrice,
+    repairCost: input.repairCost,
+    transportCost: input.transportCost,
+    documentCost: input.documentCost,
+    otherCost: input.otherCost,
+    totalPaidAmount: input.totalPaidAmount,
+    expectedSellingPrice: input.expectedSellingPrice,
+    paymentMethod: input.paymentMethod,
+    paymentReference: input.paymentReference,
+    paymentNotes: input.paymentNotes,
+    purchaseNotes: input.purchaseNotes,
+    handledBy: input.handledBy,
+  });
+
+  const documentNumber = generateDocumentNumber('BIKE_PURCHASE_RECEIPT', db.counters);
+
+  return pushDocument(db, {
+    document_number: documentNumber,
+    document_type: 'BIKE_PURCHASE_RECEIPT',
+    bike_id: bikeId,
+    customer_id: input.sellerCustomerId,
+    created_by: input.createdBy ?? db.profiles[0]?.id,
+    total_amount: input.totalPaidAmount,
+    metadata_json: snapshot,
+  });
+}
+
+export function findBikePurchaseDocumentForBike(
+  db: MamDemoDb,
+  bikeId: string
+): DbDocument | undefined {
+  const docs = (db.documents ?? []).filter(
+    (d) => d.bike_id === bikeId && d.document_type === 'BIKE_PURCHASE_RECEIPT'
   );
   return docs.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

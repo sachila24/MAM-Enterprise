@@ -43,6 +43,14 @@ export interface DbBike {
   purchase_date: string;
   sold_date?: string;
   sold_loan_id?: string;
+  /** Customer who sold the bike to the showroom */
+  purchased_from_customer_id?: string;
+  /** Locked BIKE_PURCHASE_RECEIPT document */
+  purchase_receipt_id?: string;
+  purchase_payment_method?: string;
+  purchase_payment_reference?: string;
+  acquired_by_user_id?: string;
+  acquisition_source?: 'PURCHASE' | 'IMPORT' | 'TRADE_IN';
   created_at: string;
   updated_at: string;
 }
@@ -302,7 +310,8 @@ export type DocumentType =
   | 'LOAN_CREATION'
   | 'LOAN_RELEASE'
   | 'PAYMENT_RECEIPT'
-  | 'CASH_SALE';
+  | 'CASH_SALE'
+  | 'BIKE_PURCHASE_RECEIPT';
 
 export type DocumentStatus = 'ISSUED' | 'VOID';
 

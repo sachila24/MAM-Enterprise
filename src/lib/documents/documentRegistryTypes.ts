@@ -5,6 +5,7 @@ export type RegistryDocumentType =
   | 'LOAN_INVOICE'
   | 'PAYMENT_RECEIPT'
   | 'CASH_SALE'
+  | 'BIKE_PURCHASE'
   | 'SETTLEMENT'
   | 'AGREEMENT';
 
@@ -12,7 +13,8 @@ export type DocumentTypeFilter =
   | 'all'
   | 'loan_invoices'
   | 'payment_receipts'
-  | 'cash_sales';
+  | 'cash_sales'
+  | 'bike_purchases';
 
 export type DocumentSortOrder = 'newest' | 'oldest';
 
@@ -23,6 +25,7 @@ const STORAGE_TO_REGISTRY: Record<StorageDocumentType, RegistryDocumentType> = {
   LOAN_RELEASE: 'SETTLEMENT',
   PAYMENT_RECEIPT: 'PAYMENT_RECEIPT',
   CASH_SALE: 'CASH_SALE',
+  BIKE_PURCHASE_RECEIPT: 'BIKE_PURCHASE',
 };
 
 const FILTER_TO_STORAGE: Record<
@@ -32,6 +35,7 @@ const FILTER_TO_STORAGE: Record<
   loan_invoices: 'LOAN_CREATION',
   payment_receipts: 'PAYMENT_RECEIPT',
   cash_sales: 'CASH_SALE',
+  bike_purchases: 'BIKE_PURCHASE_RECEIPT',
 };
 
 export function toRegistryDocumentType(
@@ -51,6 +55,7 @@ export const FUTURE_REGISTRY_TYPES: RegistryDocumentType[] = [
   'LOAN_INVOICE',
   'PAYMENT_RECEIPT',
   'CASH_SALE',
+  'BIKE_PURCHASE',
   'SETTLEMENT',
   'AGREEMENT',
 ];
