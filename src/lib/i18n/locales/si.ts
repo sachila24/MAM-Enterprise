@@ -105,6 +105,8 @@ export const app: Record<AppLabelKey, string> = {
   viewFullSchedule: 'සම්පූර්ණ කාලසටහන බලන්න',
   viewFullLoanSchedule: 'සම්පූර්ණ ණය කාලසටහන බලන්න',
   printReceipt: 'රිසිට්පත් මුද්‍රණය',
+  viewReceipt: 'බිල බලන්න',
+  receiptUnavailable: 'රිසිට්පත නොමැත',
   receiptDocumentTitle: 'ගෙවීම් ලදුපත',
   receiptTime: 'වේලාව',
   receiptThankYouFooter: 'ඔබගේ ගෙවීමට ස්තූතියි',

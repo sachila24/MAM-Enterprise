@@ -10,7 +10,7 @@ import type {
   DocumentPartySnapshot,
   LoanReleaseDocumentSnapshot,
 } from './types';
-import { generateId } from '../local-db/localDb';
+import { generateId, saveDb } from '../local-db/localDb';
 import type { DbDocument, MamDemoDb } from '../local-db/types';
 import type {
   FixedInstallmentReceiptBreakdown,
@@ -212,6 +212,33 @@ export function findPaymentReceiptDocument(
   return db.documents?.find(
     (d) => d.payment_id === paymentId && d.document_type === 'PAYMENT_RECEIPT'
   );
+}
+
+/** Resolve payment receipt document — creates from stored receipt data if missing. */
+export function ensurePaymentReceiptDocument(
+  db: MamDemoDb,
+  paymentId: string
+): DbDocument | undefined {
+  const existing = findPaymentReceiptDocument(db, paymentId);
+  if (existing) return existing;
+
+  const payment = db.loan_payments.find((p) => p.id === paymentId);
+  if (!payment || payment.status !== 'CONFIRMED') return undefined;
+
+  const receiptRow = db.receipts.find((r) => r.payment_id === paymentId);
+  const breakdown = receiptRow?.breakdown as
+    | {
+        receipt?:
+          | FixedInstallmentReceiptBreakdown
+          | InterestOnlyReceiptBreakdown;
+      }
+    | undefined;
+  const receiptBreakdown = breakdown?.receipt;
+  if (!receiptBreakdown) return undefined;
+
+  const created = createPaymentReceiptDocument(db, paymentId, receiptBreakdown);
+  saveDb(db);
+  return created;
 }
 
 export function findCashSaleDocumentForBike(

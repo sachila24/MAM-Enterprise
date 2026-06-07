@@ -105,6 +105,8 @@ export const app = {
   viewFullSchedule: 'View full schedule',
   viewFullLoanSchedule: 'View full loan schedule',
   printReceipt: 'Print receipt',
+  viewReceipt: 'View Receipt',
+  receiptUnavailable: 'Receipt unavailable',
   receiptDocumentTitle: 'Payment Receipt',
   receiptTime: 'Time',
   receiptThankYouFooter: 'Thank you for your payment',
