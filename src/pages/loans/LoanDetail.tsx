@@ -2,7 +2,9 @@ import React, { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircleIcon,
+  ArrowLeftIcon,
   BanknoteIcon,
+  BikeIcon,
   FileTextIcon,
   ShieldIcon,
 } from 'lucide-react';
@@ -218,6 +220,8 @@ function InterestOnlyLoanDetail({
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
+      <LoanDetailBackButton navigate={navigate} />
+
       <LoanHeader
         loan={loan}
         customerName={customer.name}
@@ -446,18 +450,17 @@ function FixedInstallmentLoanDetail({
     return formatOverdueLabel(days, tf);
   }, [loan.status, installments, asOfDate, tf]);
 
-  const financeLabel =
-    loan.loanPurpose === 'BIKE_INSTALLMENT'
-      ? t('financeAmount')
-      : t('loanAmount');
-
   const settlementEligible = canRequestEarlySettlement(
     detail.monthsCompleted,
     loan.minimumMonthsBeforeSettlement
   );
 
+  const isBikeInstallment = loan.loanPurpose === 'BIKE_INSTALLMENT';
+
   return (
     <div className="max-w-7xl mx-auto pb-12">
+      <LoanDetailBackButton navigate={navigate} />
+
       <LoanHeader
         loan={loan}
         displayStatus={displayLoanStatus}
@@ -476,69 +479,24 @@ function FixedInstallmentLoanDetail({
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-6">
         <KpiCard
-          label={financeLabel}
-          value={formatLKR(loan.principalAmount)}
-        />
-        <KpiCard
-          label={t('totalInterest')}
-          value={formatLKR(loan.totalInterestAmount ?? 0)}
-        />
-        <KpiCard
-          label={t('totalPayable')}
+          label={t('totalLoanAmount')}
           value={formatLKR(loan.totalPayable ?? 0)}
         />
-        <KpiCard label={t('paid')} value={formatLKR(loan.paidAmount)} />
-        <KpiCard label={t('loanBalance')} value={formatLKR(loan.balanceAmount)} />
         <KpiCard
-          label={
-            language === 'si'
-              ? t('monthlyInstallmentShort')
-              : t('monthlyInstallment')
-          }
-          value={formatLKR(loan.installmentAmount ?? 0)}
+          label={t('paidAmountLabel')}
+          value={formatLKR(loan.paidAmount)}
         />
-      </div>
-
-      {bike && (
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              {t('linkedBike')}
-            </p>
-            <p className="mt-1 font-semibold text-neutral-900">
-              {formatBikeSelectLabel(bike, t('notRegistered'))}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              {t('loanAmountField')}
-            </p>
-            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-              {formatLKR(loan.originalPrincipalAmount ?? bike.soldPrice ?? bike.sellingPrice)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              {t('financedPrincipal')}
-            </p>
-            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-              {formatLKR(loan.principalAmount)}
-            </p>
-          </div>
-          <div className="sm:col-span-3">
-            <Link
-              to={`/bikes/${bike.id}`}
-              className="text-sm font-semibold text-brand-600 hover:text-brand-500"
-            >
-              {t('openBikeDetail')}
-            </Link>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+        <KpiCard
+          label={t('remainingBalanceLabel')}
+          value={
+            loan.status === 'COMPLETED' || loan.balanceAmount <= 0
+              ? formatLKR(0)
+              : formatLKR(loan.balanceAmount)
+          }
+        />
+        <KpiCard label={t('loanNextDue')} value={nextDueLabel} />
         <KpiCard
           label={t('loanTerm')}
           value={
@@ -547,14 +505,20 @@ function FixedInstallmentLoanDetail({
               : '—'
           }
         />
-        <KpiCard label={t('loanNextDue')} value={nextDueLabel} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
         <KpiCard
-          label={t('loanBalance')}
-          value={
-            loan.status === 'COMPLETED' || loan.balanceAmount <= 0
-              ? formatLKR(0)
-              : formatLKR(loan.balanceAmount)
-          }
+          label={t('loanAmount')}
+          value={formatLKR(loan.principalAmount)}
+        />
+        <KpiCard
+          label={t('totalInterest')}
+          value={formatLKR(loan.totalInterestAmount ?? 0)}
+        />
+        <KpiCard
+          label={t('monthlyInstallment')}
+          value={formatLKR(loan.installmentAmount ?? 0)}
         />
       </div>
 
@@ -587,6 +551,73 @@ function FixedInstallmentLoanDetail({
         </div>
       )}
 
+      {bike && isBikeInstallment && (
+        <section className="mb-8">
+          <SectionTitle icon={BikeIcon} title={t('bikeDetails')} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
+            <div className="sm:col-span-2 lg:col-span-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                {t('linkedBike')}
+              </p>
+              <p className="mt-1 font-semibold text-neutral-900">
+                {formatBikeSelectLabel(bike, t('notRegistered'))}
+              </p>
+              <Link
+                to={`/bikes/${bike.id}`}
+                className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:text-brand-500"
+              >
+                {t('openBikeDetail')}
+              </Link>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                {t('sellingPriceLabel')}
+              </p>
+              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+                {formatLKR(
+                  loan.originalPrincipalAmount ??
+                    bike.soldPrice ??
+                    bike.sellingPrice
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                {t('downPaymentLabel')}
+              </p>
+              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+                {formatLKR(loan.initialPayment ?? 0)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                {t('loanAmount')}
+              </p>
+              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
+                {formatLKR(loan.principalAmount)}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {bike && !isBikeInstallment && (
+        <div className="mb-8 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+            {t('linkedBike')}
+          </p>
+          <p className="mt-1 font-semibold text-neutral-900">
+            {formatBikeSelectLabel(bike, t('notRegistered'))}
+          </p>
+          <Link
+            to={`/bikes/${bike.id}`}
+            className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:text-brand-500"
+          >
+            {t('openBikeDetail')}
+          </Link>
+        </div>
+      )}
+
       <LoanOriginationSection loan={loan} />
 
       <section className="mb-8">
@@ -604,6 +635,26 @@ function FixedInstallmentLoanDetail({
         linkedBike={bike}
         navigate={navigate}
       />
+    </div>
+  );
+}
+
+function LoanDetailBackButton({
+  navigate,
+}: {
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { t } = useT();
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={() => navigate('/loans')}
+        className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        {t('backToLoans')}
+      </button>
     </div>
   );
 }
@@ -665,35 +716,22 @@ function LoanActionBar({
 }) {
   const { t, tf, language } = useT();
   const viewInvoiceLabel = getDocumentLabel('viewInvoice', language);
-  const printInvoiceLabel = getDocumentLabel('printInvoice', language);
 
   return (
     <div className="flex flex-col gap-2 sm:items-end">
       <div className="flex flex-wrap gap-2">
         {invoiceDocumentId && (
-          <>
-            <ActionButton
-              onClick={() => navigate(`/documents/${invoiceDocumentId}`)}
-            >
-              {viewInvoiceLabel}
-            </ActionButton>
-            <ActionButton
-              onClick={() =>
-                navigate(`/documents/${invoiceDocumentId}?print=1`)
-              }
-            >
-              {printInvoiceLabel}
-            </ActionButton>
-          </>
+          <ActionButton
+            onClick={() => navigate(`/documents/${invoiceDocumentId}`)}
+          >
+            {viewInvoiceLabel}
+          </ActionButton>
         )}
         <ActionButton
           primary
           onClick={() => navigate(`/payments/new?loanId=${loanId}`)}
         >
           {t('recordPaymentAction')}
-        </ActionButton>
-        <ActionButton onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}>
-          {t('addGuarantee')}
         </ActionButton>
         {showEarlySettlement && (
           <ActionButton
@@ -861,11 +899,19 @@ function LoanOriginationSection({ loan }: { loan: Loan }) {
   const { t, language } = useT();
   const db = useDemoDb();
   const originationTxns = listCashTransactionsForLoan(loan.id, db);
+  const isBikeInstallment = loan.loanPurpose === 'BIKE_INSTALLMENT';
   const showOrigination =
     (loan.initialPayment ?? 0) > 0 ||
     (loan.netAdvancePayment ?? 0) > 0 ||
     originationTxns.length > 0;
   if (!showOrigination) return null;
+
+  const grossAmountLabel = isBikeInstallment
+    ? t('sellingPriceLabel')
+    : t('loanAmountField');
+  const initialPaidLabel = isBikeInstallment
+    ? t('downPaymentLabel')
+    : t('initialPayment');
 
   return (
     <section className="mb-8">
@@ -873,13 +919,13 @@ function LoanOriginationSection({ loan }: { loan: Loan }) {
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 text-sm border-b border-neutral-200">
           <div>
-            <dt className="text-neutral-500">{t('loanAmountField')}</dt>
+            <dt className="text-neutral-500">{grossAmountLabel}</dt>
             <dd className="font-semibold tabular-nums">
               {formatLKR(loan.originalPrincipalAmount ?? loan.principalAmount)}
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-500">{t('initialPayment')}</dt>
+            <dt className="text-neutral-500">{initialPaidLabel}</dt>
             <dd className="font-semibold tabular-nums">
               {formatLKR(loan.initialPayment ?? 0)}
             </dd>
@@ -903,7 +949,9 @@ function LoanOriginationSection({ loan }: { loan: Loan }) {
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-500">{t('financedPrincipal')}</dt>
+            <dt className="text-neutral-500">
+              {isBikeInstallment ? t('loanAmount') : t('financedPrincipal')}
+            </dt>
             <dd className="font-semibold tabular-nums">
               {formatLKR(loan.principalAmount)}
             </dd>
