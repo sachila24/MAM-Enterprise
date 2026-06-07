@@ -113,8 +113,10 @@ function calendarYearMonth(date: string): { year: number; month: number } {
 }
 
 /**
- * Inclusive calendar-month cycles from grace-end through as-of.
- * e.g. cycle start Feb 8, as-of Apr 26 → Feb + Mar + Apr = 3 cycles.
+ * Inclusive monthly cycles from grace-end through as-of.
+ * Each cycle begins on the grace-end anniversary day (not on the 1st of a
+ * calendar month). e.g. cycle start Feb 17, as-of Apr 16 → Feb + Mar = 2;
+ * as-of Apr 17 → Feb + Mar + Apr = 3.
  * Zero when as-of is before cycle start.
  */
 export function calculateLateFeeCyclesFromGraceEnd(
@@ -127,7 +129,19 @@ export function calculateLateFeeCyclesFromGraceEnd(
 
   const s = calendarYearMonth(start);
   const e = calendarYearMonth(asOf);
-  return (e.year - s.year) * 12 + (e.month - s.month) + 1;
+  const monthSpan = (e.year - s.year) * 12 + (e.month - s.month) + 1;
+
+  // Do not count the current calendar month until as-of reaches the
+  // cycle-start day (due + grace). Prevents a new installment from becoming
+  // overdue on the 1st when its grace-end falls later in the month.
+  if (monthSpan > 1) {
+    const cycleDay = Number(start.slice(8, 10));
+    const asOfDay = Number(asOf.slice(8, 10));
+    if (asOfDay < cycleDay) {
+      return monthSpan - 1;
+    }
+  }
+  return monthSpan;
 }
 
 /** Live clock for UI greetings and finance "now" (respects dev simulation). */

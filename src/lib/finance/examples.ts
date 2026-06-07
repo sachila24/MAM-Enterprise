@@ -269,6 +269,64 @@ export const EXAMPLE_LATE_FEE_GRACE = (() => {
   };
 })();
 
+/** Due on 10th, grace 7 → trigger 17th; Apr fee only after Apr 17, not on Apr 1. */
+export const EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE = (() => {
+  const monthlyInstallment = 10_000;
+  const rows = [
+    {
+      installmentId: 'lf-feb',
+      installmentNumber: 1,
+      dueDate: '2026-02-10',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+    {
+      installmentId: 'lf-mar',
+      installmentNumber: 2,
+      dueDate: '2026-03-10',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+    {
+      installmentId: 'lf-apr',
+      installmentNumber: 3,
+      dueDate: '2026-04-10',
+      installmentAmount: monthlyInstallment,
+      paidAmount: 0,
+    },
+  ];
+  const mar17 = computeLoanLateFeesV3({
+    monthlyInstallment,
+    lateFeeRatePercent: 5,
+    asOfDate: '2026-03-17',
+    installments: rows,
+  });
+  const apr1 = computeLoanLateFeesV3({
+    monthlyInstallment,
+    lateFeeRatePercent: 5,
+    asOfDate: '2026-04-01',
+    installments: rows,
+  });
+  const apr17 = computeLoanLateFeesV3({
+    monthlyInstallment,
+    lateFeeRatePercent: 5,
+    asOfDate: '2026-04-17',
+    installments: rows,
+  });
+  const byId = (result: typeof mar17) =>
+    Object.fromEntries(result.lines.map((l) => [l.installmentId, l]));
+  return {
+    mar17: byId(mar17),
+    apr1: byId(apr1),
+    apr17: byId(apr17),
+    expected: {
+      mar17AprFee: 0,
+      apr1AprFee: 0,
+      apr17AprFee: 500,
+    },
+  };
+})();
+
 /** ≥50% paid before grace-end — installment never accrues late fees */
 export const EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT = (() => {
   const row = {
@@ -571,11 +629,11 @@ export const EXAMPLE_DECLINING_LATE_FEES = (() => {
     may: byNum[5],
     expected: {
       baseLateFee: 792,
-      febFee: 3_960,
-      marFee: 3_168,
-      aprFee: 2_376,
-      mayFee: 1_584,
-      total: 11_088,
+      febFee: 3_168,
+      marFee: 2_376,
+      aprFee: 1_584,
+      mayFee: 792,
+      total: 7_920,
     },
   };
 })();
@@ -1029,6 +1087,29 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       actual: EXAMPLE_LATE_FEE_GRACE.afterGrace,
     },
     {
+      name: 'New installment: no Apr fee on Mar 17',
+      pass:
+        (EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.mar17['lf-apr']?.lateFee ?? -1) ===
+        0,
+      expected: 0,
+      actual: EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.mar17['lf-apr']?.lateFee,
+    },
+    {
+      name: 'New installment: no Apr fee on Apr 1 (calendar month)',
+      pass:
+        (EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.apr1['lf-apr']?.lateFee ?? -1) ===
+        0,
+      expected: 0,
+      actual: EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.apr1['lf-apr']?.lateFee,
+    },
+    {
+      name: 'New installment: Apr fee from Apr 17 (grace end)',
+      pass:
+        EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.apr17['lf-apr']?.lateFee === 500,
+      expected: 500,
+      actual: EXAMPLE_LATE_FEE_NEW_INSTALLMENT_GRACE.apr17['lf-apr']?.lateFee,
+    },
+    {
       name: '50% pre-grace: exempt installment accrues zero',
       pass:
         EXAMPLE_LATE_FEE_HALF_PRE_GRACE_EXEMPT.exemptFee === 0 &&
@@ -1085,27 +1166,27 @@ export function verifyFinanceExamples(): ExampleCheck[] {
     },
     {
       name: 'Declining late fee: Feb ×4',
-      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee === 3_960,
-      expected: 3_960,
+      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee === 3_168,
+      expected: 3_168,
       actual: EXAMPLE_DECLINING_LATE_FEES.feb?.lateFee,
     },
     {
       name: 'Declining late fee: Feb 4 late months',
-      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths === 5,
-      expected: 5,
+      pass: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths === 4,
+      expected: 4,
       actual: EXAMPLE_DECLINING_LATE_FEES.feb?.lateMonths,
     },
     {
       name: 'Declining late fee: May ×1',
-      pass: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee === 1_584,
-      expected: 1_584,
+      pass: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee === 792,
+      expected: 792,
       actual: EXAMPLE_DECLINING_LATE_FEES.may?.lateFee,
     },
     {
       name: 'Declining late fee: total outstanding',
       pass:
-        EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding === 11_088,
-      expected: 11_088,
+        EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding === 7_920,
+      expected: 7_920,
       actual: EXAMPLE_DECLINING_LATE_FEES.totalLateFeeOutstanding,
     },
     {
