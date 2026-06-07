@@ -1,6 +1,20 @@
 import type { Loan } from '../../types/entities';
+import { formatEnum, getFormatDisplayMode } from '../format';
+import { getLabel, type DisplayMode } from '../i18n/simpleLabels';
 import { getLoan } from '../local-db/repositories/loansRepo';
 import type { MamDemoDb } from '../local-db/types';
+
+/** Staff-facing loan type in payment flows and summaries. */
+export function formatLoanTypeLabel(
+  loan: Pick<Loan, 'loanPurpose' | 'repaymentMethod'>,
+  mode?: DisplayMode
+): string {
+  const displayMode = mode ?? getFormatDisplayMode();
+  if (loan.loanPurpose === 'BIKE_INSTALLMENT') {
+    return getLabel('bikeLoan', displayMode);
+  }
+  return formatEnum(loan.repaymentMethod, displayMode);
+}
 
 export function buildLoanCodeById(
   loans: Pick<Loan, 'id' | 'loanCode'>[]
