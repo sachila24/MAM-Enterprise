@@ -84,8 +84,7 @@ export function BikePurchase() {
   const steps = [
     { id: 'seller', label: t('stepSeller') },
     { label: t('stepBikeInfo') },
-    { label: t('stepPurchaseDetails') },
-    { label: t('stepPayment') },
+    { label: t('stepPurchaseAndPayment') },
     { label: t('stepPreviewConfirm') },
   ];
 
@@ -119,6 +118,24 @@ export function BikePurchase() {
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [openPrintAfter, setOpenPrintAfter] = useState(true);
+
+  const showsPaymentReference =
+    paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CHEQUE';
+  const showsPaymentNotes = paymentMethod !== 'CASH';
+
+  const paymentReferenceLabel =
+    paymentMethod === 'BANK_TRANSFER'
+      ? t('transferReference')
+      : paymentMethod === 'CHEQUE'
+        ? t('purchaseChequeNumber')
+        : '';
+
+  useEffect(() => {
+    if (paymentMethod === 'CASH') {
+      setPaymentReference('');
+      setPaymentNotes('');
+    }
+  }, [paymentMethod]);
 
   const [showPreviouslySoldNotice, setShowPreviouslySoldNotice] = useState(false);
 
@@ -548,114 +565,132 @@ export function BikePurchase() {
               )}
 
               {currentStep === 2 && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-medium text-neutral-900">
-                    {t('purchaseFinancialDetails')}
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <CurrencyInput
-                      label={`${t('purchasePrice')} *`}
-                      value={purchasePrice}
-                      onChange={setPurchasePrice}
-                    />
-                    <CurrencyInput
-                      label={t('repairCostEstimate')}
-                      value={repairCost}
-                      onChange={setRepairCost}
-                    />
-                    <CurrencyInput
-                      label={t('transportCost')}
-                      value={transportCost}
-                      onChange={setTransportCost}
-                    />
-                    <CurrencyInput
-                      label={t('documentCost')}
-                      value={documentCost}
-                      onChange={setDocumentCost}
-                    />
-                    <CurrencyInput
-                      label={t('otherCost')}
-                      value={otherCost}
-                      onChange={setOtherCost}
-                    />
-                    <CurrencyInput
-                      label={`${t('expectedSellingPrice')} *`}
-                      value={sellingPrice}
-                      onChange={setSellingPrice}
-                    />
-                    <div>
-                      <DatePicker
-                        label={`${t('purchaseDate')} *`}
-                        value={purchaseDate}
-                        onChange={setPurchaseDate}
+                <div className="space-y-8">
+                  <section className="space-y-4">
+                    <h3 className="text-lg font-medium text-neutral-900">
+                      {t('purchaseFinancialDetails')}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <CurrencyInput
+                        label={`${t('purchasePrice')} *`}
+                        value={purchasePrice}
+                        onChange={setPurchasePrice}
                       />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-neutral-900">
-                        {t('purchaseNotes')}
-                      </label>
-                      <textarea
-                        value={purchaseNotes}
-                        onChange={(e) => setPurchaseNotes(e.target.value)}
-                        rows={3}
-                        className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+                      <CurrencyInput
+                        label={t('repairCostEstimate')}
+                        value={repairCost}
+                        onChange={setRepairCost}
                       />
+                      <CurrencyInput
+                        label={t('transportCost')}
+                        value={transportCost}
+                        onChange={setTransportCost}
+                      />
+                      <CurrencyInput
+                        label={t('documentCost')}
+                        value={documentCost}
+                        onChange={setDocumentCost}
+                      />
+                      <CurrencyInput
+                        label={t('otherCost')}
+                        value={otherCost}
+                        onChange={setOtherCost}
+                      />
+                      <CurrencyInput
+                        label={`${t('expectedSellingPrice')} *`}
+                        value={sellingPrice}
+                        onChange={setSellingPrice}
+                      />
+                      <div>
+                        <DatePicker
+                          label={`${t('purchaseDate')} *`}
+                          value={purchaseDate}
+                          onChange={setPurchaseDate}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-neutral-900">
+                          {t('purchaseNotes')}
+                        </label>
+                        <textarea
+                          value={purchaseNotes}
+                          onChange={(e) => setPurchaseNotes(e.target.value)}
+                          rows={2}
+                          className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <section className="space-y-4 border-t border-neutral-200 pt-6">
+                    <h3 className="text-base font-medium text-neutral-900">
+                      {t('paymentSection')}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-2xl">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-neutral-900 mb-1">
+                          {t('paymentMethod')} *
+                        </label>
+                        <select
+                          value={paymentMethod}
+                          onChange={(e) =>
+                            setPaymentMethod(e.target.value as PaymentMethod)
+                          }
+                          className="block w-full rounded-md border-0 py-2 pl-3 pr-8 text-sm ring-1 ring-inset ring-neutral-300 bg-white"
+                        >
+                          <option value="CASH">{t('statusCash')}</option>
+                          <option value="CHEQUE">{t('statusCheque')}</option>
+                          <option value="BANK_TRANSFER">
+                            {t('statusBankTransfer')}
+                          </option>
+                        </select>
+                      </div>
+                      {showsPaymentReference && (
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-medium text-neutral-900 mb-1">
+                            {paymentReferenceLabel}
+                          </label>
+                          <input
+                            type="text"
+                            value={paymentReference}
+                            onChange={(e) =>
+                              setPaymentReference(e.target.value)
+                            }
+                            className="block w-full rounded-md border-0 py-2 px-3 text-sm ring-1 ring-inset ring-neutral-300"
+                          />
+                        </div>
+                      )}
+                      {showsPaymentNotes && (
+                        <div className="sm:col-span-2">
+                          <details className="rounded-md ring-1 ring-neutral-200 bg-neutral-50/60 open:bg-white">
+                            <summary className="cursor-pointer select-none px-3 py-2.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 [&::-webkit-details-marker]:hidden list-none">
+                              <span className="inline-flex items-center gap-1">
+                                <span aria-hidden className="text-neutral-400">
+                                  +
+                                </span>
+                                {t('paymentNotesOptional')}
+                              </span>
+                            </summary>
+                            <div className="border-t border-neutral-200 px-3 pb-3 pt-2">
+                              <textarea
+                                value={paymentNotes}
+                                onChange={(e) =>
+                                  setPaymentNotes(e.target.value)
+                                }
+                                rows={2}
+                                placeholder={t('paymentNotesOptional')}
+                                className="block w-full rounded-md border-0 py-2 px-3 text-sm text-neutral-700 ring-1 ring-inset ring-neutral-200 bg-white placeholder:text-neutral-400"
+                              />
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </div>
               )}
 
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-medium text-neutral-900">
-                    {t('paymentSection')}
-                  </h3>
-                  <div className="space-y-4 max-w-md">
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-900 mb-1">
-                        {t('paymentMethod')} *
-                      </label>
-                      <select
-                        value={paymentMethod}
-                        onChange={(e) =>
-                          setPaymentMethod(e.target.value as PaymentMethod)
-                        }
-                        className="block w-full rounded-md border-0 py-2 pl-3 pr-8 text-sm ring-1 ring-inset ring-neutral-300 bg-white"
-                      >
-                        <option value="CASH">{t('statusCash')}</option>
-                        <option value="CHEQUE">{t('statusCheque')}</option>
-                        <option value="BANK_TRANSFER">
-                          {t('statusBankTransfer')}
-                        </option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-900 mb-1">
-                        {t('paymentReference')}
-                      </label>
-                      <input
-                        type="text"
-                        value={paymentReference}
-                        onChange={(e) => setPaymentReference(e.target.value)}
-                        className="block w-full rounded-md border-0 py-2 px-3 text-sm ring-1 ring-inset ring-neutral-300"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-900 mb-1">
-                        {t('paymentNotes')}
-                      </label>
-                      <textarea
-                        value={paymentNotes}
-                        onChange={(e) => setPaymentNotes(e.target.value)}
-                        rows={3}
-                        className="block w-full rounded-md border-0 py-2 px-3 text-sm ring-1 ring-inset ring-neutral-300"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 4 && previewSnapshot && (
+              {currentStep === 3 && previewSnapshot && (
                 <div className="space-y-5">
                   <h3 className="text-lg font-medium text-neutral-900">
                     {t('stepPreviewReceipt')}

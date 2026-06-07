@@ -125,15 +125,6 @@ export function BikeDetail() {
                 >
                   {t('viewPurchaseReceipt')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(`/documents/${purchaseReceiptDoc.id}?print=1`)
-                  }
-                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
-                >
-                  {t('printPurchaseReceipt')}
-                </button>
               </>
             )}
             {cashSaleDoc && !saleLoan && (
