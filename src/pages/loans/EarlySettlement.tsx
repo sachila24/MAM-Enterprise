@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -16,17 +16,26 @@ import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { getLoanDetailFromDb } from '../../lib/local-db/loanDetail';
 import { confirmEarlySettlement } from '../../lib/local-db/repositories/earlySettlementRepo';
 import { isFixedInstallmentLoan } from '../../types/loan';
+import { useT } from '../../i18n/I18nProvider';
+import { formatMessage } from '../../lib/i18n/messages';
+import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 
 export function EarlySettlement() {
   const { id: loanId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t, tf, language } = useT();
   const { showToast } = useToast();
   const db = useDemoDb();
+  const systemToday = useSystemToday();
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [includeCurrentMonth, setIncludeCurrentMonth] = useState(true);
   const [settlementDate, setSettlementDate] = useState(
-    new Date().toISOString().split('T')[0]
+    getSystemToday()
   );
+
+  useEffect(() => {
+    setSettlementDate(systemToday);
+  }, [systemToday]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const detail = useMemo(
@@ -60,7 +69,9 @@ export function EarlySettlement() {
       installments: instAlloc,
       paymentDate: settlementDate,
       lateFeeRatePercent: loan.lateFeeRate,
+      monthlyInstallmentAmount: loan.installmentAmount,
       currentInstallmentNumber: currentNum,
+      lateFeeExemptByInstallmentId: detail.lateFeeExemptByInstallmentId,
     });
     return {
       remainingPrincipal,
@@ -96,9 +107,9 @@ export function EarlySettlement() {
   if (!loanId || !detail) {
     return (
       <div className="max-w-2xl mx-auto pt-12 text-center">
-        <p className="text-neutral-600 mb-4">Loan not found.</p>
+        <p className="text-neutral-600 mb-4">{t('loanNotFound')}</p>
         <Link to="/loans" className="text-brand-600 font-semibold">
-          Back to loans
+          {t('backToLoans')}
         </Link>
       </div>
     );
@@ -107,12 +118,15 @@ export function EarlySettlement() {
   if (!isFixedInstallmentLoan(detail.loan)) {
     return (
       <div className="max-w-2xl mx-auto pt-8">
-        <PageHeader title="Early Settlement" subtitle="Not available for this loan type." />
+        <PageHeader
+          title={t('earlySettlement')}
+          subtitle={t('earlySettlementNotAvailable')}
+        />
         <Link
           to={`/loans/${loanId}`}
           className="text-sm font-semibold text-brand-600"
         >
-          Back to loan
+          {t('backToLoan')}
         </Link>
       </div>
     );
@@ -131,11 +145,14 @@ export function EarlySettlement() {
         },
         db
       );
-      showToast(`Early settlement ${settlementCode} recorded`, 'success');
+      showToast(
+        formatMessage('earlySettlementRecorded', { code: settlementCode }, language),
+        'success'
+      );
       navigate(`/loans/${loanId}`, { replace: true });
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Could not confirm settlement',
+        err instanceof Error ? err.message : t('couldNotConfirmSettlement'),
         'error'
       );
       setIsSubmitting(false);
@@ -150,47 +167,55 @@ export function EarlySettlement() {
         className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900 mb-4"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        Back to loan
+        {t('backToLoan')}
       </button>
 
       <PageHeader
-        title="Early Settlement"
+        title={t('earlySettlement')}
         subtitle={`${detail.customer.name} · ${detail.loan.loanCode}`}
       />
 
       {!eligible && (
         <p className="mb-4 rounded-lg bg-warning-50 border border-warning-200 px-4 py-3 text-sm text-warning-800">
-          Early settlement is allowed after{' '}
-          {detail.loan.minimumMonthsBeforeSettlement} completed months. You have{' '}
-          {detail.monthsCompleted} completed so far.
+          {tf('earlySettlementEligibleAfter', {
+            months: detail.loan.minimumMonthsBeforeSettlement,
+            completed: detail.monthsCompleted,
+          })}
         </p>
       )}
 
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6 space-y-6">
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <QuoteRow label="Loan code" value={detail.loan.loanCode} mono />
-          <QuoteRow label="Customer" value={detail.customer.name} />
+          <QuoteRow label={t('loanCodeLabel')} value={detail.loan.loanCode} mono />
+          <QuoteRow label={t('field.customer')} value={detail.customer.name} />
           <QuoteRow
-            label="Finance amount"
+            label={t('financeAmount')}
             value={formatLKR(detail.loan.principalAmount)}
           />
-          <QuoteRow label="Term" value={`${detail.loan.termMonths ?? '—'} months`} />
           <QuoteRow
-            label="Months completed"
+            label={t('termMonths')}
+            value={
+              detail.loan.termMonths != null
+                ? tf('termMonthsCount', { count: detail.loan.termMonths })
+                : '—'
+            }
+          />
+          <QuoteRow
+            label={t('monthsCompleted')}
             value={String(detail.monthsCompleted)}
           />
           <QuoteRow
-            label="Monthly installment"
+            label={t('monthlyInstallment')}
             value={formatLKR(quoteInputs?.monthlyInstallment ?? 0)}
           />
           {quoteInputs && (
             <>
               <QuoteRow
-                label="Remaining principal"
+                label={t('remainingPrincipal')}
                 value={formatLKR(quoteInputs.remainingPrincipal)}
               />
               <QuoteRow
-                label="Remaining interest"
+                label={t('remainingInterest')}
                 value={formatLKR(quoteInputs.remainingInterest)}
               />
             </>
@@ -200,7 +225,7 @@ export function EarlySettlement() {
         <div className="border-t border-neutral-200 pt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-900 mb-1">
-              Discount on remaining interest (%)
+              {t('discountOnRemainingInterest')}
             </label>
             <input
               type="number"
@@ -221,10 +246,10 @@ export function EarlySettlement() {
               disabled={!eligible}
               className="rounded border-neutral-300 text-brand-600"
             />
-            Include current month due in settlement
+            {t('includeCurrentMonthDueSettlement')}
           </label>
           <DatePicker
-            label="Settlement date"
+            label={t('settlementDate')}
             value={settlementDate}
             onChange={(e) => setSettlementDate(e.target.value)}
           />
@@ -233,14 +258,14 @@ export function EarlySettlement() {
         {quote && (
           <div className="rounded-lg bg-brand-50 ring-1 ring-brand-100 p-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-brand-800">Interest discount</span>
+              <span className="text-brand-800">{t('interestDiscount')}</span>
               <span className="font-semibold tabular-nums">
                 {formatLKR(quote.discountAmount)}
               </span>
             </div>
             {includeCurrentMonth && quote.currentMonthDue > 0 && (
               <div className="flex justify-between">
-                <span className="text-brand-800">Current month due</span>
+                <span className="text-brand-800">{t('currentMonthDue')}</span>
                 <span className="font-semibold tabular-nums">
                   {formatLKR(quote.currentMonthDue)}
                 </span>
@@ -248,7 +273,7 @@ export function EarlySettlement() {
             )}
             <div className="flex justify-between border-t border-brand-200 pt-2">
               <span className="font-semibold text-brand-900">
-                Final settlement payable
+                {t('finalSettlementPayable')}
               </span>
               <span className="text-lg font-bold text-brand-700 tabular-nums">
                 {formatLKR(quote.finalSettlementAmount)}
@@ -264,10 +289,10 @@ export function EarlySettlement() {
           className="w-full sm:w-auto rounded-md bg-success-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-success-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting
-            ? 'Saving settlement…'
+            ? t('savingSettlement')
             : eligible
-              ? 'Confirm settlement'
-              : 'Settlement not available yet'}
+              ? t('confirmSettlement')
+              : t('settlementNotAvailableYet')}
         </button>
       </div>
     </div>

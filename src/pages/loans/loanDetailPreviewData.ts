@@ -13,6 +13,7 @@ import {
   calculateFixedInstallmentTotals,
   buildFixedInstallmentSchedule,
 } from '../../lib/finance/fixedInstallment';
+import { isDateBefore } from '../../lib/time/systemTime';
 import { totalPendingInterest } from '../../lib/finance/interestOnly';
 import type { InterestCycleForAllocation } from '../../lib/finance/interestOnly';
 import {
@@ -28,6 +29,25 @@ export interface PrincipalPaymentRecord {
   principalAfter: number;
 }
 
+export interface LoanLedgerPayment {
+  paymentDate: string;
+  amount: number;
+  reference?: string;
+  installmentPaid: number;
+  lateFeePaid: number;
+  interestPaid: number;
+  principalPaid: number;
+}
+
+export interface LoanLedgerInstallment {
+  installmentNumber: number;
+  dueDate: string;
+  installmentAmount: number;
+  paidAmount: number;
+  lateFeeAmount: number;
+  lateFeePaid: number;
+}
+
 export interface LoanDetailData {
   loan: Loan;
   customer: Customer;
@@ -36,7 +56,11 @@ export interface LoanDetailData {
   installments: LoanInstallment[];
   guarantees: Guarantee[];
   principalPayments: PrincipalPaymentRecord[];
+  ledgerPayments: LoanLedgerPayment[];
+  ledgerInstallments: LoanLedgerInstallment[];
   monthsCompleted: number;
+  /** Fixed-term: installments with ≥50% paid pre-grace (no late-fee accrual). */
+  lateFeeExemptByInstallmentId?: Record<string, boolean>;
 }
 
 const ts = '2026-05-15T00:00:00Z';
@@ -111,6 +135,8 @@ function buildInterestOnlyDetail(): LoanDetailData {
       },
     ],
     principalPayments: [],
+    ledgerPayments: [],
+    ledgerInstallments: [],
     monthsCompleted: 0,
   };
 }
@@ -174,6 +200,18 @@ export function buildInterestOnlyPaidDetail(): LoanDetailData {
         principalAfter: 50_000,
       },
     ],
+    ledgerPayments: [
+      {
+        paymentDate: '2026-06-20',
+        amount: 55_000,
+        reference: 'PAY-IO-001',
+        installmentPaid: 5_000,
+        lateFeePaid: 0,
+        interestPaid: 5_000,
+        principalPaid: 50_000,
+      },
+    ],
+    ledgerInstallments: [],
     monthsCompleted: 1,
   };
 }
@@ -196,7 +234,8 @@ function buildFixedDetail(): LoanDetailData {
     );
     const paidAmount = previewInst?.paidAmount ?? 0;
     const dueDate = line.dueDate;
-    const isOverdue = new Date(dueDate) < new Date(asOf) && paidAmount < line.installmentAmount;
+    const isOverdue =
+      isDateBefore(dueDate, asOf) && paidAmount < line.installmentAmount;
     let status: LoanInstallment['status'] = 'PENDING';
     if (paidAmount >= line.installmentAmount) status = 'PAID';
     else if (paidAmount > 0) status = 'PARTIAL';
@@ -227,6 +266,15 @@ function buildFixedDetail(): LoanDetailData {
     installments,
     guarantees: [],
     principalPayments: [],
+    ledgerPayments: [],
+    ledgerInstallments: installments.map((i) => ({
+      installmentNumber: i.installmentNumber,
+      dueDate: i.dueDate,
+      installmentAmount: i.installmentAmount,
+      paidAmount: i.paidAmount,
+      lateFeeAmount: i.lateFeeAmount,
+      lateFeePaid: i.lateFeePaid,
+    })),
     monthsCompleted: 4,
   };
 }

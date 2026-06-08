@@ -5,6 +5,11 @@ import type { InstallmentForAllocation } from '../finance/paymentAllocation';
 import type { PaymentPreviewBundle } from '../../pages/payments/paymentPreviewData';
 import { mapCustomer, mapLoan } from './mappers';
 import type { DbLoanInstallment, MamDemoDb } from './types';
+import { getSystemToday } from '../time/systemTime';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../finance/lateFeeExemption';
 
 function toInterestCycle(
   c: MamDemoDb['loan_interest_cycles'][0],
@@ -39,7 +44,7 @@ function toInstallmentForAllocation(
 /** Current installment = latest unpaid due on or before as-of date. */
 export function resolveCurrentInstallmentNumber(
   installments: DbLoanInstallment[],
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): number {
   if (installments.length === 0) return 1;
   return resolveFixedCurrentInstallment(
@@ -68,6 +73,10 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
     {};
   const installmentsByLoanId: Record<string, InstallmentForAllocation[]> = {};
   const currentInstallmentNumberByLoanId: Record<string, number> = {};
+  const lateFeeExemptByInstallmentIdByLoanId: Record<
+    string,
+    Record<string, boolean>
+  > = {};
 
   for (const loan of activeLoans) {
     const cycles = db.loan_interest_cycles
@@ -76,7 +85,7 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
     if (cycles.length > 0) {
       const dueCount = countInterestCyclesDueByDate(
         loan.start_date,
-        new Date().toISOString().split('T')[0]
+        getSystemToday()
       );
       interestCyclesByLoanId[loan.id] = cycles.map((c) =>
         toInterestCycle(c, c.cycle_number === dueCount)
@@ -90,6 +99,11 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
       installmentsByLoanId[loan.id] = installments.map(toInstallmentForAllocation);
       currentInstallmentNumberByLoanId[loan.id] =
         resolveCurrentInstallmentNumber(installments);
+      if (loan.repayment_method === 'FIXED_TERM_INSTALLMENT') {
+        lateFeeExemptByInstallmentIdByLoanId[loan.id] = toLateFeeExemptRecord(
+          buildLateFeeExemptByInstallmentId(db, loan.id)
+        );
+      }
     }
   }
 
@@ -101,5 +115,6 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
     interestCyclesByLoanId,
     installmentsByLoanId,
     currentInstallmentNumberByLoanId,
+    lateFeeExemptByInstallmentIdByLoanId,
   };
 }

@@ -30,6 +30,10 @@ export interface Bike {
   year: number;
   soldDate?: string;
   soldLoanId?: string;
+  purchasedFromCustomerId?: string;
+  purchaseReceiptId?: string;
+  purchasePaymentMethod?: string;
+  acquisitionSource?: 'purchase' | 'import' | 'trade_in';
 }
 
 export type {
@@ -87,6 +91,17 @@ export interface Guarantee {
   guaranteeCode: string;
   loanId: string;
   type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
+  fileNumber?: string;
+  vehicleNumber?: string;
+  guarantor1Name?: string;
+  guarantor1Address?: string;
+  guarantor1Phone?: string;
+  guarantor1Nic?: string;
+  guarantor2Name?: string;
+  guarantor2Address?: string;
+  guarantor2Phone?: string;
+  guarantor2Nic?: string;
+  /** Legacy */
   itemReference?: string;
   ownerNameOnDocument?: string;
   description: string;
@@ -128,6 +143,8 @@ export interface ActivityLog {
   id: string;
   when: string;
   userId: string;
+  /** Display name when staff list is unavailable */
+  user?: string;
   action: string;
   type: 'loan' | 'payment' | 'bike' | 'customer' | 'guarantee' | 'system';
   summary: string;
@@ -135,25 +152,17 @@ export interface ActivityLog {
 }
 
 export interface DashboardKpis {
-  todayCollections: number;
-  todayTarget: number;
+  todayExpectedCollections: number;
   todayPaymentsCount: number;
   overdueCount: number;
-  cashOnHand: number;
-  outstandingPortfolio: number;
-  monthNet: number;
   inStockCount: number;
   soldThisMonth: number;
 }
 
 export const EMPTY_DASHBOARD_KPIS: DashboardKpis = {
-  todayCollections: 0,
-  todayTarget: 0,
+  todayExpectedCollections: 0,
   todayPaymentsCount: 0,
   overdueCount: 0,
-  cashOnHand: 0,
-  outstandingPortfolio: 0,
-  monthNet: 0,
   inStockCount: 0,
   soldThisMonth: 0,
 };

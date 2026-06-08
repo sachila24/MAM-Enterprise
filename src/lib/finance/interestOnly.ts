@@ -44,6 +44,20 @@ export function interestOutstandingOnCycle(
   return roundLKR(Math.max(0, cycle.interestDue - cycle.interestPaid));
 }
 
+export type InterestCyclePersistedStatus = 'PAID' | 'PARTIAL' | 'PENDING';
+
+/** Cycle status from due vs paid (rounded LKR). */
+export function deriveInterestCycleStatus(
+  interestDue: number,
+  interestPaid: number
+): InterestCyclePersistedStatus {
+  if (interestOutstandingOnCycle({ interestDue, interestPaid }) <= 0) {
+    return 'PAID';
+  }
+  if (roundLKR(interestPaid) > 0) return 'PARTIAL';
+  return 'PENDING';
+}
+
 /** Sum of unpaid interest across all open cycles. */
 export function totalPendingInterest(
   cycles: InterestCycleForAllocation[]

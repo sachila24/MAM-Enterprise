@@ -10,6 +10,17 @@ import {
 } from './mappers';
 import type { MamDemoDb } from './types';
 import { getDb } from './localDb';
+import { getSystemDate, getSystemToday } from '../time/systemTime';
+import {
+  mapInstallmentsToLedgerSource,
+  mapLedgerPaymentsFromDb,
+} from '../display/ledgerDisplay';
+import { findPaymentReceiptDocument } from '../documents/documentService';
+import { getLabel } from '../i18n/simpleLabels';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../finance/lateFeeExemption';
 
 export function getLoanDetailFromDb(
   loanId: string,
@@ -57,8 +68,38 @@ export function getLoanDetailFromDb(
     .filter((g) => g.loan_id === loanId)
     .map(mapGuarantee);
 
-  const principalPayments = db.loan_payments
-    .filter((p) => p.loan_id === loanId && p.status === 'CONFIRMED')
+  const loanPaymentRows = db.loan_payments.filter((p) => p.loan_id === loanId);
+  const ledgerPayments = mapLedgerPaymentsFromDb(
+    loanPaymentRows.map((p) => {
+      const receiptDoc = findPaymentReceiptDocument(db, p.id);
+      return {
+        ...p,
+        receipt_number:
+          receiptDoc?.document_number?.trim() || p.receipt_number,
+      };
+    }),
+    db.payment_allocations.filter((a) => a.loan_id === loanId),
+    {
+      installments: installments.map((i) => ({
+        id: i.id,
+        installmentNumber: i.installmentNumber,
+        dueDate: i.dueDate,
+      })),
+      interestCycles: interestCycles.map((c) => ({
+        id: c.id,
+        cycleNumber: c.cycleNumber,
+        dueDate: c.dueDate,
+      })),
+    },
+    {
+      half: getLabel('ledgerPrincipalSettlementHalf', 'en'),
+      full: getLabel('ledgerPrincipalSettlementFull', 'en'),
+    }
+  );
+  const ledgerInstallments = mapInstallmentsToLedgerSource(installments);
+
+  const principalPayments = loanPaymentRows
+    .filter((p) => p.status === 'CONFIRMED')
     .flatMap((p) => {
       const principalAllocs = db.payment_allocations.filter(
         (a) =>
@@ -84,7 +125,7 @@ export function getLoanDetailFromDb(
     interestPaid: c.interestPaid,
     principalPaid: c.principalPaid,
   }));
-  const asOf = new Date().toISOString().split('T')[0];
+  const asOf = getSystemToday();
   const ioSummary =
     dbLoan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL'
       ? summarizeInterestOnlyLoan(
@@ -102,13 +143,18 @@ export function getLoanDetailFromDb(
       ? installments.filter((i) => i.status === 'PAID').length
       : (() => {
           const start = new Date(dbLoan.start_date);
-          const now = new Date();
+          const now = getSystemDate();
           return Math.max(
             0,
             (now.getFullYear() - start.getFullYear()) * 12 +
               (now.getMonth() - start.getMonth())
           );
         })();
+
+  const lateFeeExemptByInstallmentId =
+    dbLoan.repayment_method === 'FIXED_TERM_INSTALLMENT'
+      ? toLateFeeExemptRecord(buildLateFeeExemptByInstallmentId(db, loanId))
+      : undefined;
 
   return {
     loan: {
@@ -122,7 +168,10 @@ export function getLoanDetailFromDb(
     installments,
     guarantees,
     principalPayments,
+    ledgerPayments,
+    ledgerInstallments,
     monthsCompleted,
+    lateFeeExemptByInstallmentId,
   };
 }
 

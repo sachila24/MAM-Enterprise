@@ -5,10 +5,12 @@ import {
 } from '../finance/dueDates';
 import {
   calculateMonthlyInterestDue,
+  deriveInterestCycleStatus,
   totalPendingInterest,
   type InterestCycleForAllocation,
 } from '../finance/interestOnly';
 import { generateId, saveDb } from './localDb';
+import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { DbLoan, DbLoanInterestCycle, MamDemoDb } from './types';
 
 function toAllocationCycle(c: DbLoanInterestCycle): InterestCycleForAllocation {
@@ -21,15 +23,6 @@ function toAllocationCycle(c: DbLoanInterestCycle): InterestCycleForAllocation {
     interestPaid: c.interest_paid,
     principalPaid: c.principal_paid,
   };
-}
-
-function deriveCycleStatus(
-  interestDue: number,
-  interestPaid: number
-): DbLoanInterestCycle['status'] {
-  if (interestPaid >= interestDue) return 'PAID';
-  if (interestPaid > 0) return 'PARTIAL';
-  return 'PENDING';
 }
 
 function openingPrincipalForCycle(
@@ -70,7 +63,7 @@ function mutateInterestOnlyCycles(
     return false;
   }
 
-  const ts = new Date().toISOString();
+  const ts = getSystemTimestamp();
   const dueCount = countInterestCyclesDueByDate(loan.start_date, asOfDate);
   let changed = false;
 
@@ -118,7 +111,7 @@ function mutateInterestOnlyCycles(
     .sort((a, b) => a.cycle_number - b.cycle_number);
 
   for (const cycle of allCycles) {
-    const nextStatus = deriveCycleStatus(
+    const nextStatus = deriveInterestCycleStatus(
       cycle.interest_due,
       cycle.interest_paid
     );
@@ -154,7 +147,7 @@ function mutateInterestOnlyCycles(
 export function persistInterestOnlyCycles(
   db: MamDemoDb,
   loanId: string,
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): boolean {
   const changed = mutateInterestOnlyCycles(db, loanId, asOfDate);
   if (changed) {
@@ -166,7 +159,7 @@ export function persistInterestOnlyCycles(
 /** Sync every interest-only loan once (app init). */
 export function syncAllInterestOnlyLoans(
   db: MamDemoDb,
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): void {
   let changed = false;
   for (const loan of db.loans) {

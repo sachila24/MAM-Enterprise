@@ -17,9 +17,9 @@ import { EarlySettlement } from './pages/loans/EarlySettlement';
 import { PaymentsList } from './pages/payments/PaymentsList';
 import { RecordPayment } from './pages/payments/RecordPayment';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
-import { ReceiptsList } from './pages/receipts/ReceiptsList';
 import { BikesList } from './pages/bikes/BikesList';
 import { BikeForm } from './pages/bikes/BikeForm';
+import { BikePurchase } from './pages/bikes/BikePurchase';
 import { BikeDetail } from './pages/bikes/BikeDetail';
 import { GuaranteesList } from './pages/guarantees/GuaranteesList';
 import { AddGuarantee } from './pages/guarantees/AddGuarantee';
@@ -28,14 +28,18 @@ import { ExpensesList } from './pages/expenses/ExpensesList';
 import { AddExpense } from './pages/expenses/AddExpense';
 import { Reports } from './pages/reports/Reports';
 import { Backup } from './pages/admin/Backup';
-import { Staff } from './pages/admin/Staff';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
+import { DevTimePanel } from './components/dev/DevTimePanel';
+import { DocumentsList } from './pages/documents/DocumentsList';
+import { DocumentView } from './pages/documents/DocumentView';
+
 export function App() {
   return (
     <I18nProvider>
       <FormatModeSync />
       <ToastProvider>
+        <DevTimePanel />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -69,11 +73,15 @@ export function App() {
                 <Route path="success" element={<PaymentSuccess />} />
               </Route>
 
-              <Route path="receipts" element={<ReceiptsList />} />
+              <Route path="documents">
+                <Route index element={<DocumentsList />} />
+                <Route path=":id" element={<DocumentView />} />
+              </Route>
 
               <Route path="bikes">
                 <Route index element={<BikesList />} />
-                <Route path="new" element={<BikeForm />} />
+                <Route path="purchase" element={<BikePurchase />} />
+                <Route path="new" element={<Navigate to="/bikes/purchase" replace />} />
                 <Route path=":id/edit" element={<BikeForm />} />
                 <Route path=":id" element={<BikeDetail />} />
               </Route>
@@ -93,7 +101,6 @@ export function App() {
 
               <Route path="activity" element={<ActivityLog />} />
               <Route path="backup" element={<Backup />} />
-              <Route path="staff" element={<Staff />} />
               <Route path="settings" element={<Settings />} />
 
               <Route path="*" element={<Navigate to="/" replace />} />

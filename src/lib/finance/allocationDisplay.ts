@@ -1,9 +1,10 @@
 import type { PaymentAllocationResult } from './paymentAllocation';
 import type { InstallmentForAllocation } from './paymentAllocation';
 import {
-  calculateInstallmentLateFee,
+  runLateFeeEngine,
   type InstallmentArrearsInput,
 } from './fixedInstallmentStatus';
+import { getLateFeeLineByInstallmentId } from './lateFeeEngineV3';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
 import {
   interestOutstandingOnCycle,
@@ -78,7 +79,9 @@ export function buildFixedInstallmentAllocationRows(
   installments: InstallmentForAllocation[],
   allocation: PaymentAllocationResult,
   paymentDate: string,
-  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT
+  lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
+  monthlyInstallmentAmount?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): AllocationDisplayRow[] {
   const rows: AllocationDisplayRow[] = [];
   const paidByInst = new Map<string, { late: number; inst: number }>();
@@ -105,20 +108,24 @@ export function buildFixedInstallmentAllocationRows(
     (a, b) => a.installmentNumber - b.installmentNumber
   );
 
+  const engine = runLateFeeEngine(
+    sorted.map((i) => ({
+      id: i.id,
+      installmentNumber: i.installmentNumber,
+      dueDate: i.dueDate,
+      installmentAmount: i.installmentAmount,
+      paidAmount: i.paidAmount,
+      lateFeeAmount: i.lateFeeAmount,
+      lateFeePaid: i.lateFeePaid,
+    })),
+    monthlyInstallmentAmount ?? sorted[0]?.installmentAmount ?? 0,
+    lateFeeRatePercent,
+    { paymentDate, lateFeeExemptByInstallmentId }
+  );
+
   for (const inst of sorted) {
-    const instInput: InstallmentArrearsInput = {
-      installmentNumber: inst.installmentNumber,
-      dueDate: inst.dueDate,
-      installmentAmount: inst.installmentAmount,
-      paidAmount: inst.paidAmount,
-      lateFeeAmount: inst.lateFeeAmount,
-      lateFeePaid: inst.lateFeePaid,
-    };
-    const { lateFeeOutstanding } = calculateInstallmentLateFee(
-      instInput,
-      lateFeeRatePercent,
-      paymentDate
-    );
+    const line = getLateFeeLineByInstallmentId(engine, inst.id);
+    const lateFeeOutstanding = line?.lateFeeOutstanding ?? 0;
     const instOwed = installmentOutstanding(inst);
     const paid = paidByInst.get(inst.id) ?? { late: 0, inst: 0 };
 

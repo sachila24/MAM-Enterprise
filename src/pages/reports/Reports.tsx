@@ -1,39 +1,31 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   DownloadIcon,
   FileTextIcon,
-  CalendarIcon,
   ClockIcon } from
 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { formatDateTime } from '../../lib/format';
-const reportCategories = [
-{
-  id: 'collections',
-  label: 'Collections',
-  icon: FileTextIcon
-},
-{
-  id: 'loans',
-  label: 'Loans & Risk',
-  icon: FileTextIcon
-},
-{
-  id: 'bikes',
-  label: 'Bike Stock',
-  icon: FileTextIcon
-},
-{
-  id: 'guarantees',
-  label: 'Guarantees',
-  icon: FileTextIcon
-},
-{
-  id: 'expenses',
-  label: 'Expenses',
-  icon: FileTextIcon
-}];
+import { useT } from '../../i18n/I18nProvider';
+import {
+  formatMessage,
+  reportCsvHeaderLine,
+  type ReportCsvType,
+} from '../../lib/i18n/messages';
+import {
+  createUtf8CsvBlob,
+  generateReportCsvRows,
+} from '../../lib/reports/reportCsv';
+
+const REPORT_CATEGORY_IDS = [
+  'collections',
+  'income',
+  'loans',
+  'bikes',
+  'guarantees',
+  'expenses',
+] as const;
 
 interface RecentDownload {
   id: number;
@@ -41,23 +33,87 @@ interface RecentDownload {
   date: string;
 }
 
+function currentMonthValue(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
 export function Reports() {
+  const { t, language } = useT();
+  const reportCategories = useMemo(
+    () =>
+      REPORT_CATEGORY_IDS.map((id) => ({
+        id,
+        label:
+          id === 'collections'
+            ? t('reportCategoryCollections')
+            : id === 'income'
+              ? t('reportCategoryIncome')
+              : id === 'loans'
+              ? t('reportCategoryLoans')
+              : id === 'bikes'
+                ? t('reportCategoryBikes')
+                : id === 'guarantees'
+                  ? t('reportCategoryGuarantees')
+                  : t('reportCategoryExpenses'),
+        icon: FileTextIcon,
+      })),
+    [t]
+  );
   const recentDownloads: RecentDownload[] = [];
   const [activeCategory, setActiveCategory] = useState('collections');
   const [isGenerating, setIsGenerating] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      // Simulate download
-    }, 1500);
+  const [collectionsMonth, setCollectionsMonth] = useState(currentMonthValue);
+  const [incomeMonth, setIncomeMonth] = useState(currentMonthValue);
+  const [expensesMonth, setExpensesMonth] = useState(currentMonthValue);
+
+  const downloadCsv = (
+    reportType: ReportCsvType,
+    filename: string,
+    options: { date?: string; month?: string } = {}
+  ) => {
+    const header = reportCsvHeaderLine(reportType, language);
+    const rows = generateReportCsvRows(reportType, {
+      date: options.date,
+      month: options.month,
+      language,
+    });
+    const generated = formatMessage(
+      'generatedOn',
+      { date: new Date().toLocaleString() },
+      language
+    );
+    const body =
+      rows.length > 0
+        ? `${header}\n${rows.join('\n')}`
+        : `${header}\n${generated},${t('noDataAvailable')}`;
+    const blob = createUtf8CsvBlob(body);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   };
+
+  const handleGenerate = (
+    reportType: ReportCsvType = 'dailyCollections',
+    options: { date?: string; month?: string } = {}
+  ) => {
+    setIsGenerating(true);
+    try {
+      const suffix = options.month ?? options.date ?? date;
+      downloadCsv(reportType, `mam-report-${reportType}-${suffix}.csv`, options);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="Reports"
-        subtitle="Download CSV summaries for day-to-day office work" />
+        title={t('nav.reports')}
+        subtitle={t('reportsSubtitle')} />
       
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -90,51 +146,142 @@ export function Reports() {
               <div className="space-y-8">
                   <div>
                     <h3 className="text-lg font-semibold text-neutral-900">
-                      Daily Collection Report
+                      {t('dailyReport')}
                     </h3>
                     <p className="mt-1 text-sm text-neutral-500">
-                      Payments received on the selected date.
+                      {t('dailyReportHint')}
                     </p>
                     <div className="mt-4 max-w-xs">
                       <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                        Select Date
+                        {t('selectDate')}
                       </label>
-                      <DatePicker value={date} onChange={setDate} />
+                      <DatePicker
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                      />
                     </div>
                     <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate('dailyCollections', { date })}
                     disabled={isGenerating}
                     className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
                     
                       <DownloadIcon className="-ml-0.5 h-5 w-5" />
-                      {isGenerating ? 'Generating...' : 'Download CSV'}
+                      {isGenerating ? t('generating') : t('downloadCSV')}
                     </button>
                   </div>
 
                   <div className="border-t border-neutral-200 pt-8">
                     <h3 className="text-lg font-semibold text-neutral-900">
-                      Monthly Collection Report
+                      {t('monthlyReport')}
                     </h3>
                     <p className="mt-1 text-sm text-neutral-500">
-                      Totals for the selected month.
+                      {t('monthlyReportHint')}
                     </p>
                     <div className="mt-4 max-w-xs">
                       <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                        Select Month
+                        {t('selectMonth')}
                       </label>
                       <input
                       type="month"
-                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
-                      defaultValue="2026-05" />
-                    
+                      value={collectionsMonth}
+                      onChange={(e) => setCollectionsMonth(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
                     </div>
                     <button
-                    onClick={handleGenerate}
+                    onClick={() =>
+                      handleGenerate('monthlyCollections', {
+                        month: collectionsMonth,
+                      })
+                    }
                     disabled={isGenerating}
                     className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
-                    
                       <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
-                      {isGenerating ? 'Generating...' : 'Download CSV'}
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              {activeCategory === 'income' &&
+              <div className="space-y-8">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('dailyIncomeReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('dailyIncomeReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectDate')}
+                      </label>
+                      <DatePicker
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                      />
+                    </div>
+                    <button
+                    onClick={() => handleGenerate('dailyIncome', { date })}
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+
+                  <div className="border-t border-neutral-200 pt-8">
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('monthlyIncomeReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('monthlyIncomeReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectMonth')}
+                      </label>
+                      <input
+                      type="month"
+                      value={incomeMonth}
+                      onChange={(e) => setIncomeMonth(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
+                    </div>
+                    <button
+                    onClick={() =>
+                      handleGenerate('monthlyIncome', { month: incomeMonth })
+                    }
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
+                    </button>
+                  </div>
+
+                  <div className="border-t border-neutral-200 pt-8">
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {t('incomeSummaryReport')}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {t('incomeSummaryReportHint')}
+                    </p>
+                    <div className="mt-4 max-w-xs">
+                      <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
+                        {t('selectMonth')}
+                      </label>
+                      <input
+                      type="month"
+                      value={incomeMonth}
+                      onChange={(e) => setIncomeMonth(e.target.value)}
+                      className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
+                    </div>
+                    <button
+                    onClick={() =>
+                      handleGenerate('incomeSummary', { month: incomeMonth })
+                    }
+                    disabled={isGenerating}
+                    className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
+                      <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
+                      {isGenerating ? t('generating') : t('downloadCSV')}
                     </button>
                   </div>
                 </div>
@@ -144,50 +291,50 @@ export function Reports() {
               <div className="space-y-8">
                   <div>
                     <h3 className="text-lg font-semibold text-neutral-900">
-                      Active Loans
+                      {t('activeLoansReport')}
                     </h3>
                     <p className="mt-1 text-sm text-neutral-500">
-                      All loans that are still running.
+                      {t('activeLoansReportHint')}
                     </p>
                     <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate('activeLoans')}
                     disabled={isGenerating}
                     className="mt-4 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
                     
                       <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
-                      Download CSV
+                      {t('downloadCSV')}
                     </button>
                   </div>
                   <div className="border-t border-neutral-200 pt-8">
                     <h3 className="text-lg font-semibold text-neutral-900">
-                      Overdue Loans
+                      {t('overdueLoansReport')}
                     </h3>
                     <p className="mt-1 text-sm text-neutral-500">
-                      Loans past due that still have a balance.
+                      {t('overdueLoansReportHint')}
                     </p>
                     <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate('overdueLoans')}
                     disabled={isGenerating}
                     className="mt-4 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
                     
                       <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
-                      Download CSV
+                      {t('downloadCSV')}
                     </button>
                   </div>
                   <div className="border-t border-neutral-200 pt-8">
                     <h3 className="text-lg font-semibold text-neutral-900">
-                      Completed Loans
+                      {t('completedLoansReport')}
                     </h3>
                     <p className="mt-1 text-sm text-neutral-500">
-                      Loans fully paid or closed as completed.
+                      {t('completedLoansReportHint')}
                     </p>
                     <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate('completedLoans')}
                     disabled={isGenerating}
                     className="mt-4 inline-flex items-center gap-x-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50">
                     
                       <DownloadIcon className="-ml-0.5 h-5 w-5 text-neutral-400" />
-                      Download CSV
+                      {t('downloadCSV')}
                     </button>
                   </div>
                 </div>
@@ -196,18 +343,18 @@ export function Reports() {
               {activeCategory === 'bikes' &&
               <div>
                   <h3 className="text-lg font-semibold text-neutral-900">
-                    Bike Stock
+                    {t('bikeStockReport')}
                   </h3>
                   <p className="mt-1 text-sm text-neutral-500">
-                    Current inventory and key numbers.
+                    {t('bikeStockReportHint')}
                   </p>
                   <button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate('bikeStock')}
                   disabled={isGenerating}
                   className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
                   
                     <DownloadIcon className="-ml-0.5 h-5 w-5" />
-                    Download CSV
+                    {t('downloadCSV')}
                   </button>
                 </div>
               }
@@ -215,18 +362,18 @@ export function Reports() {
               {activeCategory === 'guarantees' &&
               <div>
                   <h3 className="text-lg font-semibold text-neutral-900">
-                    Guarantee Reports
+                    {t('guaranteeReports')}
                   </h3>
                   <p className="mt-1 text-sm text-neutral-500">
-                    Guarantees held: items you are still holding for loans.
+                    {t('guaranteeReportsHint')}
                   </p>
                   <button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate('guaranteesHeld')}
                   disabled={isGenerating}
                   className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
                   
                     <DownloadIcon className="-ml-0.5 h-5 w-5" />
-                    Download CSV
+                    {t('downloadCSV')}
                   </button>
                 </div>
               }
@@ -234,28 +381,31 @@ export function Reports() {
               {activeCategory === 'expenses' &&
               <div>
                   <h3 className="text-lg font-semibold text-neutral-900">
-                    Expense Reports
+                    {t('expenseReports')}
                   </h3>
                   <p className="mt-1 text-sm text-neutral-500">
-                    Expenses: spending by date and category.
+                    {t('expenseReportsHint')}
                   </p>
                   <div className="mt-4 max-w-xs">
                     <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                      Select Month
+                      {t('selectMonth')}
                     </label>
                     <input
                     type="month"
-                    className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
-                    defaultValue="2026-05" />
+                    value={expensesMonth}
+                    onChange={(e) => setExpensesMonth(e.target.value)}
+                    className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
                   
                   </div>
                   <button
-                  onClick={handleGenerate}
+                  onClick={() =>
+                    handleGenerate('expenses', { month: expensesMonth })
+                  }
                   disabled={isGenerating}
                   className="mt-6 inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
                   
                     <DownloadIcon className="-ml-0.5 h-5 w-5" />
-                    Download CSV
+                    {t('downloadCSV')}
                   </button>
                 </div>
               }
@@ -266,12 +416,12 @@ export function Reports() {
         {/* Far Right: Recent Downloads */}
         <div className="lg:col-span-3">
           <h3 className="text-sm font-medium text-neutral-900 mb-4">
-            Recent Downloads
+            {t('recentDownloads')}
           </h3>
           <ul className="space-y-3">
             {recentDownloads.length === 0 && (
               <li className="text-sm text-neutral-500">
-                No downloads yet. Generate a report to see it here.
+                {t('noDownloadsYet')}
               </li>
             )}
             {recentDownloads.map((dl) =>

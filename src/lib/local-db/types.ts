@@ -43,6 +43,14 @@ export interface DbBike {
   purchase_date: string;
   sold_date?: string;
   sold_loan_id?: string;
+  /** Customer who sold the bike to the showroom */
+  purchased_from_customer_id?: string;
+  /** Locked BIKE_PURCHASE_RECEIPT document */
+  purchase_receipt_id?: string;
+  purchase_payment_method?: string;
+  purchase_payment_reference?: string;
+  acquired_by_user_id?: string;
+  acquisition_source?: 'PURCHASE' | 'IMPORT' | 'TRADE_IN';
   created_at: string;
   updated_at: string;
 }
@@ -74,13 +82,38 @@ export interface DbLoan {
   start_date: string;
   first_due_date: string;
   due_day?: number;
+  preferred_due_day?: number;
   due_date?: string;
   minimum_months_before_settlement: number;
   status: 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED' | 'SETTLED';
   notes?: string;
   pending_interest_amount: number;
+  /** Business income at creation — not principal */
+  service_fee?: number;
+  registration_fee?: number;
+  /** Initial payment (gross cash from customer at creation) */
+  customer_paid_amount?: number;
+  /** Net advance: initial − service − registration */
+  advance_payment?: number;
   created_at: string;
   updated_at: string;
+}
+
+export type CashTransactionType =
+  | 'LOAN_ADVANCE_PAYMENT'
+  | 'SERVICE_FEE_INCOME'
+  | 'REGISTRATION_FEE_INCOME';
+
+export interface DbCashTransaction {
+  id: string;
+  transaction_code: string;
+  loan_id: string;
+  customer_id: string;
+  transaction_type: CashTransactionType;
+  amount: number;
+  transaction_date: string;
+  notes?: string;
+  created_at: string;
 }
 
 export interface DbLoanInstallment {
@@ -135,6 +168,11 @@ export interface DbLoanPayment {
   client_submit_id?: string;
   notes?: string;
   status: 'CONFIRMED' | 'VOIDED';
+  /** Permanent allocation totals recorded at payment time */
+  installment_paid?: number;
+  late_fee_paid?: number;
+  interest_paid?: number;
+  principal_paid?: number;
   created_at: string;
   updated_at: string;
 }
@@ -183,11 +221,22 @@ export interface DbGuarantee {
   loan_id: string;
   customer_id: string;
   item_type: 'VEHICLE_BOOK' | 'BIKE' | 'GOLD' | 'ELECTRONICS' | 'OTHER';
-  /** Vehicle number / item reference */
+  /** Simplified guarantee fields (all optional) */
+  file_number?: string;
+  vehicle_number?: string;
+  guarantor1_name?: string;
+  guarantor1_address?: string;
+  guarantor1_phone?: string;
+  guarantor1_nic?: string;
+  guarantor2_name?: string;
+  guarantor2_address?: string;
+  guarantor2_phone?: string;
+  guarantor2_nic?: string;
+  /** Legacy fields — kept for existing saved rows */
   item_reference?: string;
   owner_name_on_document?: string;
-  description: string;
-  storage_location: string;
+  description?: string;
+  storage_location?: string;
   notes?: string;
   status: 'HELD' | 'RELEASED';
   received_at: string;
@@ -236,6 +285,55 @@ export interface DbAuditLog {
   created_at: string;
 }
 
+export type BusinessCurrency = 'LKR' | 'USD';
+export type BusinessLanguage = 'EN' | 'SI' | 'TA';
+
+export interface DbBusinessSettings {
+  business_name: string;
+  registration_number: string;
+  address: string;
+  contact_phone: string;
+  default_currency: BusinessCurrency;
+  default_language: BusinessLanguage;
+  receipt_footer_note: string;
+  staff_activity_log_access: boolean;
+  updated_at: string;
+}
+
+/** Local demo app sign-in password (PBKDF2 hash + salt). */
+export interface DbAppAuth {
+  password_hash: string;
+  password_salt: string;
+  updated_at: string;
+}
+
+export type DocumentType =
+  | 'LOAN_CREATION'
+  | 'LOAN_RELEASE'
+  | 'PAYMENT_RECEIPT'
+  | 'CASH_SALE'
+  | 'BIKE_PURCHASE_RECEIPT';
+
+export type DocumentStatus = 'ISSUED' | 'VOID';
+
+export interface DbDocument {
+  id: string;
+  document_number: string;
+  document_type: DocumentType;
+  loan_id?: string;
+  payment_id?: string;
+  customer_id?: string;
+  bike_id?: string;
+  created_at: string;
+  created_by?: string;
+  total_amount: number;
+  status: DocumentStatus;
+  locked: boolean;
+  print_count: number;
+  last_printed_at?: string;
+  metadata_json: Record<string, unknown>;
+}
+
 export interface MamDemoDb {
   version: 1;
   profiles: DbProfile[];
@@ -249,8 +347,12 @@ export interface MamDemoDb {
   early_settlements: DbEarlySettlement[];
   guarantees: DbGuarantee[];
   receipts: DbReceipt[];
+  documents: DbDocument[];
   expenses: DbExpense[];
+  cash_transactions: DbCashTransaction[];
   audit_logs: DbAuditLog[];
+  business_settings: DbBusinessSettings;
+  app_auth: DbAppAuth;
   /** Next sequence per code prefix e.g. CUS: 3 */
   counters: Record<string, number>;
 }

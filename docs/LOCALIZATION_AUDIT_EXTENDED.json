@@ -1,0 +1,457 @@
+﻿{
+  "summary": {
+    "srcFiles": 151,
+    "simpleLabelKeys": 877,
+    "documentLabelKeys": 87,
+    "receiptLabelStrings": 40,
+    "legacyEnKeys": 40,
+    "legacySiKeys": 40,
+    "legacyOverlapWithSimpleLabels": 40,
+    "usedKeys": 654,
+    "unusedKeys": 227,
+    "missingKeys": 0,
+    "duplicateEnglishConcepts": 63,
+    "sinhalaFileCount": 9,
+    "tsxWithUseT": 48,
+    "tsxWithoutUseT": 9,
+    "jsxHardcodedEnglishFiles": 10,
+    "totalJsxHardcodedSnippets": 24
+  },
+  "dictionaryFiles": [
+    "src/lib/i18n/simpleLabels.ts",
+    "src/lib/i18n/documentLabels.ts",
+    "src/lib/i18n/receiptLabels.ts",
+    "src/lib/i18n/sinhalaNaturalizer.ts",
+    "src/i18n/dictionaries/en.ts",
+    "src/i18n/dictionaries/si.ts",
+    "src/i18n/dictionaries/ta.ts"
+  ],
+  "sinhalaFiles": [
+    "src/components/documents/LoanInvoicePrint.tsx",
+    "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+    "src/components/loans/LoanPaymentBreakdown.tsx",
+    "src/i18n/dictionaries/si.ts",
+    "src/lib/i18n/documentLabels.ts",
+    "src/lib/i18n/receiptLabels.ts",
+    "src/lib/i18n/simpleLabels.ts",
+    "src/lib/i18n/sinhalaNaturalizer.ts",
+    "src/lib/pdf/receiptPdfGenerator.ts"
+  ],
+  "legacyOverlapKeys": [
+    "nav.dashboard",
+    "nav.customers",
+    "nav.loans",
+    "nav.payments",
+    "nav.documents",
+    "nav.bikeStock",
+    "nav.guarantees",
+    "nav.expenses",
+    "nav.reports",
+    "nav.backup",
+    "nav.staff",
+    "nav.settings",
+    "nav.activityLog",
+    "navGroup.operate",
+    "navGroup.inventory",
+    "navGroup.records",
+    "navGroup.admin",
+    "action.save",
+    "action.cancel",
+    "action.add",
+    "action.edit",
+    "action.delete",
+    "action.search",
+    "action.filter",
+    "action.export",
+    "action.back",
+    "action.next",
+    "action.confirm",
+    "field.name",
+    "field.phone",
+    "field.address",
+    "field.date",
+    "field.amount",
+    "field.notes",
+    "field.status",
+    "field.type",
+    "misc.comingSoon",
+    "misc.phase",
+    "misc.signOut",
+    "misc.profile"
+  ],
+  "tsxWithoutUseT": [
+    "src/components/dev/DevTimePanel.tsx",
+    "src/components/ui/CurrencyInput.tsx",
+    "src/components/ui/DatePicker.tsx",
+    "src/components/ui/EmptyState.tsx",
+    "src/components/ui/FilterToolbar.tsx",
+    "src/components/ui/KpiCard.tsx",
+    "src/components/ui/PageHeader.tsx",
+    "src/components/ui/Stepper.tsx",
+    "src/components/ui/Toast.tsx"
+  ],
+  "topHardcodedJsx": [
+    {
+      "file": "src/components/dev/DevTimePanel.tsx",
+      "count": 7,
+      "samples": [
+        "Simulated date",
+        "Simulated",
+        "Real system",
+        "Apply",
+        "Reset to Real Time",
+        "Quick advance"
+      ]
+    },
+    {
+      "file": "src/pages/Login.tsx",
+      "count": 5,
+      "samples": [
+        "MAM",
+        "M A M TRADING ENTERPRISE",
+        "Empowering your journey with flexible finance.",
+        "M A M TRADING"
+      ]
+    },
+    {
+      "file": "src/components/documents/PaymentReceiptDocumentPrint.tsx",
+      "count": 2,
+      "samples": [
+        "MAM TRADING",
+        "No.47, Galmaduwa, Mahailuppallama"
+      ]
+    },
+    {
+      "file": "src/components/layout/AppShell.tsx",
+      "count": 2,
+      "samples": [
+        "MAM",
+        "M A M TRADING"
+      ]
+    },
+    {
+      "file": "src/components/layout/Header.tsx",
+      "count": 2,
+      "samples": [
+        "Sachila",
+        "Owner"
+      ]
+    },
+    {
+      "file": "src/components/layout/Sidebar.tsx",
+      "count": 2,
+      "samples": [
+        "MAM",
+        "M A M TRADING"
+      ]
+    },
+    {
+      "file": "src/components/documents/CashSaleInvoicePrint.tsx",
+      "count": 1,
+      "samples": [
+        "No.47, Galmaduwa, Mahailuppallama"
+      ]
+    },
+    {
+      "file": "src/components/documents/LoanInvoicePrint.tsx",
+      "count": 1,
+      "samples": [
+        "No.47, Galmaduwa, Mahailuppallama"
+      ]
+    },
+    {
+      "file": "src/pages/admin/Settings.tsx",
+      "count": 1,
+      "samples": [
+        "MAM"
+      ]
+    },
+    {
+      "file": "src/pages/loans/CreateLoan.tsx",
+      "count": 1,
+      "samples": [
+        "Remove"
+      ]
+    }
+  ],
+  "topDuplicateEnglish": [
+    {
+      "en": "Loan",
+      "keys": [
+        "stepLoan",
+        "colLoanNumber",
+        "loanSummaryPrefix",
+        "activityTypeLoan",
+        "csvLoan",
+        "field.loan"
+      ],
+      "count": 6
+    },
+    {
+      "en": "Paid",
+      "keys": [
+        "paid",
+        "ledgerColCredit",
+        "ledgerStatusPaid",
+        "allocPaid",
+        "statusPaid",
+        "scheduleColPaid"
+      ],
+      "count": 6
+    },
+    {
+      "en": "Customer",
+      "keys": [
+        "stepCustomer",
+        "colCustomer",
+        "activityTypeCustomer",
+        "csvCustomer",
+        "field.customer"
+      ],
+      "count": 5
+    },
+    {
+      "en": "Date",
+      "keys": [
+        "ledgerColDate",
+        "colDate",
+        "returnedDate",
+        "csvDate",
+        "field.date"
+      ],
+      "count": 5
+    },
+    {
+      "en": "Status",
+      "keys": [
+        "ledgerColStatus",
+        "docColStatus",
+        "csvStatus",
+        "field.status"
+      ],
+      "count": 4
+    },
+    {
+      "en": "Bike Stock",
+      "keys": [
+        "bikeStock",
+        "reportCategoryBikes",
+        "bikeStockReport",
+        "nav.bikeStock"
+      ],
+      "count": 4
+    },
+    {
+      "en": "Payment",
+      "keys": [
+        "stepPayment",
+        "activityActionPayment",
+        "activityTypePayment"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Method",
+      "keys": [
+        "stepMethod",
+        "csvMethod",
+        "field.method"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Discount",
+      "keys": [
+        "discount",
+        "colDiscount",
+        "csvDiscount"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Pending interest",
+      "keys": [
+        "pendingInterest",
+        "kpiPendingInterestShort",
+        "pendingInterestLabel"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Description",
+      "keys": [
+        "ledgerColDescription",
+        "csvDescription",
+        "field.description"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Remaining",
+      "keys": [
+        "remaining",
+        "allocRemaining",
+        "scheduleColRemaining"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Reference",
+      "keys": [
+        "csvReference",
+        "reference",
+        "colReference"
+      ],
+      "count": 3
+    },
+    {
+      "en": "NIC",
+      "keys": [
+        "guarantorNic",
+        "colNic",
+        "customerNicLabel"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Guarantees",
+      "keys": [
+        "guarantees",
+        "reportCategoryGuarantees",
+        "nav.guarantees"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Active Loans",
+      "keys": [
+        "activeLoans",
+        "colActiveLoans",
+        "activeLoansReport"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Cash",
+      "keys": [
+        "statusCash",
+        "typeCash",
+        "colCash"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Balance",
+      "keys": [
+        "loanBalanceSummary",
+        "csvBalance",
+        "field.balance"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Type",
+      "keys": [
+        "docColType",
+        "csvType",
+        "field.type"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Amount",
+      "keys": [
+        "colAmount",
+        "csvAmount",
+        "field.amount"
+      ],
+      "count": 3
+    },
+    {
+      "en": "Confirm",
+      "keys": [
+        "stepConfirm",
+        "action.confirm"
+      ],
+      "count": 2
+    },
+    {
+      "en": "Record Payment",
+      "keys": [
+        "recordPayment",
+        "recordPaymentAction"
+      ],
+      "count": 2
+    },
+    {
+      "en": "Discount given",
+      "keys": [
+        "discountGiven",
+        "discountGivenLabel"
+      ],
+      "count": 2
+    },
+    {
+      "en": "Discount / waiver",
+      "keys": [
+        "discountWaiver",
+        "ledgerAllocDiscountApproved"
+      ],
+      "count": 2
+    },
+    {
+      "en": "Payments",
+      "keys": [
+        "payments",
+        "nav.payments"
+      ],
+      "count": 2
+    }
+  ],
+  "libDisplayPaths": [
+    "src/lib/display/ledgerAllocationLabels.ts"
+  ],
+  "unusedSample": [
+    "action.add",
+    "action.confirm",
+    "action.delete",
+    "action.export",
+    "action.filter",
+    "action.save",
+    "action.search",
+    "activityActionCreate",
+    "activityActionEarlySettlement",
+    "activityActionPayment",
+    "activityActionSeed",
+    "additionalNotes",
+    "advancePaid",
+    "affectedByPayment",
+    "allocAdvance",
+    "allocPaid",
+    "allocPartial",
+    "allocPrincipal",
+    "allocRemaining",
+    "allocationSummary",
+    "arrearsInstallments",
+    "attachmentsLaterDemo",
+    "backupTypeAuto",
+    "backupTypeManual",
+    "balanceAfterShort",
+    "bikeSellingPrice",
+    "bikeStockRefEngine",
+    "cashEntered",
+    "categoryNone",
+    "changeBike",
+    "colChassisEngine",
+    "colCodeModel",
+    "colLinkedTo",
+    "colLocation",
+    "collections",
+    "collectionsTarget",
+    "completedThisMonth",
+    "csvAmount",
+    "csvBalance",
+    "csvCustomer"
+  ],
+  "missing": []
+}

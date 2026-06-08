@@ -1,9 +1,17 @@
 import {
-  calculateInstallmentLateFee,
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../finance/lateFeeExemption';
+import {
   getInstallmentDisplayStatus,
+  runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../finance/fixedInstallmentStatus';
+import { getLateFeeLineByInstallmentId } from '../finance/lateFeeEngineV3';
+import { preserveLateFeeChargedAmount } from '../display/paymentLedgerBreakdown';
+import { roundLKR } from '../finance/money';
 import { getDb, saveDb } from './localDb';
+import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { MamDemoDb } from './types';
 
 function toInput(
@@ -29,20 +37,41 @@ function mutateFixedInstallmentLateFees(
     return false;
   }
 
-  const ts = new Date().toISOString();
+  const ts = getSystemTimestamp();
   let changed = false;
 
-  for (const inst of db.loan_installments.filter((i) => i.loan_id === loanId)) {
+  const loanInstallments = db.loan_installments.filter((i) => i.loan_id === loanId);
+  const engineInputs = loanInstallments.map((inst) => ({
+    ...toInput(inst),
+    id: inst.id,
+  }));
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
+  const engine = runLateFeeEngine(
+    engineInputs,
+    loan.installment_amount,
+    loan.late_fee_rate,
+    { asOfDate, lateFeeExemptByInstallmentId }
+  );
+
+  for (const inst of loanInstallments) {
     const input = toInput(inst);
-    const { lateFeeAmount } = calculateInstallmentLateFee(
-      input,
-      loan.late_fee_rate,
-      asOfDate
-    );
+    const line = getLateFeeLineByInstallmentId(engine, inst.id);
+    const isExempt = lateFeeExemptByInstallmentId[inst.id] === true;
+    const computedLateFee = isExempt ? 0 : (line?.lateFee ?? 0);
+    const lateFeeAmount = isExempt
+      ? roundLKR(Math.max(inst.late_fee_paid, 0))
+      : preserveLateFeeChargedAmount(
+          inst.late_fee_amount,
+          computedLateFee,
+          inst.late_fee_paid
+        );
     const nextStatus = getInstallmentDisplayStatus(
       input,
       asOfDate,
-      loan.late_fee_rate
+      loan.late_fee_rate,
+      loan.installment_amount
     );
 
     let instChanged = false;
@@ -66,7 +95,7 @@ function mutateFixedInstallmentLateFees(
 export function syncFixedInstallmentLateFees(
   db: MamDemoDb,
   loanId: string,
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): boolean {
   const changed = mutateFixedInstallmentLateFees(db, loanId, asOfDate);
   if (changed) {
@@ -77,7 +106,7 @@ export function syncFixedInstallmentLateFees(
 
 export function syncAllFixedInstallmentLateFees(
   db: MamDemoDb = getDb(),
-  asOfDate: string = new Date().toISOString().split('T')[0]
+  asOfDate: string = getSystemToday()
 ): void {
   let changed = false;
   for (const loan of db.loans) {

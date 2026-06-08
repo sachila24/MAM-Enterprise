@@ -4,10 +4,14 @@ import { BikeIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { useT } from '../i18n/I18nProvider';
 import { signIn, isAuthenticated } from '../lib/auth';
+import { useToast } from '../components/ui/Toast';
+import { verifyLoginPassword } from '../lib/local-db/repositories/authRepo';
+
 export function Login() {
   const { t } = useT();
+  const { showToast } = useToast();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,15 +20,22 @@ export function Login() {
     return <Navigate to="/" replace />;
   }
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate network request
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const valid = await verifyLoginPassword(password);
+      if (!valid) {
+        showToast(t('passwordSignInFailed'), 'error');
+        return;
+      }
       signIn();
       navigate('/');
-    }, 1200);
+    } catch {
+      showToast(t('passwordSignInFailed'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
   return (
     <div className="flex min-h-screen w-full bg-brand-50">
@@ -68,7 +79,7 @@ export function Login() {
               {t('signInToAccount')}
             </h2>
             <p className="mt-2 text-sm leading-6 text-neutral-500">
-              {t('welcomeBack')}
+              {t('usernamePasswordSignInHint')}
             </p>
           </div>
 
@@ -76,22 +87,19 @@ export function Login() {
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="username"
                   className="block text-sm font-medium leading-6 text-neutral-900">
-                  
-                  {t('emailAddress')}
+                  {t('username')}
                 </label>
                 <div className="mt-2">
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
-                  
                 </div>
               </div>
 
@@ -142,15 +150,6 @@ export function Login() {
                     {t('rememberMe')}
                   </label>
                 </div>
-
-                <div className="text-sm leading-6">
-                  <a
-                    href="#"
-                    className="font-semibold text-brand-600 hover:text-brand-500">
-                    
-                    {t('forgotPassword')}
-                  </a>
-                </div>
               </div>
 
               <div>
@@ -167,10 +166,6 @@ export function Login() {
                 </button>
               </div>
             </form>
-
-            <p className="mt-10 text-center text-sm text-neutral-500">
-              {t('needAccess')}
-            </p>
           </div>
         </div>
       </div>

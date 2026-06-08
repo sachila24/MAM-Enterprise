@@ -5,8 +5,11 @@ import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
-import { createBike, getBike, updateBike } from '../../lib/local-db/repositories';
+import { createBike, getBike, hasSoldBikeHistoryForRegistration, isRegistrationUsedByActiveBike, updateBike } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const BIKE_YEAR_OPTIONS = Array.from({ length: 41 }, (_, i) => CURRENT_YEAR - i);
 
 export function BikeForm() {
   const { t } = useT();
@@ -18,12 +21,14 @@ export function BikeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const clientSubmitIdRef = useRef<string | null>(null);
+  const [isSoldBike, setIsSoldBike] = useState(false);
+  const [showPreviouslySoldNotice, setShowPreviouslySoldNotice] = useState(false);
   const [formData, setFormData] = useState({
     model: '',
     registrationNo: '',
     chassisNo: '',
     engineNo: '',
-    year: new Date().getFullYear(),
+    year: 0,
     color: '',
     costPrice: 0,
     sellingPrice: 0,
@@ -37,6 +42,7 @@ export function BikeForm() {
     if (isEdit && id) {
       const bike = getBike(id, db);
       if (bike) {
+        setIsSoldBike(bike.status === 'sold');
         setFormData({
           model: bike.model,
           registrationNo: bike.registrationNo ?? '',
@@ -55,6 +61,22 @@ export function BikeForm() {
     }
   }, [id, isEdit, db]);
 
+  useEffect(() => {
+    if (isEdit) {
+      setShowPreviouslySoldNotice(false);
+      return;
+    }
+    const registration = formData.registrationNo.trim();
+    if (!registration) {
+      setShowPreviouslySoldNotice(false);
+      return;
+    }
+    setShowPreviouslySoldNotice(
+      hasSoldBikeHistoryForRegistration(db, registration) &&
+        !isRegistrationUsedByActiveBike(db, registration)
+    );
+  }, [db, formData.registrationNo, isEdit]);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -63,16 +85,30 @@ export function BikeForm() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'year' ? Number(value) : value,
+      [name]:
+        name === 'year' ? (value === '' ? 0 : Number(value)) : value,
     }));
+  };
+
+  const validateForm = (): boolean => {
+    if (!formData.model.trim()) {
+      showToast(t('bikeFormRequiredFields'), 'error');
+      return false;
+    }
+    if (!formData.registrationNo.trim()) {
+      showToast(t('registrationRequired'), 'error');
+      return false;
+    }
+    if (formData.costPrice <= 0 || formData.sellingPrice <= 0) {
+      showToast(t('bikePricesRequired'), 'error');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.model.trim() || !formData.chassisNo.trim()) {
-      showToast(t('modelChassisRequired'), 'error');
-      return;
-    }
+    if (!validateForm()) return;
     if (isSubmittingRef.current) return;
 
     if (!isEdit && !clientSubmitIdRef.current) {
@@ -88,11 +124,11 @@ export function BikeForm() {
           id,
           {
             model: formData.model.trim(),
-            registration_no: formData.registrationNo.trim() || undefined,
+            registration_no: formData.registrationNo.trim(),
             chassis_no: formData.chassisNo.trim(),
             engine_no: formData.engineNo.trim(),
             color: formData.color.trim(),
-            year: formData.year,
+            year: formData.year || 0,
             cost_price: formData.costPrice,
             selling_price: formData.sellingPrice,
             repair_cost: formData.repairCost,
@@ -110,11 +146,11 @@ export function BikeForm() {
         const bike = createBike(
           {
             model: formData.model.trim(),
-            registrationNo: formData.registrationNo.trim() || undefined,
-            chassisNo: formData.chassisNo.trim(),
-            engineNo: formData.engineNo.trim(),
-            color: formData.color.trim(),
-            year: formData.year,
+            registrationNo: formData.registrationNo.trim(),
+            chassisNo: formData.chassisNo.trim() || undefined,
+            engineNo: formData.engineNo.trim() || undefined,
+            color: formData.color.trim() || undefined,
+            year: formData.year || undefined,
             costPrice: formData.costPrice,
             sellingPrice: formData.sellingPrice,
             repairCost: formData.repairCost,
@@ -144,6 +180,16 @@ export function BikeForm() {
       />
 
       <form onSubmit={handleSubmit} className="space-y-10 divide-y divide-neutral-200">
+        {isSoldBike && (
+          <div className="rounded-lg bg-warning-50 ring-1 ring-warning-200 p-4 text-sm text-warning-900">
+            {t('bikeSaleFinancialsLocked')}
+          </div>
+        )}
+        {!isEdit && showPreviouslySoldNotice && (
+          <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 text-sm text-brand-900">
+            {t('previouslySoldRegistrationNotice')}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">
           <div className="sm:col-span-6">
             <h2 className="text-base font-semibold leading-7 text-neutral-900">
@@ -168,12 +214,13 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="registrationNo" className="block text-sm font-medium text-neutral-900">
-              {t('registrationNo')}
+              {t('registrationNo')} *
             </label>
             <input
               type="text"
               name="registrationNo"
               id="registrationNo"
+              required
               value={formData.registrationNo}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
@@ -182,13 +229,12 @@ export function BikeForm() {
 
           <div className="sm:col-span-3">
             <label htmlFor="chassisNo" className="block text-sm font-medium text-neutral-900">
-              {t('chassisNumber')} *
+              {t('chassisNumber')}
             </label>
             <input
               type="text"
               name="chassisNo"
               id="chassisNo"
-              required
               value={formData.chassisNo}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 font-mono ring-1 ring-inset ring-neutral-300 sm:text-sm"
@@ -213,14 +259,20 @@ export function BikeForm() {
             <label htmlFor="year" className="block text-sm font-medium text-neutral-900">
               {t('yearLabel')}
             </label>
-            <input
-              type="number"
+            <select
               name="year"
               id="year"
-              value={formData.year}
+              value={formData.year || ''}
               onChange={handleChange}
               className="mt-2 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
-            />
+            >
+              <option value="">{t('selectYear')}</option>
+              {BIKE_YEAR_OPTIONS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="sm:col-span-3">
@@ -257,18 +309,20 @@ export function BikeForm() {
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label={t('boughtPrice')}
+              label={`${t('boughtPrice')} *`}
               value={formData.costPrice}
               onChange={(costPrice) => setFormData((p) => ({ ...p, costPrice }))}
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
             <CurrencyInput
-              label={`${t('listSellingPrice')} *`}
+              label={`${t('sellingPriceLabel')} *`}
               value={formData.sellingPrice}
               onChange={(sellingPrice) =>
                 setFormData((p) => ({ ...p, sellingPrice }))
               }
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
@@ -276,6 +330,7 @@ export function BikeForm() {
               label={t('repairCostOptional')}
               value={formData.repairCost}
               onChange={(repairCost) => setFormData((p) => ({ ...p, repairCost }))}
+              disabled={isSoldBike}
             />
           </div>
           <div className="sm:col-span-3">
@@ -283,6 +338,7 @@ export function BikeForm() {
               label={t('otherCostOptional')}
               value={formData.otherCost}
               onChange={(otherCost) => setFormData((p) => ({ ...p, otherCost }))}
+              disabled={isSoldBike}
             />
           </div>
         </div>

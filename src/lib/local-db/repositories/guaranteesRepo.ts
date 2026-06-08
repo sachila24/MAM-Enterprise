@@ -15,13 +15,16 @@ export function getGuarantee(id: string, db: MamDemoDb = getDb()): Guarantee | u
 export interface CreateGuaranteeInput {
   loanId: string;
   customerId: string;
-  itemType: DbGuarantee['item_type'];
-  description: string;
-  storageLocation: string;
-  receivedAt: string;
-  itemReference?: string;
-  ownerNameOnDocument?: string;
-  notes?: string;
+  fileNumber?: string;
+  vehicleNumber?: string;
+  guarantor1Name?: string;
+  guarantor1Address?: string;
+  guarantor1Phone?: string;
+  guarantor1Nic?: string;
+  guarantor2Name?: string;
+  guarantor2Address?: string;
+  guarantor2Phone?: string;
+  guarantor2Nic?: string;
 }
 
 export function createGuarantee(
@@ -34,14 +37,21 @@ export function createGuarantee(
     guarantee_code: generateCode('GUA', db.counters),
     loan_id: input.loanId,
     customer_id: input.customerId,
-    item_type: input.itemType,
-    description: input.description,
-    storage_location: input.storageLocation,
+    item_type: 'OTHER',
+    file_number: input.fileNumber,
+    vehicle_number: input.vehicleNumber,
+    guarantor1_name: input.guarantor1Name,
+    guarantor1_address: input.guarantor1Address,
+    guarantor1_phone: input.guarantor1Phone,
+    guarantor1_nic: input.guarantor1Nic,
+    guarantor2_name: input.guarantor2Name,
+    guarantor2_address: input.guarantor2Address,
+    guarantor2_phone: input.guarantor2Phone,
+    guarantor2_nic: input.guarantor2Nic,
+    description: '',
+    storage_location: '',
     status: 'HELD',
-    received_at: input.receivedAt,
-    item_reference: input.itemReference,
-    owner_name_on_document: input.ownerNameOnDocument,
-    notes: input.notes,
+    received_at: ts,
     created_at: ts,
   };
   db.guarantees.push(row);
@@ -63,3 +73,5 @@ export function releaseGuarantee(
   saveDb(db);
   return mapGuarantee(row);
 }
+
+export { autoReleaseGuaranteesForSettledLoan, autoReleaseGuaranteesIfLoanJustSettled, isLoanFullySettled } from './guaranteeRelease';

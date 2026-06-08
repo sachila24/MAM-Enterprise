@@ -1,14 +1,21 @@
 import {
   calculateFixedInstallmentTotals,
   buildFixedInstallmentSchedule,
-  calculateLateFee,
+  calculateLateFeeAmount,
 } from '../finance/fixedInstallment';
 import { addMonthsSameDay, computeFirstDueDate } from '../finance/dueDates';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../finance/constants';
 import { roundLKR } from '../finance/money';
 import type { MamDemoDb } from './types';
+import { createDefaultBusinessSettings } from './businessSettings';
+import { createDefaultAppAuth } from './appAuth';
+import {
+  getSystemTimestamp,
+  getSystemToday,
+  isDateBefore,
+} from '../time/systemTime';
 
-const now = () => new Date().toISOString();
+const now = () => getSystemTimestamp();
 
 function nextMonth15(): string {
   const d = new Date();
@@ -45,7 +52,7 @@ export function buildSeedDatabase(): MamDemoDb {
   });
   const fixSchedule = buildFixedInstallmentSchedule(fixTotals, '2025-12-01');
   const fixStart = '2025-11-01';
-  const asOf = new Date().toISOString().split('T')[0];
+  const asOf = getSystemToday();
 
   const bikeFinance = 320_000;
   const bikeTotals = calculateFixedInstallmentTotals({
@@ -68,13 +75,13 @@ export function buildSeedDatabase(): MamDemoDb {
         status = 'PARTIAL';
       } else if (num === 2 || num === 3) {
         const monthsLate = num === 2 ? 2 : 1;
-        lateFeeAmount = calculateLateFee({
+        lateFeeAmount = calculateLateFeeAmount({
           installmentAmount: line.installmentAmount,
           lateFeeRatePercent: DEFAULT_LATE_FEE_RATE_PERCENT,
           monthsLate,
         });
         status = 'OVERDUE';
-      } else if (new Date(line.dueDate) < new Date(asOf)) {
+      } else if (isDateBefore(line.dueDate, asOf)) {
         status = 'OVERDUE';
       }
 
@@ -124,7 +131,7 @@ export function buildSeedDatabase(): MamDemoDb {
     (_, i) => {
       const num = i + 1;
       const dueDate = addMonthsSameDay(fix2FirstDue, i);
-      const pastDue = new Date(dueDate) < new Date(asOf);
+      const pastDue = isDateBefore(dueDate, asOf);
       return {
         id: `inst-fix2-${num}`,
         loan_id: loanFix2,
@@ -477,6 +484,7 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    documents: [],
     receipts: [
       // {
       //   id: 'rcp-00001',
@@ -495,6 +503,7 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    cash_transactions: [],
     expenses: [
       // {
       //   id: 'exp-00001',
@@ -535,6 +544,8 @@ export function buildSeedDatabase(): MamDemoDb {
       //   created_at: ts,
       // },
     ],
+    business_settings: createDefaultBusinessSettings(),
+    app_auth: createDefaultAppAuth(),
     counters: {
       CUS: 3,
       BIK: 4,

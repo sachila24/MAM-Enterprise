@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/ui/Toast';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
@@ -10,12 +10,11 @@ import type { LoanPurpose, RepaymentMethod } from '../../types/loan';
 import { defaultRepaymentMethod } from '../../types/loan';
 import {
   calculateFixedInstallmentTotals,
-  calculateBikeFinanceAmount,
   calculateLateFeePerMonth,
 } from '../../lib/finance/fixedInstallment';
 import { parsePercentInput, sanitizePercentInput } from '../../lib/finance/parsePercent';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../../lib/finance/constants';
-import { computeFirstDueDate } from '../../lib/finance/dueDates';
+import { computeFirstDueDate, dayOfMonth } from '../../lib/finance/dueDates';
 import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
 import { formatLKR, formatEnum } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
@@ -24,71 +23,27 @@ import {
   listCustomers,
   listInStockBikes,
 } from '../../lib/local-db/repositories';
-import type { CreateGuaranteeDraft } from '../../lib/local-db/repositories/loansRepo';
+import {
+  emptyGuaranteeDraft,
+  mapGuaranteeDraftsToCreate,
+  type LocalGuaranteeDraft,
+} from '../../lib/guarantee/guaranteeFields';
+import { BikeSearchSelect } from '../../components/bikes/BikeSearchSelect';
+import { GuaranteeFieldsForm } from '../../components/guarantees/GuaranteeFieldsForm';
+import { GuaranteeDraftSummary } from '../../components/guarantees/GuaranteeDraftSummary';
+import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
-
-type LocalGuaranteeDraft = {
-  key: string;
-  itemType: 'VEHICLE_BOOK' | 'BIKE' | 'OTHER';
-  itemReference: string;
-  ownerNameOnDocument: string;
-  description: string;
-  storageLocation: string;
-  receivedDate: string;
-  notes: string;
-};
-
-function isGuaranteeDraftStarted(g: LocalGuaranteeDraft): boolean {
-  return (
-    g.description.trim() !== '' ||
-    g.storageLocation.trim() !== '' ||
-    g.itemReference.trim() !== '' ||
-    g.ownerNameOnDocument.trim() !== '' ||
-    g.notes.trim() !== ''
-  );
-}
-
-function validateGuaranteeDrafts(drafts: LocalGuaranteeDraft[]): string | null {
-  for (let i = 0; i < drafts.length; i++) {
-    const g = drafts[i];
-    if (!isGuaranteeDraftStarted(g)) continue;
-    if (!g.description.trim()) {
-      return `Guarantee item ${i + 1}: description is required.`;
-    }
-    if (!g.storageLocation.trim()) {
-      return `Guarantee item ${i + 1}: storage location is required.`;
-    }
-    if (!g.receivedDate) {
-      return `Guarantee item ${i + 1}: received date is required.`;
-    }
-  }
-  return null;
-}
-
-function mapCompleteGuarantees(
-  drafts: LocalGuaranteeDraft[]
-): CreateGuaranteeDraft[] {
-  return drafts
-    .filter(
-      (g) =>
-        g.description.trim() &&
-        g.storageLocation.trim() &&
-        g.receivedDate
-    )
-    .map((g) => ({
-      itemType: g.itemType,
-      itemReference: g.itemReference.trim() || undefined,
-      ownerNameOnDocument: g.ownerNameOnDocument.trim() || undefined,
-      description: g.description.trim(),
-      storageLocation: g.storageLocation.trim(),
-      receivedDate: g.receivedDate,
-      notes: g.notes.trim() || undefined,
-    }));
-}
+import {
+  computeOriginationFees,
+  validateOriginationFees,
+} from '../../lib/finance/loanOriginationFees';
+import { LoanOriginationSummaryCard } from '../../components/loans/LoanOriginationSummaryCard';
+import { LoanPaymentBreakdown } from '../../components/loans/LoanPaymentBreakdown';
 
 export function CreateLoan() {
-  const { t } = useT();
+  const { t, tf } = useT();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
 
   const steps = [
@@ -112,8 +67,6 @@ export function CreateLoan() {
 
   const [loanAmount, setLoanAmount] = useState(0);
   const [monthlyInterestInput, setMonthlyInterestInput] = useState('5');
-  const [dueDay, setDueDay] = useState(1);
-
   const [financeAmount, setFinanceAmount] = useState(0);
   const [termMonths, setTermMonths] = useState(36);
   const [monthlyFlatInput, setMonthlyFlatInput] = useState('2.5');
@@ -134,10 +87,13 @@ export function CreateLoan() {
     new Date().toISOString().split('T')[0]
   );
   const [firstDueDate, setFirstDueDate] = useState('');
+  const [preferredDueDay, setPreferredDueDay] = useState<number | ''>('');
 
   const [bikeId, setBikeId] = useState('');
   const [sellingPrice, setSellingPrice] = useState(0);
-  const [downPayment, setDownPayment] = useState(0);
+  const [initialPayment, setInitialPayment] = useState(0);
+  const [serviceFee, setServiceFee] = useState(0);
+  const [registrationFee, setRegistrationFee] = useState(0);
 
   const customers = listCustomers(db);
   const bikes = listInStockBikes(db);
@@ -152,31 +108,54 @@ export function CreateLoan() {
     }
   }, [isBike, repaymentMethod]);
 
+  useEffect(() => {
+    const prefill = searchParams.get('customerId');
+    if (prefill) setCustomerId(prefill);
+  }, [searchParams]);
+
   const effectiveFinanceAmount = useMemo(() => {
-    if (isBike) {
-      return calculateBikeFinanceAmount(sellingPrice, downPayment);
-    }
+    if (isBike) return sellingPrice;
     return isInterestOnly ? loanAmount : financeAmount;
-  }, [isBike, isInterestOnly, sellingPrice, downPayment, loanAmount, financeAmount]);
+  }, [isBike, isInterestOnly, sellingPrice, loanAmount, financeAmount]);
+
+  const loanPrincipalAmount = effectiveFinanceAmount || 0;
+
+  const origination = useMemo(
+    () =>
+      computeOriginationFees(
+        {
+          initialPayment,
+          serviceFee,
+          registrationFee,
+        },
+        loanPrincipalAmount
+      ),
+    [initialPayment, serviceFee, registrationFee, loanPrincipalAmount]
+  );
 
   const interestOnlyCalc = useMemo(() => {
-    const principal = effectiveFinanceAmount || 0;
+    const principal = origination.financedPrincipal;
     const monthlyInterestDue = calculateMonthlyInterestDue(
       principal,
       monthlyInterestRate || 0
     );
     return { principal, monthlyInterestDue };
-  }, [effectiveFinanceAmount, monthlyInterestRate]);
+  }, [origination.financedPrincipal, monthlyInterestRate]);
 
   const fixedCalc = useMemo(
     () =>
       calculateFixedInstallmentTotals({
-        financeAmount: effectiveFinanceAmount || 0,
+        financeAmount: origination.financedPrincipal,
         termMonths: termMonths || 1,
         monthlyFlatRatePercent: monthlyFlatRate || 0,
         discountAmount,
       }),
-    [effectiveFinanceAmount, termMonths, monthlyFlatRate, discountAmount]
+    [
+      origination.financedPrincipal,
+      termMonths,
+      monthlyFlatRate,
+      discountAmount,
+    ]
   );
 
   const lateFeePerMonth = useMemo(
@@ -205,42 +184,53 @@ export function CreateLoan() {
 
   const handleStartDateChange = (date: string) => {
     setStartDate(date);
-    if (date) setFirstDueDate(computeFirstDueDate(date));
+    if (date) {
+      const nextDue = computeFirstDueDate(date);
+      setFirstDueDate(nextDue);
+      setPreferredDueDay(dayOfMonth(nextDue));
+    }
+  };
+
+  const handleFirstDueDateChange = (date: string) => {
+    setFirstDueDate(date);
+    if (date) setPreferredDueDay(dayOfMonth(date));
   };
 
   const handleNext = () => {
     const err = ((): string | null => {
-      if (currentStep === 0 && !customerId) return 'Select a customer.';
+      if (currentStep === 0 && !customerId) return t('selectCustomerRequired');
       if (currentStep === 3 && isInterestOnly) {
         if (!isBike && (!loanAmount || loanAmount <= 0))
-          return 'Enter a loan amount.';
-        if (!firstDueDate) return 'Set a first due date.';
+          return t('enterLoanAmount');
       }
       if (currentStep === 3 && !isInterestOnly) {
         if (!isBike && (!financeAmount || financeAmount <= 0))
-          return 'Enter a finance amount.';
-        if (!termMonths || termMonths < 1) return 'Enter a valid term.';
-        if (!firstDueDate) return 'Set a first due date.';
+          return t('enterFinanceAmount');
+        if (!termMonths || termMonths < 1) return t('enterValidTerm');
+        if (!firstDueDate) return t('setFirstDueDate');
       }
       if (currentStep === 3 && isBike && !bikeId) {
-        return 'Select an in-stock bike for this installment.';
+        return t('selectInStockBikeInstallment');
       }
       if (currentStep === 3 && isBike && sellingPrice <= 0) {
-        return 'Enter the bike selling price.';
-      }
-      if (currentStep >= 4) {
-        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
-        if (gErr) return gErr;
+        return t('enterBikeSellingPrice');
       }
       if (currentStep === 4 && isBike && !bikeId)
-        return 'Select an in-stock bike for this installment.';
+        return t('selectInStockBikeInstallment');
       if (currentStep === steps.length - 1) {
-        if (!customerId) return 'Select a customer.';
-        if (isBike && !bikeId) return 'Select a bike before confirming.';
+        if (!customerId) return t('selectCustomerRequired');
+        if (isBike && !bikeId) return t('selectBikeBeforeConfirm');
         if (!effectiveFinanceAmount || effectiveFinanceAmount <= 0)
-          return 'Finance amount must be greater than zero.';
-        const gErr = validateGuaranteeDrafts(guaranteeDrafts);
-        if (gErr) return gErr;
+          return t('financeAmountGreaterThanZero');
+        const feeErr = validateOriginationFees(
+          {
+            initialPayment: origination.initialPayment,
+            serviceFee: origination.serviceFee,
+            registrationFee: origination.registrationFee,
+          },
+          loanPrincipalAmount
+        );
+        if (feeErr) return t(feeErr);
       }
       return null;
     })();
@@ -271,10 +261,18 @@ export function CreateLoan() {
           lateFeeRate: isInterestOnly ? 0 : lateFeeRate,
           discountAmount,
           startDate,
-          firstDueDate: firstDueDate || computeFirstDueDate(startDate),
-          dueDay: isInterestOnly ? dueDay : undefined,
+          firstDueDate:
+            firstDueDate ||
+            computeFirstDueDate(startDate),
+          preferredDueDay:
+            !isInterestOnly && preferredDueDay !== ''
+              ? preferredDueDay
+              : undefined,
           bikeId: isBike ? bikeId : undefined,
-          guarantees: mapCompleteGuarantees(guaranteeDrafts),
+          initialPayment: origination.initialPayment,
+          serviceFee: origination.serviceFee,
+          registrationFee: origination.registrationFee,
+          guarantees: mapGuaranteeDraftsToCreate(guaranteeDrafts),
         },
         db
       );
@@ -358,9 +356,7 @@ export function CreateLoan() {
                       {t('fixedMonthlyInstallments')}
                     </p>
                     <p className="text-sm text-brand-800">
-                      Bike installment uses fixed-term leasing: equal monthly
-                      payments over the selected term. Interest-only repayment is
-                      not available for bike sales.
+                      {t('bikeInstallmentFixedHint')}
                     </p>
                   </div>
                 ) : (
@@ -393,18 +389,41 @@ export function CreateLoan() {
             {currentStep === 3 && isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  Interest-Only Terms
+                  {t('interestOnlyTerms')}
                 </h3>
                 <CurrencyInput
-                  label="Loan amount *"
+                  label={`${t('loanAmountField')} *`}
                   value={isBike ? effectiveFinanceAmount : loanAmount}
                   onChange={(v) => !isBike && setLoanAmount(v)}
                   placeholder="e.g. 100,000"
                   disabled={isBike}
                 />
+                <LoanPaymentBreakdown
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                >
+                  <CurrencyInput
+                    label={t('initialPayment')}
+                    value={initialPayment}
+                    onChange={setInitialPayment}
+                  />
+                  <CurrencyInput
+                    label={t('serviceFee')}
+                    value={serviceFee}
+                    onChange={setServiceFee}
+                  />
+                  <CurrencyInput
+                    label={t('registrationFee')}
+                    value={registrationFee}
+                    onChange={setRegistrationFee}
+                  />
+                </LoanPaymentBreakdown>
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Monthly interest rate (%) *
+                    {t('monthlyInterestRate')} *
                   </label>
                   <input
                     type="text"
@@ -418,32 +437,12 @@ export function CreateLoan() {
                   />
                 </div>
                 <DatePicker
-                  label="Start date *"
+                  label={`${t('startDate')} *`}
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Due day (1–28) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(parseInt(e.target.value, 10) || 1)}
-                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm tabular-nums"
-                  />
-                </div>
-                <DatePicker
-                  label="First due date *"
-                  value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)}
-                />
-                <p className="text-xs text-neutral-500">
-                  Same day each month (e.g. start May 15 → first due June 15).
-                </p>
                 <p className="text-sm text-info-700 bg-info-50 rounded-md p-3">
-                  Guarantee required. No late fees. Unpaid interest stays pending.
+                  {t('guaranteeRequiredHint')}
                 </p>
               </div>
             )}
@@ -451,48 +450,57 @@ export function CreateLoan() {
             {currentStep === 3 && !isInterestOnly && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-neutral-900">
-                  {isBike ? 'Bike & installment terms' : 'Fixed Installment Terms'}
+                  {isBike ? t('bikeInstallmentTerms') : t('fixedInstallmentTerms')}
                 </h3>
                 {isBike && (
                   <div className="space-y-4 pb-6 border-b border-neutral-200">
-                    <select
-                      value={bikeId}
-                      onChange={(e) => handleBikeSelect(e.target.value)}
-                      className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
-                    >
-                      <option value="">-- Select in-stock bike --</option>
-                      {bikes.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.bikeCode} · {b.model} — {b.engineNo}
-                        </option>
-                      ))}
-                    </select>
+                    <BikeSearchSelect
+                      bikes={bikes}
+                      selectedBikeId={bikeId || null}
+                      onSelect={(id) => handleBikeSelect(id ?? '')}
+                      placeholder={t('selectInStockBike')}
+                    />
                     <CurrencyInput
-                      label="Bike selling price *"
+                      label={`${t('loanAmountField')} *`}
                       value={sellingPrice}
                       onChange={setSellingPrice}
                     />
-                    <CurrencyInput
-                      label="Down payment *"
-                      value={downPayment}
-                      onChange={setDownPayment}
-                    />
-                    <p className="text-sm text-neutral-600">
-                      Finance amount:{' '}
-                      <strong>{formatLKR(effectiveFinanceAmount)}</strong>
-                    </p>
                   </div>
                 )}
-                <CurrencyInput
-                  label="Finance amount *"
-                  value={effectiveFinanceAmount}
-                  onChange={(v) => !isBike && setFinanceAmount(v)}
-                  disabled={isBike}
-                />
+                {!isBike && (
+                  <CurrencyInput
+                    label={`${t('financeAmount')} *`}
+                    value={effectiveFinanceAmount}
+                    onChange={setFinanceAmount}
+                  />
+                )}
+                <LoanPaymentBreakdown
+                  initialPayment={origination.initialPayment}
+                  serviceFee={origination.serviceFee}
+                  registrationFee={origination.registrationFee}
+                  netAdvancePayment={origination.netAdvancePayment}
+                  financedPrincipal={origination.financedPrincipal}
+                >
+                  <CurrencyInput
+                    label={t('initialPayment')}
+                    value={initialPayment}
+                    onChange={setInitialPayment}
+                  />
+                  <CurrencyInput
+                    label={t('serviceFee')}
+                    value={serviceFee}
+                    onChange={setServiceFee}
+                  />
+                  <CurrencyInput
+                    label={t('registrationFee')}
+                    value={registrationFee}
+                    onChange={setRegistrationFee}
+                  />
+                </LoanPaymentBreakdown>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
-                      Term (months) *
+                      {t('termMonths')} *
                     </label>
                     <input
                       type="text"
@@ -506,7 +514,7 @@ export function CreateLoan() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-neutral-900 mb-1">
-                      Monthly flat rate (%) *
+                      {t('monthlyFlatRate')} *
                     </label>
                     <input
                       type="text"
@@ -522,7 +530,7 @@ export function CreateLoan() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-1">
-                    Late fee rate (%) *
+                    {t('lateFeeRateField')} *
                   </label>
                   <input
                     type="text"
@@ -536,22 +544,44 @@ export function CreateLoan() {
                   />
                 </div>
                 <CurrencyInput
-                  label="Discount (optional)"
+                  label={t('discountOptional')}
                   value={discountAmount}
                   onChange={setDiscountAmount}
                 />
                 <DatePicker
-                  label="Start date *"
+                  label={`${t('startDate')} *`}
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
                 <DatePicker
-                  label="First due date *"
+                  label={`${t('firstDueDate')} *`}
                   value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)}
+                  onChange={(e) => handleFirstDueDateChange(e.target.value)}
                 />
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1">
+                    {t('recurringPaymentDay')}
+                  </label>
+                  <select
+                    value={preferredDueDay === '' ? '' : preferredDueDay}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value, 10);
+                      setPreferredDueDay(Number.isNaN(value) ? '' : value);
+                    }}
+                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+                  >
+                    <option value="" disabled>
+                      —
+                    </option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-xs text-neutral-500">
-                  Default late fee {DEFAULT_LATE_FEE_RATE_PERCENT}%. Owner may change later.
+                  {tf('defaultLateFeeHint', { rate: DEFAULT_LATE_FEE_RATE_PERCENT })}
                 </p>
               </div>
             )}
@@ -560,15 +590,18 @@ export function CreateLoan() {
               <div className="space-y-8">
                 {isBike && bikeId && (
                   <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-1">
-                    <p className="font-semibold text-neutral-900">Selected bike</p>
+                    <p className="font-semibold text-neutral-900">{t('selectedBikeLabel')}</p>
                     <p>
-                      {bikes.find((b) => b.id === bikeId)?.bikeCode ?? '—'} ·{' '}
-                      {bikes.find((b) => b.id === bikeId)?.model ?? '—'}
+                      {(() => {
+                        const b = bikes.find((x) => x.id === bikeId);
+                        return b
+                          ? formatBikeSelectLabel(b, t('notRegistered'))
+                          : '—';
+                      })()}
                     </p>
                     <p>
-                      Selling {formatLKR(sellingPrice)} · Down{' '}
-                      {formatLKR(downPayment)} · Finance{' '}
-                      {formatLKR(effectiveFinanceAmount)}
+                      {t('loanAmountField')}: {formatLKR(sellingPrice)} ·{' '}
+                      {t('financedPrincipal')}: {formatLKR(origination.financedPrincipal)}
                     </p>
                   </div>
                 )}
@@ -581,40 +614,28 @@ export function CreateLoan() {
                 <div className="rounded-xl bg-neutral-50 ring-1 ring-neutral-200 p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="text-lg font-medium text-neutral-900">
-                      Guarantee items
+                      {t('guaranteeItems')}
                     </h3>
                     <button
                       type="button"
                       onClick={() =>
                         setGuaranteeDrafts((prev) => [
                           ...prev,
-                          {
-                            key: crypto.randomUUID(),
-                            itemType: 'VEHICLE_BOOK',
-                            itemReference: '',
-                            ownerNameOnDocument: '',
-                            description: '',
-                            storageLocation: '',
-                            receivedDate:
-                              new Date().toISOString().split('T')[0],
-                            notes: '',
-                          },
+                          emptyGuaranteeDraft(),
                         ])
                       }
                       className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
                     >
-                      Add another guarantee
+                      {t('addAnotherGuarantee')}
                     </button>
                   </div>
                   <p className="text-sm text-neutral-600">
-                    {isBike
-                      ? 'Optional extra collateral in addition to the bike.'
-                      : 'Add one or more guarantee items held by the shop.'}
+                    {t('guaranteeOptionalHint')}
                   </p>
 
                   {guaranteeDrafts.length === 0 && (
                     <p className="text-sm text-neutral-500 italic">
-                      No items yet — use &quot;Add another guarantee&quot; to start.
+                      {t('noGuaranteeItemsHint')}
                     </p>
                   )}
 
@@ -640,176 +661,47 @@ export function CreateLoan() {
                             Remove
                           </button>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Guarantee type
-                          </label>
-                          <select
-                            value={g.itemType}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? {
-                                        ...x,
-                                        itemType: e.target.value as LocalGuaranteeDraft['itemType'],
-                                      }
-                                    : x
-                                )
+                        <GuaranteeFieldsForm
+                          values={g}
+                          onChange={(patch) =>
+                            setGuaranteeDrafts((prev) =>
+                              prev.map((x) =>
+                                x.key === g.key ? { ...x, ...patch } : x
                               )
-                            }
-                            className="block w-full rounded-md border-0 py-1.5 pl-3 ring-1 ring-inset ring-neutral-300 text-sm bg-white"
-                          >
-                            <option value="VEHICLE_BOOK">Vehicle book</option>
-                            <option value="BIKE">Bike</option>
-                            <option value="OTHER">Other valuable item</option>
-                          </select>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Vehicle number / item reference
-                            </label>
-                            <input
-                              type="text"
-                              value={g.itemReference}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? { ...x, itemReference: e.target.value }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Owner name on document
-                            </label>
-                            <input
-                              type="text"
-                              value={g.ownerNameOnDocument}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? {
-                                          ...x,
-                                          ownerNameOnDocument: e.target.value,
-                                        }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Description *
-                          </label>
-                          <textarea
-                            value={g.description}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, description: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                            rows={2}
-                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-700 mb-1">
-                              Storage location *
-                            </label>
-                            <input
-                              type="text"
-                              value={g.storageLocation}
-                              onChange={(e) =>
-                                setGuaranteeDrafts((prev) =>
-                                  prev.map((x) =>
-                                    x.key === g.key
-                                      ? {
-                                          ...x,
-                                          storageLocation: e.target.value,
-                                        }
-                                      : x
-                                  )
-                                )
-                              }
-                              className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                            />
-                          </div>
-                          <DatePicker
-                            label="Received date *"
-                            value={g.receivedDate}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, receivedDate: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-neutral-700 mb-1">
-                            Notes
-                          </label>
-                          <input
-                            type="text"
-                            value={g.notes}
-                            onChange={(e) =>
-                              setGuaranteeDrafts((prev) =>
-                                prev.map((x) =>
-                                  x.key === g.key
-                                    ? { ...x, notes: e.target.value }
-                                    : x
-                                )
-                              )
-                            }
-                            className="block w-full rounded-md border-0 py-1.5 px-2 ring-1 ring-inset ring-neutral-300 text-sm"
-                          />
-                        </div>
+                            )
+                          }
+                        />
+                        <GuaranteeDraftSummary
+                          draft={g}
+                          linkedBike={
+                            isBike && bikeId
+                              ? bikes.find((b) => b.id === bikeId)
+                              : null
+                          }
+                        />
                       </li>
                     ))}
                   </ul>
-                  <p className="text-xs text-neutral-500">
-                    Stored as Held when the loan is confirmed. Started rows must
-                    include description, storage location, and received date.
-                  </p>
                 </div>
               </div>
             )}
 
             {currentStep === 5 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium text-neutral-900">Review</h3>
+                <h3 className="text-lg font-medium text-neutral-900">{t('stepReview')}</h3>
                 <dl className="divide-y divide-neutral-200 text-sm">
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Customer</dt>
+                    <dt className="text-neutral-500">{t('field.customer')}</dt>
                     <dd>
                       {customers.find((c) => c.id === customerId)?.name ?? '—'}
                     </dd>
                   </div>
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Purpose</dt>
+                    <dt className="text-neutral-500">{t('stepPurpose')}</dt>
                     <dd>{formatEnum(loanPurpose)}</dd>
                   </div>
                   <div className="py-2 flex justify-between">
-                    <dt className="text-neutral-500">Method</dt>
+                    <dt className="text-neutral-500">{t('stepMethod')}</dt>
                     <dd>{formatEnum(repaymentMethod)}</dd>
                   </div>
                 </dl>
@@ -849,65 +741,34 @@ export function CreateLoan() {
               {t('calculation')}
             </h3>
             {isInterestOnly ? (
-              <dl className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Current principal</dt>
-                  <dd className="font-medium tabular-nums">
-                    {formatLKR(interestOnlyCalc.principal)}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Monthly interest due</dt>
-                  <dd className="font-medium tabular-nums">
-                    {formatLKR(interestOnlyCalc.monthlyInterestDue)}
-                  </dd>
-                </div>
-                <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">Principal balance</dt>
-                  <dd className="text-xl font-bold tabular-nums">
-                    {formatLKR(interestOnlyCalc.principal)}
-                  </dd>
-                </div>
-              </dl>
+              <LoanOriginationSummaryCard
+                loanAmount={loanPrincipalAmount}
+                initialPayment={origination.initialPayment}
+                serviceFee={origination.serviceFee}
+                registrationFee={origination.registrationFee}
+                netAdvancePayment={origination.netAdvancePayment}
+                financedPrincipal={origination.financedPrincipal}
+                interestAmount={interestOnlyCalc.monthlyInterestDue}
+              />
             ) : (
-              <dl className="space-y-3 text-sm">
-                {isBike && (
-                  <>
-                    <div className="flex justify-between">
-                      <dt className="text-brand-200">Selling price</dt>
-                      <dd className="tabular-nums">{formatLKR(sellingPrice)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-brand-200">Down payment</dt>
-                      <dd className="tabular-nums">{formatLKR(downPayment)}</dd>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Finance amount</dt>
-                  <dd className="tabular-nums">{formatLKR(fixedCalc.financeAmount)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Total interest</dt>
-                  <dd className="tabular-nums">{formatLKR(fixedCalc.totalInterest)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Total payable</dt>
-                  <dd className="tabular-nums font-bold">
-                    {formatLKR(fixedCalc.totalPayable)}
-                  </dd>
-                </div>
-                <div className="flex justify-between pt-3 border-t border-brand-700">
-                  <dt className="text-brand-100">Monthly installment</dt>
-                  <dd className="text-xl font-bold tabular-nums">
-                    {formatLKR(fixedCalc.monthlyInstallment)}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-brand-200">Late fee / month if overdue</dt>
-                  <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
-                </div>
-              </dl>
+              <LoanOriginationSummaryCard
+                loanAmount={loanPrincipalAmount}
+                initialPayment={origination.initialPayment}
+                serviceFee={origination.serviceFee}
+                registrationFee={origination.registrationFee}
+                netAdvancePayment={origination.netAdvancePayment}
+                financedPrincipal={origination.financedPrincipal}
+                interestAmount={fixedCalc.totalInterest}
+                totalPayable={fixedCalc.totalPayable}
+                monthlyInstallment={fixedCalc.monthlyInstallment}
+              >
+                <dl className="space-y-3 text-sm pt-2 border-t border-brand-700">
+                  <div className="flex justify-between">
+                    <dt className="text-brand-200">{t('lateFeePerMonthOverdue')}</dt>
+                    <dd className="tabular-nums">{formatLKR(lateFeePerMonth)}</dd>
+                  </div>
+                </dl>
+              </LoanOriginationSummaryCard>
             )}
             </div>
           </div>

@@ -4,7 +4,7 @@ export const en = {
   'nav.customers': 'Customers',
   'nav.loans': 'Loans & Installments',
   'nav.payments': 'Payments',
-  'nav.receipts': 'Receipts',
+  'nav.documents': 'Documents',
   'nav.bikeStock': 'Bike Stock',
   'nav.guarantees': 'Guarantees',
   'nav.expenses': 'Expenses',

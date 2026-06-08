@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="MAM Trading">
+  <circle cx="100" cy="100" r="96" fill="#1e3a5f"/>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <text x="100" y="118" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="4">MAM</text>
+</svg>

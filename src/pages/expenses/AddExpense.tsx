@@ -8,10 +8,22 @@ import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { createExpense } from '../../lib/local-db/repositories';
 import type { DbExpense } from '../../lib/local-db/types';
+import { formatEnum } from '../../lib/format';
+
+const EXPENSE_CATEGORIES = [
+  'RENT',
+  'UTILITIES',
+  'SALARIES',
+  'MAINTENANCE',
+  'FUEL',
+  'SUPPLIES',
+  'MARKETING',
+  'OTHER',
+] as const;
 
 export function AddExpense() {
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, language } = useT();
   const { showToast } = useToast();
   const db = useDemoDb();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,7 +31,7 @@ export function AddExpense() {
     amount: 0,
     category: 'OTHER',
     date: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
   });
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,97 +46,103 @@ export function AddExpense() {
       db
     );
     setIsSubmitting(false);
-    showToast('Expense added successfully', 'success');
+    showToast(t('expenseAddedSuccess'), 'success');
     navigate('/expenses');
   };
-  const isValid = formData.amount > 0 && formData.notes.trim() !== '';
+  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(formData.date) &&
+    !Number.isNaN(new Date(`${formData.date}T12:00:00`).getTime());
+  const isValid =
+    formData.amount > 0 && formData.notes.trim() !== '' && isValidDate;
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <PageHeader
-        title="Add Expense"
-        subtitle="Record money the business spent" />
-      
+        title={t('addExpenseTitle')}
+        subtitle={t('addExpenseSubtitle')}
+      />
 
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
         <div className="p-6 sm:p-8 space-y-8">
           <div>
             <label
               htmlFor="notes"
-              className="block text-sm font-medium leading-6 text-neutral-900">
-              
-              What was this for? *
+              className="block text-sm font-medium leading-6 text-neutral-900"
+            >
+              {t('expenseWhatFor')}
             </label>
             <input
               type="text"
               id="notes"
               value={formData.notes}
               onChange={(e) =>
-              setFormData({
-                ...formData,
-                notes: e.target.value
-              })
+                setFormData({
+                  ...formData,
+                  notes: e.target.value,
+                })
               }
-              placeholder="e.g. Workshop repair supplies"
-              className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6" />
-            
+              placeholder={t('expenseNotesPlaceholder')}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
+            />
           </div>
 
           <div>
             <CurrencyInput
-              label="Amount *"
+              label={t('amountRequired')}
               value={formData.amount}
               onChange={(val) =>
-              setFormData({
-                ...formData,
-                amount: val
-              })
-              } />
-            
+                setFormData({
+                  ...formData,
+                  amount: val,
+                })
+              }
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="category"
-                className="block text-sm font-medium leading-6 text-neutral-900">
-                
-                Category
+                className="block text-sm font-medium leading-6 text-neutral-900"
+              >
+                {t('field.type')}
               </label>
               <select
                 id="category"
                 value={formData.category}
                 onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  category: e.target.value
-                })
+                  setFormData({
+                    ...formData,
+                    category: e.target.value,
+                  })
                 }
-                className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6">
-                
-                <option value="RENT">Rent</option>
-                <option value="UTILITIES">Utilities</option>
-                <option value="SALARIES">Salaries</option>
-                <option value="MAINTENANCE">Maintenance</option>
-                <option value="FUEL">Fuel</option>
-                <option value="SUPPLIES">Supplies</option>
-                <option value="MARKETING">Marketing</option>
-                <option value="OTHER">Other</option>
+                className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
+              >
+                {EXPENSE_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {formatEnum(cat, language)}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                Date
+                {t('field.date')}
               </label>
               <DatePicker
+                id="expense-date"
                 value={formData.date}
-                onChange={(val) =>
-                setFormData({
-                  ...formData,
-                  date: val
-                })
-                } />
-              
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    date: e.target.value,
+                  })
+                }
+              />
+              {!isValidDate && formData.date !== '' && (
+                <p className="mt-1 text-sm text-danger-600">
+                  {t('invalidExpenseDate')}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -135,20 +153,20 @@ export function AddExpense() {
           <button
             type="button"
             onClick={() => navigate('/expenses')}
-            className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50">
-            
-            Cancel
+            className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
+          >
+            {t('action.cancel')}
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!isValid || isSubmitting}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50">
-            
-            {isSubmitting ? 'Saving...' : 'Save expense'}
+            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50"
+          >
+            {isSubmitting ? t('savingGeneric') : t('saveExpense')}
           </button>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }

@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { navGroups } from './navConfig';
 import { Header } from './Header';
+import { MamLogo } from '../branding/MamLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useT } from '../../i18n/I18nProvider';
 import { X } from 'lucide-react';
@@ -11,7 +12,7 @@ export function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useT();
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-neutral-50">
+    <div className="flex h-screen w-full overflow-hidden bg-neutral-50 print:h-auto print:min-h-0 print:overflow-visible print:block">
       <Sidebar
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed} />
@@ -55,9 +56,7 @@ export function AppShell() {
             
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4">
                 <div className="flex items-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-800 text-white font-bold tracking-wider shrink-0">
-                    MAM
-                  </div>
+                  <MamLogo size={40} />
                   <span className="ml-3 text-sm font-semibold text-neutral-900">
                     M A M TRADING
                   </span>
@@ -67,7 +66,7 @@ export function AppShell() {
                 className="-m-2.5 p-2.5 text-neutral-500 hover:text-neutral-700"
                 onClick={() => setMobileMenuOpen(false)}>
                 
-                  <span className="sr-only">Close sidebar</span>
+                  <span className="sr-only">{t('closeSidebar')}</span>
                   <X className="h-6 w-6" aria-hidden="true" />
                 </button>
               </div>
@@ -107,9 +106,9 @@ export function AppShell() {
         }
       </AnimatePresence>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden print:overflow-visible print:h-auto">
         <Header onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:h-auto">
           <Outlet />
         </main>
       </div>

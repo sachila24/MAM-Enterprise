@@ -3,9 +3,17 @@ import {
   allocateFixedInstallmentPayment,
   allocateInterestOnlyPaymentLines,
   summarizeFixedInstallmentDue,
+  summarizeFixedInstallmentPaid,
   type InstallmentForAllocation,
 } from '../../finance/paymentAllocation';
-import { calculateInstallmentLateFee } from '../../finance/fixedInstallmentStatus';
+import { runLateFeeEngine } from '../../finance/fixedInstallmentStatus';
+import {
+  buildLateFeeExemptByInstallmentId,
+  createLateFeeExemptAfterAllocationFn,
+  toLateFeeExemptRecord,
+} from '../../finance/lateFeeExemption';
+import { getLateFeeLineByInstallmentId } from '../../finance/lateFeeEngineV3';
+import { deriveInterestCycleStatus } from '../../finance/interestOnly';
 import { roundLKR } from '../../finance/money';
 import {
   splitAllocationsCashAndDiscount,
@@ -23,7 +31,15 @@ import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLegacyPayment, mapLoanPayment } from '../mappers';
 import type { MamDemoDb } from '../types';
 import type { LoanPayment } from '../../../types/entities';
+import { buildAuditSummary, uiError } from '../../i18n/messages';
 import type { PaymentAllocationResult } from '../../finance/paymentAllocation';
+import { getSystemTimestamp, isDateBefore } from '../../time/systemTime';
+import { autoReleaseGuaranteesIfLoanJustSettled } from './guaranteeRelease';
+import {
+  preserveLateFeeChargedAmount,
+  summarizePaymentBreakdown,
+} from '../../display/paymentLedgerBreakdown';
+import { createPaymentReceiptDocument } from '../../documents/documentService';
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -128,14 +144,14 @@ export function recordPayment(
       };
     }
     if (inFlightPaymentSubmits.has(input.clientSubmitId)) {
-      throw new Error('Payment save already in progress. Please wait.');
+      throw new Error(uiError('paymentSaveInProgress'));
     }
     inFlightPaymentSubmits.add(input.clientSubmitId);
   }
 
   try {
   const loan = db.loans.find((l) => l.id === input.loanId);
-  if (!loan) throw new Error('Loan not found');
+  if (!loan) throw new Error(uiError('loanNotFound'));
 
   if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
     persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
@@ -144,17 +160,19 @@ export function recordPayment(
     syncFixedInstallmentLateFees(db, input.loanId, input.paymentDate);
   }
 
-  const ts = new Date().toISOString();
+  const ts = getSystemTimestamp();
   const bundle = buildPaymentBundle(db);
   const isIO = loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const cashAmount = roundLKR(input.amount);
   const discountAmount = roundLKR(input.discountAmount ?? 0);
   const totalApply = roundLKR(cashAmount + discountAmount);
   if (totalApply <= 0) {
-    throw new Error('Enter a payment amount and/or discount to apply.');
+    throw new Error(uiError('enterPaymentAmount'));
   }
 
-  const balanceBefore = loan.balance_amount;
+  const balanceBefore = isIO
+    ? loan.current_principal_balance
+    : loan.balance_amount;
 
   let allocation: PaymentAllocationResult;
   let installments: InstallmentForAllocation[] = [];
@@ -179,25 +197,30 @@ export function recordPayment(
         db.loan_installments.filter((i) => i.loan_id === loan.id),
         input.paymentDate
       );
-    fixedDueBeforeTotal = summarizeFixedInstallmentDue(
-      {
+    const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+      buildLateFeeExemptByInstallmentId(db, loan.id)
+    );
+    const fixedCtx = {
+      installments,
+      paymentDate: input.paymentDate,
+      lateFeeRatePercent: loan.late_fee_rate,
+      monthlyInstallmentAmount: loan.installment_amount,
+      currentInstallmentNumber: currentNum,
+      loanBalanceAmount: loan.balance_amount,
+      lateFeeExemptByInstallmentId,
+      recomputeLateFeeExemptAfterAllocation: createLateFeeExemptAfterAllocationFn(
+        db,
+        loan.id,
+        lateFeeExemptByInstallmentId,
         installments,
-        paymentDate: input.paymentDate,
-        lateFeeRatePercent: loan.late_fee_rate,
-        currentInstallmentNumber: currentNum,
-      },
+        input.paymentDate
+      ),
+    };
+    fixedDueBeforeTotal = summarizeFixedInstallmentDue(
+      fixedCtx,
       input.paymentDate
     ).totalDue;
-    allocation = allocateFixedInstallmentPayment(
-      {
-        installments,
-        paymentDate: input.paymentDate,
-        lateFeeRatePercent: loan.late_fee_rate,
-        currentInstallmentNumber: currentNum,
-        loanBalanceAmount: loan.balance_amount,
-      },
-      totalApply
-    );
+    allocation = allocateFixedInstallmentPayment(fixedCtx, totalApply);
   }
 
   const finalLines = splitAllocationsCashAndDiscount(
@@ -220,7 +243,9 @@ export function recordPayment(
 
   if (merged.unallocated > 0) {
     throw new Error(
-      `Could not apply ${merged.unallocated.toLocaleString()} LKR of this payment. Adjust cash or discount.`
+      uiError('paymentUnallocated', {
+        amount: merged.unallocated.toLocaleString(),
+      })
     );
   }
 
@@ -233,6 +258,8 @@ export function recordPayment(
   const paymentId = generateId();
   const paymentCode = generateCode('PAY', db.counters);
   const receiptNumber = generateCode('RCP', db.counters);
+
+  const paymentBreakdown = summarizePaymentBreakdown(merged.allocations);
 
   const paymentRow = {
     id: paymentId,
@@ -250,6 +277,10 @@ export function recordPayment(
     client_submit_id: input.clientSubmitId,
     notes: input.notes,
     status: 'CONFIRMED' as const,
+    installment_paid: paymentBreakdown.installmentPaid,
+    late_fee_paid: paymentBreakdown.lateFeePaid,
+    interest_paid: paymentBreakdown.interestPaid,
+    principal_paid: paymentBreakdown.principalPaid,
     created_at: ts,
     updated_at: ts,
   };
@@ -274,6 +305,7 @@ export function recordPayment(
     ? buildInterestOnlyReceipt(
         merged,
         loan.interest_rate,
+        balanceBefore,
         cashAmount,
         discountAmount
       )
@@ -282,7 +314,20 @@ export function recordPayment(
         balanceBefore,
         fixedDueBeforeTotal,
         cashAmount,
-        discountAmount
+        discountAmount,
+        {
+          monthlyInstallment: loan.installment_amount,
+          lateFeeRate: loan.late_fee_rate,
+          paymentDate: input.paymentDate,
+          schedule: installments.map((i) => ({
+            id: i.id,
+            installmentNumber: i.installmentNumber,
+            dueDate: i.dueDate,
+            installmentAmount: i.installmentAmount,
+            paidAmount: i.paidAmount,
+            lateFeePaid: i.lateFeePaid,
+          })),
+        }
       );
 
   db.receipts.push({
@@ -297,13 +342,19 @@ export function recordPayment(
     created_at: ts,
   });
 
+  createPaymentReceiptDocument(db, paymentId, receiptBreakdown);
+
   db.audit_logs.push({
     id: generateId(),
     user_id: db.profiles[0]?.id ?? 'system',
     action: 'PAYMENT',
     entity_type: 'payment',
     entity_id: paymentId,
-    summary: `Payment ${paymentCode} · ${receiptNumber} for ${updatedLoan.loan_code}`,
+    summary: buildAuditSummary('paymentAuditSummary', {
+      code: paymentCode,
+      receipt: receiptNumber,
+      loanCode: updatedLoan.loan_code,
+    }),
     created_at: ts,
   });
 
@@ -329,6 +380,7 @@ function applyInterestOnlyAllocation(
   ts: string
 ) {
   const loan = db.loans.find((l) => l.id === loanId)!;
+  const wasSettled = loan.status === 'COMPLETED' || loan.status === 'SETTLED';
   const cycles = db.loan_interest_cycles
     .filter((c) => c.loan_id === loanId)
     .sort((a, b) => a.cycle_number - b.cycle_number);
@@ -342,8 +394,10 @@ function applyInterestOnlyAllocation(
       const cycle = cycles.find((c) => c.id === line.interestCycleId);
       if (cycle) {
         cycle.interest_paid = roundLKR(cycle.interest_paid + line.amount);
-        cycle.status =
-          cycle.interest_paid >= cycle.interest_due ? 'PAID' : 'PARTIAL';
+        cycle.status = deriveInterestCycleStatus(
+          cycle.interest_due,
+          cycle.interest_paid
+        );
         cycle.updated_at = ts;
       }
     }
@@ -370,6 +424,7 @@ function applyInterestOnlyAllocation(
     loan.balance_amount = 0;
   }
   loan.updated_at = ts;
+  autoReleaseGuaranteesIfLoanJustSettled(db, loan, wasSettled, paymentDate);
 
   persistInterestOnlyCycles(db, loanId, paymentDate);
 }
@@ -382,7 +437,41 @@ function applyFixedAllocation(
   ts: string
 ) {
   const loan = db.loans.find((l) => l.id === loanId)!;
+  const wasSettled = loan.status === 'COMPLETED' || loan.status === 'SETTLED';
   const installments = db.loan_installments.filter((i) => i.loan_id === loanId);
+
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
+
+  const refreshLateFeeAmounts = () => {
+    const engine = runLateFeeEngine(
+      installments.map((inst) => ({
+        id: inst.id,
+        installmentNumber: inst.installment_number,
+        dueDate: inst.due_date,
+        installmentAmount: inst.installment_amount,
+        paidAmount: inst.paid_amount,
+        lateFeeAmount: inst.late_fee_amount,
+        lateFeePaid: inst.late_fee_paid,
+      })),
+      loan.installment_amount,
+      loan.late_fee_rate,
+      { paymentDate, lateFeeExemptByInstallmentId }
+    );
+    for (const inst of installments) {
+      const line = getLateFeeLineByInstallmentId(engine, inst.id);
+      const isExempt = lateFeeExemptByInstallmentId[inst.id] === true;
+      const computed = isExempt ? 0 : (line?.lateFee ?? 0);
+      inst.late_fee_amount = isExempt
+        ? roundLKR(Math.max(inst.late_fee_paid, 0))
+        : preserveLateFeeChargedAmount(
+            inst.late_fee_amount,
+            computed,
+            inst.late_fee_paid
+          );
+    }
+  };
 
   for (const line of allocation.allocations) {
     if (!line.installmentId) continue;
@@ -394,19 +483,7 @@ function applyFixedAllocation(
       line.allocationType === 'LATE_FEE_DISCOUNT'
     ) {
       inst.late_fee_paid = roundLKR(inst.late_fee_paid + line.amount);
-      const { lateFeeAmount } = calculateInstallmentLateFee(
-        {
-          installmentNumber: inst.installment_number,
-          dueDate: inst.due_date,
-          installmentAmount: inst.installment_amount,
-          paidAmount: inst.paid_amount,
-          lateFeeAmount: inst.late_fee_amount,
-          lateFeePaid: inst.late_fee_paid,
-        },
-        loan.late_fee_rate,
-        paymentDate
-      );
-      inst.late_fee_amount = lateFeeAmount;
+      refreshLateFeeAmounts();
     }
     if (
       line.allocationType === 'INSTALLMENT' ||
@@ -423,10 +500,8 @@ function applyFixedAllocation(
     inst.updated_at = ts;
   }
 
-  const appliedToBalance = roundLKR(
-    allocation.totalAllocated - (allocation.summary.advanceAmount ?? 0)
-  );
-  loan.paid_amount = roundLKR(loan.paid_amount + appliedToBalance);
+  const { installmentPaid } = summarizeFixedInstallmentPaid(allocation.summary);
+  loan.paid_amount = roundLKR(loan.paid_amount + installmentPaid);
   loan.balance_amount = roundLKR(
     Math.max(0, (loan.total_payable ?? loan.balance_amount) - loan.paid_amount)
   );
@@ -434,11 +509,187 @@ function applyFixedAllocation(
   const hasOverdue = installments.some(
     (i) =>
       i.paid_amount < i.installment_amount &&
-      new Date(i.due_date) < new Date(paymentDate)
+      isDateBefore(i.due_date, paymentDate)
   );
   loan.status = hasOverdue ? 'OVERDUE' : 'ACTIVE';
   if (loan.balance_amount <= 0) loan.status = 'COMPLETED';
   loan.updated_at = ts;
+  autoReleaseGuaranteesIfLoanJustSettled(db, loan, wasSettled, paymentDate);
 
   syncFixedInstallmentLateFees(db, loanId, paymentDate);
+}
+
+export type InterestOnlyPrincipalSettlementKind = 'HALF' | 'FULL';
+
+export interface RecordInterestOnlyPrincipalSettlementInput {
+  loanId: string;
+  customerId: string;
+  kind: InterestOnlyPrincipalSettlementKind;
+  paymentDate: string;
+  paymentMethod?: PaymentMethod;
+  clientSubmitId?: string;
+}
+
+function ioSettlementNote(kind: InterestOnlyPrincipalSettlementKind): string {
+  return kind === 'HALF' ? 'IO_SETTLEMENT:HALF' : 'IO_SETTLEMENT:FULL';
+}
+
+function principalSettlementAmount(
+  currentPrincipal: number,
+  kind: InterestOnlyPrincipalSettlementKind
+): number {
+  if (kind === 'FULL') return roundLKR(currentPrincipal);
+  return roundLKR(currentPrincipal / 2);
+}
+
+/** Interest-only principal settlement — half (50%) or full (100%) of current balance. */
+export function recordInterestOnlyPrincipalSettlement(
+  input: RecordInterestOnlyPrincipalSettlementInput,
+  db: MamDemoDb = getDb()
+): RecordPaymentResult {
+  if (input.clientSubmitId) {
+    const existing = findPaymentBySubmitId(db, input.clientSubmitId);
+    if (existing) {
+      return {
+        payment: mapLoanPayment(existing),
+        receiptNumber: existing.receipt_number,
+        allocation: rebuildAllocationFromPayment(db, existing.id),
+      };
+    }
+    if (inFlightPaymentSubmits.has(input.clientSubmitId)) {
+      throw new Error(uiError('paymentSaveInProgress'));
+    }
+    inFlightPaymentSubmits.add(input.clientSubmitId);
+  }
+
+  try {
+    const loan = db.loans.find((l) => l.id === input.loanId);
+    if (!loan) throw new Error(uiError('loanNotFound'));
+    if (loan.repayment_method !== 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+      throw new Error(uiError('interestOnlySettlementOnly'));
+    }
+    if (loan.status === 'COMPLETED' || loan.status === 'SETTLED') {
+      throw new Error(uiError('loanAlreadyCompleted'));
+    }
+
+    persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
+
+    const balanceBefore = loan.current_principal_balance;
+    const cashAmount = principalSettlementAmount(balanceBefore, input.kind);
+    if (cashAmount <= 0) {
+      throw new Error(uiError('enterPaymentAmount'));
+    }
+
+    const newPrincipal = roundLKR(balanceBefore - cashAmount);
+    const merged: PaymentAllocationResult = {
+      allocations: [
+        {
+          allocationType: 'PRINCIPAL',
+          amount: cashAmount,
+        },
+      ],
+      totalAllocated: cashAmount,
+      unallocated: 0,
+      summary: {
+        lateFeesPaid: 0,
+        installmentsPaid: 0,
+        currentMonthPaid: 0,
+        advanceAmount: 0,
+        interestPaid: 0,
+        principalPaid: cashAmount,
+        newPrincipal,
+        pendingInterestRemaining: loan.pending_interest_amount ?? 0,
+        loanBalanceAfter: newPrincipal,
+      },
+    };
+
+    applyInterestOnlyAllocation(db, loan.id, merged, input.paymentDate, getSystemTimestamp());
+
+    const paymentId = generateId();
+    const paymentCode = generateCode('PAY', db.counters);
+    const receiptNumber = generateCode('RCP', db.counters);
+    const ts = getSystemTimestamp();
+    const method = input.paymentMethod ?? 'CASH';
+
+    const paymentRow = {
+      id: paymentId,
+      payment_code: paymentCode,
+      loan_id: loan.id,
+      customer_id: input.customerId,
+      amount: cashAmount,
+      discount_amount: 0,
+      applied_amount: cashAmount,
+      payment_method: methodToDb(method),
+      payment_date: input.paymentDate,
+      receipt_number: receiptNumber,
+      client_submit_id: input.clientSubmitId,
+      notes: ioSettlementNote(input.kind),
+      status: 'CONFIRMED' as const,
+      installment_paid: 0,
+      late_fee_paid: 0,
+      interest_paid: 0,
+      principal_paid: cashAmount,
+      created_at: ts,
+      updated_at: ts,
+    };
+    db.loan_payments.push(paymentRow);
+
+    for (const line of merged.allocations) {
+      db.payment_allocations.push({
+        id: generateId(),
+        payment_id: paymentId,
+        loan_id: loan.id,
+        allocation_type: line.allocationType,
+        amount: line.amount,
+        created_at: ts,
+      });
+    }
+
+    const receiptBreakdown = buildInterestOnlyReceipt(
+      merged,
+      loan.interest_rate,
+      balanceBefore,
+      cashAmount,
+      0
+    );
+
+    db.receipts.push({
+      id: generateId(),
+      receipt_number: receiptNumber,
+      payment_id: paymentId,
+      loan_id: loan.id,
+      customer_id: input.customerId,
+      amount: cashAmount,
+      issued_at: input.paymentDate,
+      breakdown: { ...merged.summary, receipt: receiptBreakdown },
+      created_at: ts,
+    });
+
+    createPaymentReceiptDocument(db, paymentId, receiptBreakdown);
+
+    db.audit_logs.push({
+      id: generateId(),
+      user_id: db.profiles[0]?.id ?? 'system',
+      action: 'PAYMENT',
+      entity_type: 'payment',
+      entity_id: paymentId,
+      summary: buildAuditSummary('ioPrincipalSettlementAuditSummary', {
+        kind: input.kind,
+        loanCode: loan.loan_code,
+      }),
+      created_at: ts,
+    });
+
+    saveDb(db);
+
+    return {
+      payment: mapLoanPayment(paymentRow),
+      receiptNumber,
+      allocation: merged,
+    };
+  } finally {
+    if (input.clientSubmitId) {
+      inFlightPaymentSubmits.delete(input.clientSubmitId);
+    }
+  }
 }

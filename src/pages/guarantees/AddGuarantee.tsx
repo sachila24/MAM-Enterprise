@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircleIcon, UploadCloudIcon } from 'lucide-react';
+import { CheckCircleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
 import { Stepper } from '../../components/ui/Stepper';
 import { useToast } from '../../components/ui/Toast';
-import { CurrencyInput } from '../../components/ui/CurrencyInput';
-import { DatePicker } from '../../components/ui/DatePicker';
 import { formatLKR } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
@@ -15,7 +13,12 @@ import {
   listCustomers,
   listLoans,
 } from '../../lib/local-db/repositories';
-import type { CreateGuaranteeInput } from '../../lib/local-db/repositories/guaranteesRepo';
+import {
+  emptyGuaranteeDraft,
+  hasGuaranteeDraftContent,
+  type GuaranteeFieldValues,
+} from '../../lib/guarantee/guaranteeFields';
+import { GuaranteeFieldsForm } from '../../components/guarantees/GuaranteeFieldsForm';
 import { useT } from '../../i18n/I18nProvider';
 
 export function AddGuarantee() {
@@ -25,8 +28,8 @@ export function AddGuarantee() {
   const steps = [
     { id: 'customer', label: t('stepCustomer') },
     { label: t('stepLoan') },
-    { label: t('stepItemDetails') },
-    { label: t('stepStorageConfirm') },
+    { label: t('guaranteeInformation') },
+    { label: t('stepConfirm') },
   ];
   const [searchParams] = useSearchParams();
   const prefillLoanId = searchParams.get('loanId') ?? '';
@@ -38,12 +41,7 @@ export function AddGuarantee() {
   const [formData, setFormData] = useState({
     customerId: '',
     loanId: prefillLoanId,
-    type: 'VEHICLE_BOOK' as CreateGuaranteeInput['itemType'],
-    description: '',
-    estimatedValue: 0,
-    storageLocation: '',
-    receivedDate: new Date().toISOString().split('T')[0],
-    notes: '',
+    guarantee: emptyGuaranteeDraft(),
   });
 
   const loans = listLoans(db);
@@ -82,8 +80,6 @@ export function AddGuarantee() {
   const isStepValid = () => {
     if (currentStep === 0) return formData.customerId !== '';
     if (currentStep === 1) return formData.loanId !== '';
-    if (currentStep === 2) return formData.description.trim() !== '';
-    if (currentStep === 3) return formData.storageLocation.trim() !== '';
     return true;
   };
 
@@ -101,22 +97,28 @@ export function AddGuarantee() {
     submitLockRef.current = true;
     setIsSubmitting(true);
     try {
-      const receivedAt = formData.receivedDate.includes('T')
-        ? formData.receivedDate
-        : `${formData.receivedDate}T12:00:00.000Z`;
-
+      const fields: GuaranteeFieldValues = formData.guarantee;
+      const trim = (s: string) => s.trim() || undefined;
       const g = createGuarantee(
         {
           loanId: selectedLoan.id,
           customerId: selectedLoan.customerId,
-          itemType: formData.type,
-          description: formData.description.trim(),
-          storageLocation: formData.storageLocation.trim(),
-          receivedAt,
-          notes: formData.notes.trim() || undefined,
+          fileNumber: trim(fields.fileNumber),
+          vehicleNumber: trim(fields.vehicleNumber),
+          guarantor1Name: trim(fields.guarantor1Name),
+          guarantor1Address: trim(fields.guarantor1Address),
+          guarantor1Phone: trim(fields.guarantor1Phone),
+          guarantor1Nic: trim(fields.guarantor1Nic),
+          guarantor2Name: trim(fields.guarantor2Name),
+          guarantor2Address: trim(fields.guarantor2Address),
+          guarantor2Phone: trim(fields.guarantor2Phone),
+          guarantor2Nic: trim(fields.guarantor2Nic),
         },
         db
       );
+      if (!hasGuaranteeDraftContent(fields)) {
+        showToast(t('guaranteeOptionalHint'), 'info');
+      }
       showToast(`${g.guaranteeCode} ${t('guaranteeSaved')}`, 'success');
       navigate(`/guarantees/${g.id}`, { replace: true });
     } catch {
@@ -183,180 +185,66 @@ export function AddGuarantee() {
                 </div>
                 {selectedLoan && (
                   <div className="rounded-lg bg-brand-50 p-4 border border-brand-100 text-sm">
-                    <p className="text-brand-700">Loan <span className="font-semibold text-brand-900 tabular-nums">{selectedLoan.loanCode}</span></p>
-                    <p className="text-brand-700 mt-1">Balance <span className="font-medium tabular-nums">{formatLKR(selectedLoan.balanceAmount)}</span></p>
+                    <p className="text-brand-700">{t('loanSummaryPrefix')} <span className="font-semibold text-brand-900 tabular-nums">{selectedLoan.loanCode}</span></p>
+                    <p className="text-brand-700 mt-1">{t('loanBalanceSummary')} <span className="font-medium tabular-nums">{formatLKR(selectedLoan.balanceAmount)}</span></p>
                   </div>
                 )}
               </div>
             )}
 
             {currentStep === 2 && (
-              <div className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="type"
-                    className="block text-sm font-medium leading-6 text-neutral-900"
-                  >
-                    {t('guaranteeType')}
-                  </label>
-                  <select
-                    id="type"
-                    value={formData.type}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        type: e.target.value as CreateGuaranteeInput['itemType'],
-                      })
-                    }
-                    className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-neutral-900 ring-1 ring-inset ring-neutral-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
-                  >
-                    <option value="VEHICLE_BOOK">{t('vehicleBook')}</option>
-                    <option value="BIKE">{t('typeBike')}</option>
-                    <option value="GOLD">{t('gold')}</option>
-                    <option value="ELECTRONICS">{t('electronics')}</option>
-                    <option value="OTHER">{t('otherValuable')}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium leading-6 text-neutral-900"
-                  >
-                    {t('field.description')} *
-                  </label>
-                  <textarea
-                    id="description"
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    placeholder="e.g., Original vehicle book · Honda Dio"
-                    className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
-                  />
-                </div>
-
-                <div>
-                  <CurrencyInput
-                    label={t('estimatedValue')}
-                    value={formData.estimatedValue}
-                    onChange={(val) =>
-                      setFormData({ ...formData, estimatedValue: val })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                    Photos (optional)
-                  </label>
-                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-neutral-300 px-6 py-10 hover:bg-neutral-50 transition-colors cursor-pointer opacity-75">
-                    <div className="text-center">
-                      <UploadCloudIcon
-                        className="mx-auto h-12 w-12 text-neutral-300"
-                        aria-hidden="true"
-                      />
-                      <div className="mt-4 flex text-sm leading-6 text-neutral-600 justify-center">
-                        <span className="font-semibold text-brand-600">
-                          Upload placeholder
-                        </span>
-                      </div>
-                      <p className="text-xs leading-5 text-neutral-500">
-                        Local demo only — attachments later
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-4">
+                <p className="text-sm text-neutral-600">{t('guaranteeOptionalHint')}</p>
+                <GuaranteeFieldsForm
+                  values={formData.guarantee}
+                  onChange={(patch) =>
+                    setFormData((f) => ({
+                      ...f,
+                      guarantee: { ...f.guarantee, ...patch },
+                    }))
+                  }
+                />
               </div>
             )}
 
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="storageLocation"
-                    className="block text-sm font-medium leading-6 text-neutral-900"
-                  >
-                    Storage location *
-                  </label>
-                  <input
-                    type="text"
-                    id="storageLocation"
-                    value={formData.storageLocation}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        storageLocation: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Safe Box A1, Cabinet 3"
-                    className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium leading-6 text-neutral-900 mb-2">
-                    Received date *
-                  </label>
-                  <DatePicker
-                    value={formData.receivedDate}
-                    onChange={(val) =>
-                      setFormData({ ...formData, receivedDate: val })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="notes"
-                    className="block text-sm font-medium leading-6 text-neutral-900"
-                  >
-                    Additional notes
-                  </label>
-                  <textarea
-                    id="notes"
-                    rows={2}
-                    value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
-                    }
-                    className="mt-2 block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm sm:leading-6"
-                  />
-                </div>
-
-                <div className="mt-8 rounded-lg bg-neutral-50 p-4 border border-neutral-200">
-                  <h4 className="text-sm font-medium text-neutral-900 mb-4 flex items-center gap-2">
-                    <CheckCircleIcon className="h-5 w-5 text-success-500" />
-                    Summary
-                  </h4>
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <dt className="text-neutral-500">Loan</dt>
-                      <dd className="font-semibold text-neutral-900 tabular-nums">
-                        {selectedLoan?.loanCode ?? '—'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-neutral-500">Type</dt>
-                      <dd className="font-medium text-neutral-900">
-                        {String(formData.type).replace(/_/g, ' ')}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-neutral-500">Description</dt>
-                      <dd className="font-medium text-neutral-900">
-                        {formData.description}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-neutral-500">Location</dt>
-                      <dd className="font-medium text-neutral-900">
-                        {formData.storageLocation || '—'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
+              <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-900 mb-4 flex items-center gap-2">
+                  <CheckCircleIcon className="h-5 w-5 text-success-500" />
+                  {t('summaryTitle')}
+                </h4>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <dt className="text-neutral-500">{t('field.loan')}</dt>
+                    <dd className="font-semibold text-neutral-900 tabular-nums">
+                      {selectedLoan?.loanCode ?? '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral-500">{t('fileNumber')}</dt>
+                    <dd className="font-medium text-neutral-900">
+                      {formData.guarantee.fileNumber || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral-500">{t('vehicleNumber')}</dt>
+                    <dd className="font-medium text-neutral-900">
+                      {formData.guarantee.vehicleNumber || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral-500">{t('guarantor1')}</dt>
+                    <dd className="font-medium text-neutral-900">
+                      {formData.guarantee.guarantor1Name || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral-500">{t('guarantor2')}</dt>
+                    <dd className="font-medium text-neutral-900">
+                      {formData.guarantee.guarantor2Name || '—'}
+                    </dd>
+                  </div>
+                </dl>
               </div>
             )}
           </motion.div>
