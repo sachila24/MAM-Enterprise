@@ -16,79 +16,25 @@ import {
   isValidSriLankanPhone,
   normalizeSriLankanPhone,
 } from '../../validation/phone';
+import {
+  hasSoldBikeHistoryForRegistration,
+  isChassisUsedByActiveBike,
+  isRegistrationUsedByActiveBike,
+} from '../bikeInventory';
 
-const inFlightBikeCreates = new Set<string>();
-const inFlightCashSales = new Set<string>();
-const inFlightBikePurchases = new Set<string>();
-
-function normalizeRegistrationNo(registrationNo: string): string {
-  return registrationNo.trim().toLowerCase();
-}
-
-function normalizeChassisNo(chassisNo: string): string {
-  return chassisNo.trim().toLowerCase();
-}
-
-/** Inventory statuses that block re-using the same registration or chassis. */
-const ACTIVE_BIKE_STATUSES: ReadonlySet<DbBike['status']> = new Set([
-  'IN_STOCK',
-  'HELD',
-]);
-
-function isActiveBikeStatus(status: DbBike['status']): boolean {
-  return ACTIVE_BIKE_STATUSES.has(status);
-}
-
-/** True when an in-stock / held bike already uses this registration. */
-export function isRegistrationUsedByActiveBike(
-  db: MamDemoDb,
-  registrationNo: string,
-  excludeBikeId?: string
-): boolean {
-  const normalized = normalizeRegistrationNo(registrationNo);
-  if (!normalized) return false;
-  return db.bikes.some(
-    (b) =>
-      b.id !== excludeBikeId &&
-      isActiveBikeStatus(b.status) &&
-      normalizeRegistrationNo(b.registration_no ?? '') === normalized
-  );
-}
+export {
+  hasSoldBikeHistoryForRegistration,
+  isChassisUsedByActiveBike,
+  isRegistrationUsedByActiveBike,
+  normalizeRegistrationNumber,
+} from '../bikeInventory';
 
 /** @deprecated Use isRegistrationUsedByActiveBike */
 export const isRegistrationUsedByNonSoldBike = isRegistrationUsedByActiveBike;
 
-/** True when an in-stock / held bike already uses this chassis number. */
-export function isChassisUsedByActiveBike(
-  db: MamDemoDb,
-  chassisNo: string,
-  excludeBikeId?: string
-): boolean {
-  const normalized = normalizeChassisNo(chassisNo);
-  if (!normalized) return false;
-  return db.bikes.some(
-    (b) =>
-      b.id !== excludeBikeId &&
-      isActiveBikeStatus(b.status) &&
-      normalizeChassisNo(b.chassis_no ?? '') === normalized
-  );
-}
-
-/** Sold bike records sharing this registration (business history). */
-export function hasSoldBikeHistoryForRegistration(
-  db: MamDemoDb,
-  registrationNo: string,
-  excludeBikeId?: string
-): boolean {
-  const normalized = normalizeRegistrationNo(registrationNo);
-  if (!normalized) return false;
-  return db.bikes.some(
-    (b) =>
-      b.id !== excludeBikeId &&
-      b.status === 'SOLD' &&
-      normalizeRegistrationNo(b.registration_no ?? '') === normalized
-  );
-}
+const inFlightBikeCreates = new Set<string>();
+const inFlightCashSales = new Set<string>();
+const inFlightBikePurchases = new Set<string>();
 
 export function listBikes(db: MamDemoDb = getDb()): Bike[] {
   return db.bikes.map(mapBike);

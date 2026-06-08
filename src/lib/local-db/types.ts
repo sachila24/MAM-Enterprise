@@ -212,6 +212,8 @@ export interface DbEarlySettlement {
   current_month_due: number;
   final_settlement_amount: number;
   status: 'QUOTED' | 'PAID' | 'CANCELLED';
+  /** Linked loan payment row when settlement is confirmed */
+  payment_id?: string;
   created_at: string;
 }
 

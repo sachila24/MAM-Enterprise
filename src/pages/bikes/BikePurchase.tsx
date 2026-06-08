@@ -27,7 +27,7 @@ import type { PaymentMethod } from '../../types/loan';
 import { useT } from '../../i18n/I18nProvider';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { isValidSriLankanPhone } from '../../lib/validation/phone';
-import { getSystemToday } from '../../lib/time/systemTime';
+import { getSystemToday, normalizeDate } from '../../lib/time/systemTime';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIKE_YEAR_OPTIONS = Array.from({ length: 41 }, (_, i) => CURRENT_YEAR - i);
@@ -330,7 +330,7 @@ export function BikePurchase() {
         documentCost,
         otherCost,
         sellingPrice,
-        purchaseDate,
+        purchaseDate: normalizeDate(purchaseDate),
         purchaseNotes: combinedNotes || undefined,
         paymentMethod,
         paymentReference: paymentReference.trim() || undefined,
@@ -605,7 +605,7 @@ export function BikePurchase() {
                         <DatePicker
                           label={`${t('purchaseDate')} *`}
                           value={purchaseDate}
-                          onChange={setPurchaseDate}
+                          onChange={(e) => setPurchaseDate(e.target.value)}
                         />
                       </div>
                       <div className="sm:col-span-2">

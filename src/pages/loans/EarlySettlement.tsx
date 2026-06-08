@@ -136,7 +136,7 @@ export function EarlySettlement() {
     if (!eligible || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const { settlementCode } = confirmEarlySettlement(
+      const { settlementCode, paymentId } = confirmEarlySettlement(
         {
           loanId,
           settlementDate,
@@ -149,7 +149,15 @@ export function EarlySettlement() {
         formatMessage('earlySettlementRecorded', { code: settlementCode }, language),
         'success'
       );
-      navigate(`/loans/${loanId}`, { replace: true });
+      const receiptDoc = db.documents.find(
+        (d) =>
+          d.payment_id === paymentId && d.document_type === 'PAYMENT_RECEIPT'
+      );
+      if (receiptDoc) {
+        navigate(`/documents/${receiptDoc.id}?print=1`, { replace: true });
+      } else {
+        navigate(`/loans/${loanId}`, { replace: true });
+      }
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : t('couldNotConfirmSettlement'),

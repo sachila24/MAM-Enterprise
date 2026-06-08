@@ -22,6 +22,35 @@ export function getSystemToday(): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Value safe for HTML `<input type="date">` — always `yyyy-MM-dd` or empty string.
+ * Never returns `[object Object]`; rejects accidental event objects used as state.
+ */
+export function toDateInputValue(
+  date: string | Date | null | undefined | unknown
+): string {
+  if (date == null || date === '') return '';
+  if (typeof date === 'object' && !(date instanceof Date)) {
+    return '';
+  }
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    if (!trimmed || trimmed.includes('[object')) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const head = trimmed.split('T')[0]?.split(' ')[0];
+    if (head && /^\d{4}-\d{2}-\d{2}$/.test(head)) return head;
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return toDateInputValue(parsed);
+    }
+    return '';
+  }
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 /** Strip time; return YYYY-MM-DD for comparisons and engine input. */
 export function normalizeDate(
   date: string | Date | null | undefined
