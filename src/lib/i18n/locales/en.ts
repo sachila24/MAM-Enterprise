@@ -238,6 +238,7 @@ export const app = {
   startDate: 'Start date',
   dueDay: 'Due day (1–28)',
   firstDueDate: 'First due date',
+  recurringPaymentDay: 'Recurring payment day',
   bikeInstallmentTerms: 'Bike & installment terms',
   fixedInstallmentTerms: 'Fixed Installment Terms',
   selectInStockBike: '-- Select in-stock bike --',

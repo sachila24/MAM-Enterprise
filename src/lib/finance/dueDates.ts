@@ -18,9 +18,84 @@ export function addMonthsSameDay(isoDate: string, monthsToAdd: number): string {
   return normalizeDate(result);
 }
 
+/** Day-of-month (1–31) from an ISO date. */
+export function dayOfMonth(isoDate: string): number {
+  return new Date(`${normalizeDate(isoDate)}T12:00:00Z`).getUTCDate();
+}
+
 /** Day-of-month (1–28) taken from start date when not explicitly set. */
 export function deriveDueDay(startDate: string): number {
-  return new Date(`${normalizeDate(startDate)}T12:00:00Z`).getUTCDate();
+  return dayOfMonth(startDate);
+}
+
+/** Days in calendar month (month is 1-based). */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * Due date on a given year-month using preferred day (1–31).
+ * Clamps to the last day when the month is shorter (e.g. 30 → Feb 28/29).
+ */
+export function dueDateInMonth(
+  year: number,
+  month: number,
+  preferredDay: number
+): string {
+  const last = daysInMonth(year, month);
+  const day = Math.min(Math.max(1, preferredDay), last);
+  const m = String(month).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
+
+/** Explicit preferred day, or day from first due date for legacy loans. */
+export function resolvePreferredDueDay(
+  firstDueDate: string,
+  preferredDueDay?: number
+): number {
+  if (
+    preferredDueDay != null &&
+    preferredDueDay >= 1 &&
+    preferredDueDay <= 31
+  ) {
+    return preferredDueDay;
+  }
+  return dayOfMonth(firstDueDate);
+}
+
+/**
+ * Fixed-installment due date (1-based).
+ * First installment uses firstDueDate exactly; later ones use preferredDueDay per month.
+ */
+export function computeFixedInstallmentDueDate(
+  firstDueDate: string,
+  installmentNumber: number,
+  preferredDueDay?: number
+): string {
+  if (installmentNumber <= 1) {
+    return normalizeDate(firstDueDate);
+  }
+  const day = resolvePreferredDueDay(firstDueDate, preferredDueDay);
+  const base = normalizeDate(firstDueDate);
+  const source = new Date(`${base}T12:00:00Z`);
+  source.setUTCMonth(source.getUTCMonth() + (installmentNumber - 1));
+  return dueDateInMonth(
+    source.getUTCFullYear(),
+    source.getUTCMonth() + 1,
+    day
+  );
+}
+
+/** Build due dates for fixed installments 1..count from first due date. */
+export function buildFixedInstallmentDueDates(
+  firstDueDate: string,
+  count: number,
+  preferredDueDay?: number
+): string[] {
+  return Array.from({ length: count }, (_, i) =>
+    computeFixedInstallmentDueDate(firstDueDate, i + 1, preferredDueDay)
+  );
 }
 
 /**

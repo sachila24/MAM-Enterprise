@@ -1,3 +1,4 @@
+import { buildFixedInstallmentDueDates } from './dueDates';
 import { roundLKR } from './money';
 import { calculateLateMonthsFromDueDate } from '../time/systemTime';
 
@@ -114,7 +115,8 @@ export function monthsLate(dueDate: string, paymentDate: string): number {
 
 export function buildFixedInstallmentSchedule(
   totals: FixedInstallmentTotals,
-  firstDueDate: string
+  firstDueDate: string,
+  preferredDueDay?: number
 ): InstallmentScheduleLine[] {
   const { termMonths, financeAmount, totalInterest, monthlyInstallment } =
     totals;
@@ -123,11 +125,13 @@ export function buildFixedInstallmentSchedule(
   const principalPerMonth = roundLKR(financeAmount / termMonths);
   const interestPerMonth = roundLKR(totalInterest / termMonths);
   const lines: InstallmentScheduleLine[] = [];
-  const anchor = new Date(firstDueDate);
+  const dueDates = buildFixedInstallmentDueDates(
+    firstDueDate,
+    termMonths,
+    preferredDueDay
+  );
 
   for (let i = 0; i < termMonths; i++) {
-    const due = new Date(anchor);
-    due.setMonth(anchor.getMonth() + i);
     const isLast = i === termMonths - 1;
     const principalComponent = isLast
       ? roundLKR(financeAmount - principalPerMonth * (termMonths - 1))
@@ -144,7 +148,7 @@ export function buildFixedInstallmentSchedule(
 
     lines.push({
       installmentNumber: i + 1,
-      dueDate: due.toISOString().split('T')[0],
+      dueDate: dueDates[i],
       principalComponent,
       interestComponent,
       installmentAmount,

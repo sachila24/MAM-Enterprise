@@ -238,6 +238,7 @@ export const app: Record<AppLabelKey, string> = {
   startDate: 'ආරම්භ දිනය',
   dueDay: 'ගෙවීම් දිනය (1–28)',
   firstDueDate: 'පළමු ගෙවීම් දිනය',
+  recurringPaymentDay: 'මාසික ගෙවීම් දිනය',
   bikeInstallmentTerms: 'බයික් සහ වාරික කොන්දේසි',
   fixedInstallmentTerms: 'ස්ථිර වාරික කොන්දේසි',
   selectInStockBike: '-- තොග ඇති බයික් තෝරන්න --',

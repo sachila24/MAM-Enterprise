@@ -14,7 +14,7 @@ import {
 } from '../../lib/finance/fixedInstallment';
 import { parsePercentInput, sanitizePercentInput } from '../../lib/finance/parsePercent';
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from '../../lib/finance/constants';
-import { computeFirstDueDate } from '../../lib/finance/dueDates';
+import { computeFirstDueDate, dayOfMonth } from '../../lib/finance/dueDates';
 import { calculateMonthlyInterestDue } from '../../lib/finance/interestOnly';
 import { formatLKR, formatEnum } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
@@ -87,6 +87,7 @@ export function CreateLoan() {
     new Date().toISOString().split('T')[0]
   );
   const [firstDueDate, setFirstDueDate] = useState('');
+  const [preferredDueDay, setPreferredDueDay] = useState<number | ''>('');
 
   const [bikeId, setBikeId] = useState('');
   const [sellingPrice, setSellingPrice] = useState(0);
@@ -183,7 +184,16 @@ export function CreateLoan() {
 
   const handleStartDateChange = (date: string) => {
     setStartDate(date);
-    if (date) setFirstDueDate(computeFirstDueDate(date));
+    if (date) {
+      const nextDue = computeFirstDueDate(date);
+      setFirstDueDate(nextDue);
+      setPreferredDueDay(dayOfMonth(nextDue));
+    }
+  };
+
+  const handleFirstDueDateChange = (date: string) => {
+    setFirstDueDate(date);
+    if (date) setPreferredDueDay(dayOfMonth(date));
   };
 
   const handleNext = () => {
@@ -254,6 +264,10 @@ export function CreateLoan() {
           firstDueDate:
             firstDueDate ||
             computeFirstDueDate(startDate),
+          preferredDueDay:
+            !isInterestOnly && preferredDueDay !== ''
+              ? preferredDueDay
+              : undefined,
           bikeId: isBike ? bikeId : undefined,
           initialPayment: origination.initialPayment,
           serviceFee: origination.serviceFee,
@@ -542,8 +556,30 @@ export function CreateLoan() {
                 <DatePicker
                   label={`${t('firstDueDate')} *`}
                   value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)}
+                  onChange={(e) => handleFirstDueDateChange(e.target.value)}
                 />
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1">
+                    {t('recurringPaymentDay')}
+                  </label>
+                  <select
+                    value={preferredDueDay === '' ? '' : preferredDueDay}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value, 10);
+                      setPreferredDueDay(Number.isNaN(value) ? '' : value);
+                    }}
+                    className="block w-full rounded-md border-0 py-1.5 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+                  >
+                    <option value="" disabled>
+                      —
+                    </option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-xs text-neutral-500">
                   {tf('defaultLateFeeHint', { rate: DEFAULT_LATE_FEE_RATE_PERCENT })}
                 </p>

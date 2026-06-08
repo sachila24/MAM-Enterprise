@@ -3,7 +3,11 @@
  */
 
 import { DEFAULT_LATE_FEE_RATE_PERCENT } from './constants';
-import { computeFirstDueDate, addMonthsSameDay } from './dueDates';
+import {
+  addMonthsSameDay,
+  buildFixedInstallmentDueDates,
+  computeFirstDueDate,
+} from './dueDates';
 import { calculateEarlySettlementQuote, canRequestEarlySettlement } from './earlySettlement';
 import {
   allocateInterestOnlyPayment,
@@ -91,6 +95,53 @@ export const EXAMPLE_2_DUE_DATES = {
     secondDue: '2026-07-15',
   },
 };
+
+/** Jan 31 loan, first due Feb 28, customer wants every 30th */
+export const EXAMPLE_PREFERRED_DUE_DAY_30 = (() => {
+  const firstDue = '2026-02-28';
+  const dates = buildFixedInstallmentDueDates(firstDue, 4, 30);
+  return {
+    dates,
+    expected: ['2026-02-28', '2026-03-30', '2026-04-30', '2026-05-30'],
+  };
+})();
+
+/** Jan 31 loan, first due Feb 28, customer wants every 31st */
+export const EXAMPLE_PREFERRED_DUE_DAY_31 = (() => {
+  const firstDue = '2026-02-28';
+  const dates = buildFixedInstallmentDueDates(firstDue, 4, 31);
+  return {
+    dates,
+    expected: ['2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'],
+  };
+})();
+
+/** Leap-year February clamps preferred day 30 to Feb 29 */
+export const EXAMPLE_PREFERRED_DUE_LEAP_FEB = (() => {
+  const dates = buildFixedInstallmentDueDates('2024-02-29', 3, 30);
+  return {
+    dates,
+    expected: ['2024-02-29', '2024-03-30', '2024-04-30'],
+  };
+})();
+
+/** Non-leap February clamps preferred day 30 to Feb 28 */
+export const EXAMPLE_PREFERRED_DUE_NON_LEAP_FEB = (() => {
+  const dates = buildFixedInstallmentDueDates('2025-02-28', 3, 30);
+  return {
+    dates,
+    expected: ['2025-02-28', '2025-03-30', '2025-04-30'],
+  };
+})();
+
+/** Legacy loans without preferred_due_day keep first-due day each month */
+export const EXAMPLE_PREFERRED_DUE_LEGACY = (() => {
+  const dates = buildFixedInstallmentDueDates('2026-02-28', 4);
+  return {
+    dates,
+    expected: ['2026-02-28', '2026-03-28', '2026-04-28', '2026-05-28'],
+  };
+})();
 
 export const EXAMPLE_3_FIXED_INSTALLMENT = calculateFixedInstallmentTotals({
   financeAmount: 300_000,
@@ -904,6 +955,46 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       pass: EXAMPLE_2_DUE_DATES.secondDue === '2026-07-15',
       expected: '2026-07-15',
       actual: EXAMPLE_2_DUE_DATES.secondDue,
+    },
+    {
+      name: 'Preferred due day 30: Feb fallback then 30th',
+      pass:
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_DAY_30.dates) ===
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_DAY_30.expected),
+      expected: EXAMPLE_PREFERRED_DUE_DAY_30.expected,
+      actual: EXAMPLE_PREFERRED_DUE_DAY_30.dates,
+    },
+    {
+      name: 'Preferred due day 31: Apr clamps to 30',
+      pass:
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_DAY_31.dates) ===
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_DAY_31.expected),
+      expected: EXAMPLE_PREFERRED_DUE_DAY_31.expected,
+      actual: EXAMPLE_PREFERRED_DUE_DAY_31.dates,
+    },
+    {
+      name: 'Preferred due day: leap-year February',
+      pass:
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_LEAP_FEB.dates) ===
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_LEAP_FEB.expected),
+      expected: EXAMPLE_PREFERRED_DUE_LEAP_FEB.expected,
+      actual: EXAMPLE_PREFERRED_DUE_LEAP_FEB.dates,
+    },
+    {
+      name: 'Preferred due day: non-leap February',
+      pass:
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_NON_LEAP_FEB.dates) ===
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_NON_LEAP_FEB.expected),
+      expected: EXAMPLE_PREFERRED_DUE_NON_LEAP_FEB.expected,
+      actual: EXAMPLE_PREFERRED_DUE_NON_LEAP_FEB.dates,
+    },
+    {
+      name: 'Preferred due day: legacy fallback from first due',
+      pass:
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_LEGACY.dates) ===
+        JSON.stringify(EXAMPLE_PREFERRED_DUE_LEGACY.expected),
+      expected: EXAMPLE_PREFERRED_DUE_LEGACY.expected,
+      actual: EXAMPLE_PREFERRED_DUE_LEGACY.dates,
     },
     {
       name: 'Fixed: total interest',

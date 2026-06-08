@@ -49,6 +49,7 @@ export interface CreateLoanInput {
   startDate: string;
   firstDueDate: string;
   dueDay?: number;
+  preferredDueDay?: number;
   bikeId?: string;
   notes?: string;
   /** Optional collateral items to store when the loan is created */
@@ -232,7 +233,11 @@ export function createLoan(
     });
     const firstDue =
       input.firstDueDate || computeFirstDueDate(input.startDate);
-    const schedule = buildFixedInstallmentSchedule(totals, firstDue);
+    const schedule = buildFixedInstallmentSchedule(
+      totals,
+      firstDue,
+      input.preferredDueDay
+    );
 
     dbLoan = {
       id,
@@ -258,6 +263,7 @@ export function createLoan(
       late_fee_rate: input.lateFeeRate,
       start_date: input.startDate,
       first_due_date: firstDue,
+      preferred_due_day: input.preferredDueDay,
       due_date: firstDue,
       minimum_months_before_settlement: 6,
       status: 'ACTIVE',

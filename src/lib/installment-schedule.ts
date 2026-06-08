@@ -1,3 +1,4 @@
+import { buildFixedInstallmentDueDates } from './finance/dueDates';
 import type { Loan, LoanInstallment } from '../types/entities';
 import { isFixedInstallmentLoan } from '../types/loan';
 
@@ -47,14 +48,16 @@ export function buildInstallmentSchedule(loan: Loan | undefined): InstallmentRow
   if (!loan.termMonths || !loan.installmentAmount) return [];
 
   const schedule: InstallmentRow[] = [];
-  const startDate = new Date(loan.firstDueDate);
+  const dueDates = buildFixedInstallmentDueDates(
+    loan.firstDueDate,
+    loan.termMonths,
+    loan.preferredDueDay
+  );
   const paidCount = Math.floor(
     ((loan.paidAmount ?? 0) / (loan.installmentAmount || 1))
   );
 
   for (let i = 0; i < loan.termMonths; i++) {
-    const dueDate = new Date(startDate);
-    dueDate.setMonth(startDate.getMonth() + i);
 
     let status: InstallmentRow['status'] = 'pending';
     if (i < paidCount) {
@@ -65,7 +68,7 @@ export function buildInstallmentSchedule(loan: Loan | undefined): InstallmentRow
 
     schedule.push({
       installmentNo: i + 1,
-      dueDate: dueDate.toISOString().split('T')[0],
+      dueDate: dueDates[i],
       amount: loan.installmentAmount,
       status,
     });

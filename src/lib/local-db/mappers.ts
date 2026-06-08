@@ -101,6 +101,7 @@ export function mapLoan(l: DbLoan): Loan {
     startDate: l.start_date,
     firstDueDate: l.first_due_date,
     dueDay: l.due_day,
+    preferredDueDay: l.preferred_due_day,
     dueDate: l.due_date,
     minimumMonthsBeforeSettlement: l.minimum_months_before_settlement,
     status: l.status,

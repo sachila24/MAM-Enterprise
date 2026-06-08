@@ -77,6 +77,8 @@ export interface Loan {
   startDate: string;
   firstDueDate: string;
   dueDay?: number;
+  /** Recurring calendar day (1–31) for fixed-term installment due dates */
+  preferredDueDay?: number;
   dueDate?: string;
   minimumMonthsBeforeSettlement: number;
   status: LoanStatus;

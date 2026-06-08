@@ -82,6 +82,7 @@ export interface DbLoan {
   start_date: string;
   first_due_date: string;
   due_day?: number;
+  preferred_due_day?: number;
   due_date?: string;
   minimum_months_before_settlement: number;
   status: 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED' | 'SETTLED';

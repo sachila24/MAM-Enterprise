@@ -140,6 +140,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   startDate: 'ආරම්භ දිනය',
   dueDay: 'ගෙවීම් දිනය (1-28)',
   firstDueDate: 'පළමු ගෙවීම් දිනය',
+  recurringPaymentDay: 'මාසික ගෙවීම් දිනය',
   bikeInstallmentTerms: 'බයික් සහ වාරික කොන්දේසි',
   fixedInstallmentTerms: 'ස්ථිර වාරික කොන්දේසි',
   selectInStockBike: '-- තොගයේ ඇති බයික් එකක් තෝරන්න --',
