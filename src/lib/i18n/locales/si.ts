@@ -824,6 +824,8 @@ export const app: Record<AppLabelKey, string> = {
   openPrintAfterPurchase: 'තහවුරු කිරීමෙන් පසු මුද්‍රණ පෙරදසුන විවෘත කරන්න',
   bikePurchaseAuditSummary:
     'බයික් මිලදී ගැනීම {docNumber} · {bikeCode} · විකුණුම්කරු {seller} · රු. {amount} · {handledBy}',
+  bikeRegistrationOrChassisReuseWarning:
+    'මෙම රථ අංකය හෝ චැසි අංකය පෙර භාවිතා කර ඇත.',
   previouslySoldRegistrationNotice:
     'මෙම ලියාපදිංචි අංකය සඳහා කලින් විකිණූ යතුරුපැදි වාර්තාවක් හමු විය.',
   bikeInstallmentMustFixedTerm: 'බයික් වාරික සඳහා ස්ථිර කාල වාරික අවශ්‍යයි',

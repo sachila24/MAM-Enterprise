@@ -15,6 +15,7 @@ import {
   completeBikePurchase,
   completeCashSale,
   hasSoldBikeHistoryForRegistration,
+  isBikeActiveInventory,
   isRegistrationUsedByActiveBike,
 } from './repositories/bikesRepo';
 import { createLoan } from './repositories/loansRepo';
@@ -265,8 +266,8 @@ export const REGRESSION_BIKE_SELL_THEN_READD = (() => {
   };
 })();
 
-/** IN_STOCK bike blocks duplicate even when input format differs (BGZ-0602 vs BGZ 0602). */
-export const REGRESSION_ACTIVE_STOCK_BLOCKS = (() => {
+/** Duplicate registration on active stock is allowed (no blocking). */
+export const REGRESSION_ACTIVE_STOCK_ALLOWS_DUPLICATE = (() => {
   const db = emptyDb();
   db.bikes.push({
     id: 'bike-active-bgz',
@@ -285,10 +286,10 @@ export const REGRESSION_ACTIVE_STOCK_BLOCKS = (() => {
     updated_at: TS,
   });
 
-  const blocked = isRegistrationUsedByActiveBike(db, 'BGZ 0602');
   let createError: string | null = null;
+  let secondId: string | null = null;
   try {
-    createBike(
+    secondId = createBike(
       {
         model: 'Duplicate attempt',
         registrationNo: 'BGZ 0602',
@@ -298,12 +299,12 @@ export const REGRESSION_ACTIVE_STOCK_BLOCKS = (() => {
         purchaseDate: '2026-06-01',
       },
       db
-    );
+    ).id;
   } catch (err) {
     createError = err instanceof Error ? err.message : String(err);
   }
 
-  return { blocked, createError };
+  return { createError, secondId, bikeCount: db.bikes.length };
 })();
 
 /** Sold "BGZ-0602" must not block new bike entered as "BGZ 0602" (format-normalized match). */
@@ -533,6 +534,290 @@ export const REGRESSION_SALE_FLOW_STATUS = (() => {
   };
 })();
 
+/** Scenario A: add → sell → re-add same registration (BGZ-0602). */
+export const REGRESSION_SCENARIO_A = (() => {
+  const db = emptyDb();
+  const reg = 'BGZ-0602';
+  const first = createBike(
+    {
+      model: 'Bajaj',
+      registrationNo: reg,
+      chassisNo: 'CHS-A-1',
+      costPrice: 120_000,
+      sellingPrice: 180_000,
+      purchaseDate: '2026-01-01',
+    },
+    db
+  );
+  createLoan(
+    {
+      customerId: 'cust-1',
+      loanPurpose: 'BIKE_INSTALLMENT',
+      repaymentMethod: 'FIXED_TERM_INSTALLMENT',
+      principalAmount: 180_000,
+      interestRate: 2.5,
+      termMonths: 24,
+      lateFeeRate: 5,
+      discountAmount: 0,
+      startDate: '2026-02-01',
+      firstDueDate: '2026-03-01',
+      bikeId: first.id,
+    },
+    db
+  );
+  let readdError: string | null = null;
+  let secondId: string | null = null;
+  try {
+    secondId = createBike(
+      {
+        model: 'Bajaj (returned)',
+        registrationNo: reg,
+        chassisNo: 'CHS-A-2',
+        costPrice: 100_000,
+        sellingPrice: 170_000,
+        purchaseDate: '2026-06-01',
+      },
+      db
+    ).id;
+  } catch (err) {
+    readdError = err instanceof Error ? err.message : String(err);
+  }
+  const loan = db.loans[0];
+  return {
+    readdError,
+    secondId,
+    firstStillSold: db.bikes.find((b) => b.id === first.id)?.status === 'SOLD',
+    loanStillOriginal: loan?.bike_id === first.id,
+  };
+})();
+
+/** Scenario B: BGZ 0602 sold → re-add as BGZ-0602. */
+export const REGRESSION_SCENARIO_B = (() => {
+  const db = emptyDb();
+  const first = createBike(
+    {
+      model: 'Honda',
+      registrationNo: 'BGZ 0602',
+      chassisNo: 'CHS-B-1',
+      costPrice: 130_000,
+      sellingPrice: 190_000,
+      purchaseDate: '2026-01-01',
+    },
+    db
+  );
+  createLoan(
+    {
+      customerId: 'cust-1',
+      loanPurpose: 'BIKE_INSTALLMENT',
+      repaymentMethod: 'FIXED_TERM_INSTALLMENT',
+      principalAmount: 190_000,
+      interestRate: 2.5,
+      termMonths: 24,
+      lateFeeRate: 5,
+      discountAmount: 0,
+      startDate: '2026-02-01',
+      firstDueDate: '2026-03-01',
+      bikeId: first.id,
+    },
+    db
+  );
+  let readdError: string | null = null;
+  try {
+    createBike(
+      {
+        model: 'Honda (re-acquired)',
+        registrationNo: 'BGZ-0602',
+        chassisNo: 'CHS-B-2',
+        costPrice: 110_000,
+        sellingPrice: 175_000,
+        purchaseDate: '2026-06-01',
+      },
+      db
+    );
+  } catch (err) {
+    readdError = err instanceof Error ? err.message : String(err);
+  }
+  return { readdError };
+})();
+
+/** Scenario B2: re-add same chassis after sell — must work. */
+export const REGRESSION_SCENARIO_B_CHASSIS = (() => {
+  const db = emptyDb();
+  const chassis = 'CHS-REUSE-001';
+  const first = createBike(
+    {
+      model: 'Yamaha',
+      registrationNo: 'REG-CHS-A',
+      chassisNo: chassis,
+      costPrice: 140_000,
+      sellingPrice: 200_000,
+      purchaseDate: '2026-01-01',
+    },
+    db
+  );
+  createLoan(
+    {
+      customerId: 'cust-1',
+      loanPurpose: 'BIKE_INSTALLMENT',
+      repaymentMethod: 'FIXED_TERM_INSTALLMENT',
+      principalAmount: 200_000,
+      interestRate: 2.5,
+      termMonths: 24,
+      lateFeeRate: 5,
+      discountAmount: 0,
+      startDate: '2026-02-01',
+      firstDueDate: '2026-03-01',
+      bikeId: first.id,
+    },
+    db
+  );
+  let readdError: string | null = null;
+  try {
+    createBike(
+      {
+        model: 'Yamaha (returned)',
+        registrationNo: 'REG-CHS-B',
+        chassisNo: chassis,
+        costPrice: 130_000,
+        sellingPrice: 190_000,
+        purchaseDate: '2026-06-01',
+      },
+      db
+    );
+  } catch (err) {
+    readdError = err instanceof Error ? err.message : String(err);
+  }
+  return { readdError, loanStillOriginal: db.loans[0]?.bike_id === first.id };
+})();
+
+/** Scenario C: duplicate active registration allowed (no blocking). */
+export const REGRESSION_SCENARIO_C = (() => {
+  const db = emptyDb();
+  createBike(
+    {
+      model: 'Active',
+      registrationNo: 'BGZ-0602',
+      chassisNo: 'CHS-C-1',
+      costPrice: 140_000,
+      sellingPrice: 200_000,
+      purchaseDate: '2026-01-01',
+    },
+    db
+  );
+  let readdError: string | null = null;
+  let secondId: string | null = null;
+  try {
+    secondId = createBike(
+      {
+        model: 'Duplicate',
+        registrationNo: 'BGZ-0602',
+        chassisNo: 'CHS-C-2',
+        costPrice: 130_000,
+        sellingPrice: 195_000,
+        purchaseDate: '2026-06-01',
+      },
+      db
+    ).id;
+  } catch (err) {
+    readdError = err instanceof Error ? err.message : String(err);
+  }
+  return { readdError, secondId, bikeCount: db.bikes.length };
+})();
+
+/**
+ * Legacy corrupt row: status IN_STOCK but sold_loan_id set (old bug).
+ * Re-add must still work without mutating the original bike id.
+ */
+export const REGRESSION_LEGACY_SOLD_STATUS_MISMATCH = (() => {
+  const db = emptyDb();
+  const soldBikeId = 'bike-legacy-sold';
+  const loanId = 'loan-legacy';
+  db.bikes.push({
+    id: soldBikeId,
+    bike_code: 'BIK-LEGACY',
+    model: 'Legacy Sold',
+    registration_no: 'LEG-9999',
+    chassis_no: 'CHS-LEG-OLD',
+    engine_no: 'ENG-LEG',
+    color: 'Blue',
+    year: 2020,
+    cost_price: 100_000,
+    selling_price: 150_000,
+    status: 'IN_STOCK',
+    sold_loan_id: loanId,
+    sold_date: '2025-08-01',
+    purchase_date: '2025-01-01',
+    created_at: TS,
+    updated_at: TS,
+  });
+  db.loans.push({
+    id: loanId,
+    loan_code: 'LN-LEGACY',
+    loan_purpose: 'BIKE_INSTALLMENT',
+    repayment_method: 'FIXED_TERM_INSTALLMENT',
+    customer_id: 'cust-1',
+    bike_id: soldBikeId,
+    principal_amount: 140_000,
+    original_principal_amount: 150_000,
+    current_principal_balance: 140_000,
+    interest_rate: 2.5,
+    interest_rate_period: 'MONTHLY',
+    interest_calculation_type: 'FLAT_TERM',
+    term_months: 24,
+    total_interest_amount: 84_000,
+    total_before_discount: 224_000,
+    discount_amount: 0,
+    total_payable: 224_000,
+    paid_amount: 50_000,
+    balance_amount: 174_000,
+    installment_amount: 9333,
+    late_fee_rate: 5,
+    start_date: '2025-08-01',
+    first_due_date: '2025-09-01',
+    due_date: '2025-09-01',
+    minimum_months_before_settlement: 6,
+    status: 'ACTIVE',
+    pending_interest_amount: 0,
+    service_fee: 0,
+    registration_fee: 0,
+    customer_paid_amount: 10_000,
+    advance_payment: 10_000,
+    created_at: TS,
+    updated_at: TS,
+  });
+
+  const blockedBeforeReadd = isRegistrationUsedByActiveBike(db, 'LEG-9999');
+  const legacyRow = db.bikes.find((b) => b.id === soldBikeId)!;
+  const treatedInactive = !isBikeActiveInventory(legacyRow, db);
+
+  let readdError: string | null = null;
+  let newBikeId: string | null = null;
+  try {
+    newBikeId = createBike(
+      {
+        model: 'LEG-9999 returned',
+        registrationNo: 'LEG-9999',
+        chassisNo: 'CHS-LEG-NEW',
+        costPrice: 90_000,
+        sellingPrice: 140_000,
+        purchaseDate: '2026-06-01',
+      },
+      db
+    ).id;
+  } catch (err) {
+    readdError = err instanceof Error ? err.message : String(err);
+  }
+
+  return {
+    blockedBeforeReadd,
+    treatedInactive,
+    originalIdPreserved: db.bikes.find((b) => b.id === soldBikeId)?.id === soldBikeId,
+    loanStillOriginal: db.loans.find((l) => l.id === loanId)?.bike_id === soldBikeId,
+    readdError,
+    newBikeId,
+  };
+})();
+
 export const REGRESSION_EARLY_SETTLEMENT_PAYMENT = (() => {
   const { db, loanId } = seedSoldBikeScenario();
   const result = confirmEarlySettlement(
@@ -653,16 +938,16 @@ export function verifyRegressionExamples(): Array<{
       actual: REGRESSION_BIKE_SELL_THEN_READD.loanStillPointsToOriginal,
     },
     {
-      name: 'Active stock: IN_STOCK BGZ-0602 blocks BGZ 0602',
-      pass: REGRESSION_ACTIVE_STOCK_BLOCKS.blocked === true,
-      expected: true,
-      actual: REGRESSION_ACTIVE_STOCK_BLOCKS.blocked,
+      name: 'No blocking: duplicate reg on active stock allowed',
+      pass: REGRESSION_ACTIVE_STOCK_ALLOWS_DUPLICATE.createError === null,
+      expected: null,
+      actual: REGRESSION_ACTIVE_STOCK_ALLOWS_DUPLICATE.createError,
     },
     {
-      name: 'Active stock: createBike rejected for duplicate format',
-      pass: REGRESSION_ACTIVE_STOCK_BLOCKS.createError !== null,
-      expected: 'error thrown',
-      actual: REGRESSION_ACTIVE_STOCK_BLOCKS.createError,
+      name: 'No blocking: duplicate reg creates second bike row',
+      pass: REGRESSION_ACTIVE_STOCK_ALLOWS_DUPLICATE.bikeCount === 2,
+      expected: 2,
+      actual: REGRESSION_ACTIVE_STOCK_ALLOWS_DUPLICATE.bikeCount,
     },
     {
       name: 'Reg normalize: BGZ-0602 equals BGZ 0602',
@@ -796,6 +1081,72 @@ export function verifyRegressionExamples(): Array<{
         earlySettlementPaymentNote('EST-0001') === 'EARLY_SETTLEMENT:EST-0001',
       expected: 'EARLY_SETTLEMENT:EST-0001',
       actual: earlySettlementPaymentNote('EST-0001'),
+    },
+    {
+      name: 'Scenario A: sell BGZ-0602 then re-add succeeds',
+      pass: REGRESSION_SCENARIO_A.readdError === null,
+      expected: null,
+      actual: REGRESSION_SCENARIO_A.readdError,
+    },
+    {
+      name: 'Scenario A: original bike stays sold',
+      pass: REGRESSION_SCENARIO_A.firstStillSold === true,
+      expected: true,
+      actual: REGRESSION_SCENARIO_A.firstStillSold,
+    },
+    {
+      name: 'Scenario A: loan still points to original bike',
+      pass: REGRESSION_SCENARIO_A.loanStillOriginal === true,
+      expected: true,
+      actual: REGRESSION_SCENARIO_A.loanStillOriginal,
+    },
+    {
+      name: 'Scenario B: BGZ 0602 sold then BGZ-0602 re-add succeeds',
+      pass: REGRESSION_SCENARIO_B.readdError === null,
+      expected: null,
+      actual: REGRESSION_SCENARIO_B.readdError,
+    },
+    {
+      name: 'Scenario B2: re-add same chassis after sell succeeds',
+      pass: REGRESSION_SCENARIO_B_CHASSIS.readdError === null,
+      expected: null,
+      actual: REGRESSION_SCENARIO_B_CHASSIS.readdError,
+    },
+    {
+      name: 'Scenario B2: loan still points to original bike',
+      pass: REGRESSION_SCENARIO_B_CHASSIS.loanStillOriginal === true,
+      expected: true,
+      actual: REGRESSION_SCENARIO_B_CHASSIS.loanStillOriginal,
+    },
+    {
+      name: 'Scenario C: duplicate active BGZ-0602 allowed',
+      pass: REGRESSION_SCENARIO_C.readdError === null,
+      expected: null,
+      actual: REGRESSION_SCENARIO_C.readdError,
+    },
+    {
+      name: 'Legacy sold row: not treated as active inventory',
+      pass: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.treatedInactive === true,
+      expected: true,
+      actual: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.treatedInactive,
+    },
+    {
+      name: 'Legacy sold row: re-add same registration succeeds',
+      pass: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.readdError === null,
+      expected: null,
+      actual: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.readdError,
+    },
+    {
+      name: 'Legacy sold row: original bike id preserved',
+      pass: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.originalIdPreserved === true,
+      expected: true,
+      actual: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.originalIdPreserved,
+    },
+    {
+      name: 'Scenario D: loan still references original after re-add',
+      pass: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.loanStillOriginal === true,
+      expected: true,
+      actual: REGRESSION_LEGACY_SOLD_STATUS_MISMATCH.loanStillOriginal,
     },
   ];
 }

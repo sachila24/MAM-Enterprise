@@ -39,7 +39,16 @@ export interface DbBike {
   sold_price?: number;
   repair_cost?: number;
   other_cost?: number;
-  status: 'IN_STOCK' | 'SOLD' | 'HELD';
+  status:
+    | 'IN_STOCK'
+    | 'AVAILABLE'
+    | 'HELD'
+    | 'RESERVED'
+    | 'SOLD'
+    | 'SETTLED'
+    | 'RETURNED'
+    | 'ARCHIVED'
+    | 'INACTIVE';
   purchase_date: string;
   sold_date?: string;
   sold_loan_id?: string;

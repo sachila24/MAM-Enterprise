@@ -4,6 +4,7 @@
  */
 
 import type { MamDemoDb } from './types';
+import { repairBikeInventoryStatuses } from './bikeInventory';
 import { buildSeedDatabase } from './seedDemoData';
 import { roundLKR } from '../finance/money';
 import {
@@ -126,11 +127,12 @@ function normalizeDemoDocuments(db: MamDemoDb) {
   }
 }
 
-function normalizeDemoBikes(db: MamDemoDb) {
+function normalizeDemoBikes(db: MamDemoDb): boolean {
   for (const b of db.bikes) {
     if (typeof b.repair_cost !== 'number') b.repair_cost = 0;
     if (typeof b.other_cost !== 'number') b.other_cost = 0;
   }
+  return repairBikeInventoryStatuses(db);
 }
 
 function normalizeDemoLoans(db: MamDemoDb) {
@@ -166,11 +168,16 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeDemoPayments(cachedDb);
   normalizeDemoGuarantees(cachedDb);
   normalizeDemoDocuments(cachedDb);
-  normalizeDemoBikes(cachedDb);
+  const bikesRepaired = normalizeDemoBikes(cachedDb);
   normalizeDemoLoans(cachedDb);
   normalizeBusinessSettings(cachedDb);
   normalizeAppAuth(cachedDb);
-  cachedRaw = raw;
+  if (bikesRepaired) {
+    cachedRaw = JSON.stringify(cachedDb);
+    localStorage.setItem(STORAGE_KEY, cachedRaw);
+  } else {
+    cachedRaw = raw;
+  }
   return cachedDb;
 }
 

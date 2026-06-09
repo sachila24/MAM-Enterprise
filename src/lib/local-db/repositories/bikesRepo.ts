@@ -16,21 +16,18 @@ import {
   isValidSriLankanPhone,
   normalizeSriLankanPhone,
 } from '../../validation/phone';
-import {
-  hasSoldBikeHistoryForRegistration,
-  isChassisUsedByActiveBike,
-  isRegistrationUsedByActiveBike,
-} from '../bikeInventory';
+import { isBikeActiveInventory } from '../bikeInventory';
 
 export {
+  hasPriorRegistrationOrChassisUsage,
   hasSoldBikeHistoryForRegistration,
+  isBikeActiveInventory,
+  isBikeEffectivelyInactive,
   isChassisUsedByActiveBike,
   isRegistrationUsedByActiveBike,
   normalizeRegistrationNumber,
+  repairBikeInventoryStatuses,
 } from '../bikeInventory';
-
-/** @deprecated Use isRegistrationUsedByActiveBike */
-export const isRegistrationUsedByNonSoldBike = isRegistrationUsedByActiveBike;
 
 const inFlightBikeCreates = new Set<string>();
 const inFlightCashSales = new Set<string>();
@@ -46,7 +43,9 @@ export function getBike(id: string, db: MamDemoDb = getDb()): Bike | undefined {
 }
 
 export function listInStockBikes(db: MamDemoDb = getDb()): Bike[] {
-  return db.bikes.filter((b) => b.status === 'IN_STOCK').map(mapBike);
+  return db.bikes
+    .filter((b) => isBikeActiveInventory(b, db))
+    .map(mapBike);
 }
 
 export function bikeProfit(bike: Bike): number {
@@ -96,15 +95,7 @@ export function createBike(
     throw new Error(uiError('bikePricesRequired'));
   }
 
-  const registration = input.registrationNo.trim();
-  if (isRegistrationUsedByActiveBike(db, registration)) {
-    throw new Error(uiError('registrationExists'));
-  }
-
   const chassis = input.chassisNo?.trim() ?? '';
-  if (chassis && isChassisUsedByActiveBike(db, chassis)) {
-    throw new Error(uiError('chassisExists'));
-  }
 
   try {
     const ts = new Date().toISOString();
@@ -150,18 +141,11 @@ export function updateBike(
     if (!registration) {
       throw new Error(uiError('registrationRequired'));
     }
-    if (isRegistrationUsedByActiveBike(db, registration, id)) {
-      throw new Error(uiError('registrationExists'));
-    }
     input.registration_no = registration;
   }
 
   if (input.chassis_no !== undefined) {
-    const chassis = input.chassis_no.trim();
-    if (chassis && isChassisUsedByActiveBike(db, chassis, id)) {
-      throw new Error(uiError('chassisExists'));
-    }
-    input.chassis_no = chassis;
+    input.chassis_no = input.chassis_no.trim();
   }
 
   if (row.status === 'SOLD') {
@@ -483,14 +467,7 @@ export function completeBikePurchase(
     }
 
     const registration = input.registrationNo.trim();
-    if (isRegistrationUsedByActiveBike(db, registration)) {
-      throw new Error(uiError('registrationExists'));
-    }
-
     const chassis = input.chassisNo?.trim() ?? '';
-    if (chassis && isChassisUsedByActiveBike(db, chassis)) {
-      throw new Error(uiError('chassisExists'));
-    }
 
     let resolvedSellerId = input.customerId;
     let party: DocumentPartySnapshot;

@@ -826,6 +826,8 @@ export const app = {
     'Bike purchase {docNumber} · {bikeCode} · seller {seller} · LKR {amount} · by {handledBy}',
   previouslySoldRegistrationNotice:
     'Previously sold bike record found for this registration.',
+  bikeRegistrationOrChassisReuseWarning:
+    'This registration or chassis number was used on a previous bike record.',
   bikeInstallmentMustFixedTerm: 'Bike installment loans must use fixed-term installments',
   selectedBikeNotFound: 'Selected bike not found',
   selectedBikeNotInStock: 'Selected bike is no longer in stock',
