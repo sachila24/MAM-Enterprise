@@ -520,6 +520,8 @@ export const app = {
   colLocation: 'Location',
   colReceived: 'Received',
   colPrice: 'Price',
+  colBuyDate: 'Buy date',
+  colSellDate: 'Sell date',
   colYearColor: 'Year / Color',
   colChassisEngine: 'Chassis / Engine',
   colActiveLoans: 'Active Loans',
@@ -820,6 +822,7 @@ export const app = {
   bikePurchaseInProgress: 'Purchase is already being processed',
   bikePurchaseSellerRequired: 'Seller name and phone are required',
   viewPurchaseReceipt: 'View purchase receipt',
+  viewSaleReceipt: 'View sale receipt',
   printPurchaseReceipt: 'Print purchase receipt',
   openPrintAfterPurchase: 'Open print preview after confirmation',
   bikePurchaseAuditSummary:

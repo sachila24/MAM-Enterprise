@@ -520,6 +520,8 @@ export const app: Record<AppLabelKey, string> = {
   colLocation: 'ස්ථානය',
   colReceived: 'ලැබුණු',
   colPrice: 'මිල',
+  colBuyDate: 'මිලදී ගත් දිනය',
+  colSellDate: 'විකිණූ දිනය',
   colYearColor: 'වර්ෂය / වර්ණය',
   colChassisEngine: 'චැසි / එන්ජින්',
   colActiveLoans: 'සක්‍රිය ණය',
@@ -820,6 +822,7 @@ export const app: Record<AppLabelKey, string> = {
   bikePurchaseInProgress: 'මිලදී ගැනීම දැනටමත් සිදු වෙමින් පවතී',
   bikePurchaseSellerRequired: 'විකුණුම්කරුගේ නම සහ දුරකථන අංකය අවශ්‍යය',
   viewPurchaseReceipt: 'මිලදී ගැනීමේ ලදුපත බලන්න',
+  viewSaleReceipt: 'විකිණීමේ ලදුපත බලන්න',
   printPurchaseReceipt: 'මිලදී ගැනීමේ ලදුපත මුද්‍රණය',
   openPrintAfterPurchase: 'තහවුරු කිරීමෙන් පසු මුද්‍රණ පෙරදසුන විවෘත කරන්න',
   bikePurchaseAuditSummary:

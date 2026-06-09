@@ -19,8 +19,8 @@ import { useT } from '../../i18n/I18nProvider';
 import {
   findCashSaleDocumentForBike,
   findBikePurchaseDocumentForBike,
+  findLoanCreationDocument,
 } from '../../lib/documents/documentService';
-import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 
 export function BikeDetail() {
   const { t, language } = useT();
@@ -46,10 +46,13 @@ export function BikeDetail() {
     return getLoan(bike.soldLoanId, db);
   }, [bike?.soldLoanId, db]);
 
-  const cashSaleDoc = useMemo(
-    () => (bike?.id ? findCashSaleDocumentForBike(db, bike.id) : undefined),
-    [db, bike?.id]
-  );
+  const saleReceiptDoc = useMemo(() => {
+    if (!bike?.id || bike.status !== 'sold') return undefined;
+    if (bike.soldLoanId) {
+      return findLoanCreationDocument(db, bike.soldLoanId);
+    }
+    return findCashSaleDocumentForBike(db, bike.id);
+  }, [db, bike?.id, bike?.status, bike?.soldLoanId]);
 
   const purchaseReceiptDoc = useMemo(
     () =>
@@ -115,37 +118,24 @@ export function BikeDetail() {
               </button>
             )}
             {purchaseReceiptDoc && (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(`/documents/${purchaseReceiptDoc.id}`)
-                  }
-                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
-                >
-                  {t('viewPurchaseReceipt')}
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/documents/${purchaseReceiptDoc.id}`)
+                }
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+              >
+                {t('viewPurchaseReceipt')}
+              </button>
             )}
-            {cashSaleDoc && !saleLoan && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/documents/${cashSaleDoc.id}`)}
-                  className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
-                >
-                  {getDocumentLabel('viewInvoice', language)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(`/documents/${cashSaleDoc.id}?print=1`)
-                  }
-                  className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500"
-                >
-                  {getDocumentLabel('printInvoice', language)}
-                </button>
-              </>
+            {saleReceiptDoc && (
+              <button
+                type="button"
+                onClick={() => navigate(`/documents/${saleReceiptDoc.id}`)}
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+              >
+                {t('viewSaleReceipt')}
+              </button>
             )}
             <button
               type="button"
@@ -175,7 +165,7 @@ export function BikeDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
         <KpiCard
           label={bike.status === 'sold' ? t('soldPriceLabel') : t('listPrice')}
           value={formatLKR(
@@ -201,11 +191,15 @@ export function BikeDetail() {
           />
         )}
         <KpiCard
-          label={bike.status === 'sold' ? t('soldDateLabel') : t('purchaseDateLabel')}
+          label={t('purchaseDateLabel')}
+          value={formatDate(bike.purchaseDate, 'short', language)}
+        />
+        <KpiCard
+          label={t('soldDateLabel')}
           value={
             bike.status === 'sold' && bike.soldDate
               ? formatDate(bike.soldDate, 'short', language)
-              : formatDate(bike.purchaseDate, 'short', language)
+              : t('statusInStock')
           }
         />
       </div>
