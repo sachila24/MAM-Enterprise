@@ -2,7 +2,9 @@ import React, { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircleIcon,
+  ArrowLeftIcon,
   BanknoteIcon,
+  BikeIcon,
   FileTextIcon,
   ShieldIcon,
 } from 'lucide-react';
@@ -10,26 +12,30 @@ import { KpiCard } from '../../components/ui/KpiCard';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { isInterestOnlyLoan, type Loan } from '../../types/loan';
-import type { Guarantee } from '../../types/entities';
+import type { Bike, Guarantee } from '../../types/entities';
+import {
+  guaranteeDetailLines,
+} from '../../lib/guarantee/guaranteeFields';
+import type { LabelKey } from '../../lib/i18n/simpleLabels';
 import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
 import {
-  arrearsSummaryFromEngine,
-  enrichInstallmentsFromEngine,
-  runLateFeeEngine,
   getFixedLoanDisplayStatus,
+  getFixedLoanArrearsSummary,
+  oldestArrearsDueDate,
+  daysBetweenDates,
+  runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../../lib/finance/fixedInstallmentStatus';
+import {
+  buildFixedInstallmentLedgerEntries,
+  buildInterestOnlyLedgerEntries,
+  enrichLedgerInstallmentsWithLiveLateFees,
+} from '../../lib/display/ledgerDisplay';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
-import {
-  getNextDueDateForFixedInstallments,
-  getNextDueDateForInterestOnly,
-} from '../../lib/finance/loanNextDue';
-import {
-  resolveLoanDetailPreview,
-  LOAN_DETAIL_PREVIEW_LINKS,
-  type LoanDetailData,
-} from './loanDetailPreviewData';
+import { getNextDueDateForFixedInstallments } from '../../lib/finance/loanNextDue';
+import type { LoanDetailData } from './loanDetailTypes';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   getLoanDetailFromDb,
@@ -41,63 +47,77 @@ import { persistInterestOnlyCycles } from '../../lib/local-db/interestOnlySync';
 import { summarizeInterestOnlyLoan } from '../../lib/finance/interestOnlyCycles';
 import { roundLKR } from '../../lib/finance/money';
 
-import { getSystemToday } from '../../lib/time/systemTime';
-import {
-  InstallmentScheduleTable,
-  type InstallmentScheduleRow,
-} from '../../components/loans/InstallmentScheduleTable';
+import { useSystemToday } from '../../lib/time/systemTime';
+import { LedgerTable } from '../../components/loans/LedgerTable';
+import { findLoanCreationDocument } from '../../lib/documents/documentService';
+import { LinkedBikeSummary } from '../../components/guarantees/LinkedBikeSummary';
+import { getDocumentLabel } from '../../lib/i18n/documentLabels';
+import { listCashTransactionsForLoan } from '../../lib/local-db/repositories/cashTransactionsRepo';
+
+function formatOverdueLabel(
+  daysOverdue: number,
+  tf: (key: LabelKey, params?: Record<string, string | number>) => string
+): string {
+  if (daysOverdue <= 0) return '';
+  const months = Math.floor(daysOverdue / 30);
+  const days = daysOverdue % 30;
+  if (months === 0) return tf('overdueDaysOnly', { days });
+  if (days === 0) return tf('overdueMonthsOnly', { months });
+  return tf('overdueMonthsAndDays', { months, days });
+}
 
 export function LoanDetail() {
   const { t } = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const db = useDemoDb();
+  const asOfToday = useSystemToday();
 
   useEffect(() => {
     if (!id) return;
     const loan = db.loans.find((l) => l.id === id);
     if (loan?.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
-      persistInterestOnlyCycles(getDb(), id);
+      persistInterestOnlyCycles(getDb(), id, asOfToday);
     }
     if (loan?.repayment_method === 'FIXED_TERM_INSTALLMENT') {
-      syncFixedInstallmentLateFees(getDb(), id);
+      syncFixedInstallmentLateFees(getDb(), id, asOfToday);
     }
-  }, [id, db]);
+  }, [id, db, asOfToday]);
 
-  const detail =
-    (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
+  const detail = id ? getLoanDetailFromDb(id, db) : null;
   const demoLinks = listLoanDetailLinks(db);
+  const loanInvoiceDoc = id ? findLoanCreationDocument(db, id) : undefined;
 
   if (!detail) {
     return (
       <div className="max-w-3xl mx-auto pt-8">
         <EmptyState
           icon={AlertCircleIcon}
-          title="Loan not found"
-          description="Choose a demo loan below."
+          title={t('loanNotFound')}
+          description={t('chooseLoanBelow')}
           action={
-            <ul className="mt-4 space-y-2 text-sm">
-              {demoLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              {LOAN_DETAIL_PREVIEW_LINKS.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            demoLinks.length > 0 ? (
+              <ul className="mt-4 space-y-2 text-sm">
+                {demoLinks.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      to={`/loans/${link.id}`}
+                      className="font-semibold text-brand-600 hover:text-brand-500"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Link
+                to="/loans"
+                className="inline-flex items-center gap-2 font-semibold text-brand-600 hover:text-brand-500"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                {t('backToLoans')}
+              </Link>
+            )
           }
         />
       </div>
@@ -105,23 +125,41 @@ export function LoanDetail() {
   }
 
   if (isInterestOnlyLoan(detail.loan)) {
-    return <InterestOnlyLoanDetail detail={detail} navigate={navigate} />;
+    return (
+      <InterestOnlyLoanDetail
+        detail={detail}
+        navigate={navigate}
+        invoiceDocumentId={loanInvoiceDoc?.id}
+        loanInvoiceDocumentNumber={loanInvoiceDoc?.document_number}
+      />
+    );
   }
 
-  return <FixedInstallmentLoanDetail detail={detail} navigate={navigate} />;
+  return (
+    <FixedInstallmentLoanDetail
+      detail={detail}
+      navigate={navigate}
+      invoiceDocumentId={loanInvoiceDoc?.id}
+      loanInvoiceDocumentNumber={loanInvoiceDoc?.document_number}
+    />
+  );
 }
 
 function InterestOnlyLoanDetail({
   detail,
   navigate,
+  invoiceDocumentId,
+  loanInvoiceDocumentNumber,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
+  invoiceDocumentId?: string;
+  loanInvoiceDocumentNumber?: string;
 }) {
-  const { loan, customer, interestCycles, guarantees, principalPayments } =
-    detail;
+  const { t, language } = useT();
+  const { loan, customer, interestCycles, guarantees, ledgerPayments } = detail;
 
-  const asOf = useMemo(() => getSystemToday(), []);
+  const asOf = useSystemToday();
   const cycleAlloc = useMemo(
     () =>
       interestCycles.map((c) => ({
@@ -148,101 +186,94 @@ function InterestOnlyLoanDetail({
     [loan.startDate, loan.interestRate, loan.currentPrincipalBalance, cycleAlloc, asOf]
   );
 
-  const nextDueIo = useMemo(
-    () =>
-      getNextDueDateForInterestOnly(loan.startDate, cycleAlloc, asOf),
-    [loan.startDate, cycleAlloc, asOf]
-  );
-
   const pendingInterest =
     loan.pendingInterestAmount ?? summary.pendingInterest;
 
-  const nextDueLabel =
-    loan.status === 'COMPLETED'
-      ? 'Completed'
-      : nextDueIo.dueDate
-        ? formatDate(nextDueIo.dueDate)
-        : nextDueIo.label;
+  const ledgerEntries = useMemo(
+    () =>
+      buildInterestOnlyLedgerEntries(
+        loan.startDate,
+        loan.originalPrincipalAmount,
+        interestCycles,
+        ledgerPayments,
+        asOf,
+        {
+          loanOpeningRef:
+            loanInvoiceDocumentNumber ?? loan.loanCode ?? null,
+        }
+      ),
+    [
+      loan.startDate,
+      loan.originalPrincipalAmount,
+      loan.loanCode,
+      loanInvoiceDocumentNumber,
+      interestCycles,
+      ledgerPayments,
+      asOf,
+    ]
+  );
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
-      <LoanHeader
-        loan={loan}
-        customerName={customer.name}
-        subtitle={formatEnum(loan.repaymentMethod)}
-        actions={
-          <LoanActionBar
-            loanId={loan.id}
-            navigate={navigate}
-            showEarlySettlement={false}
-            monthsCompleted={detail.monthsCompleted}
-            minimumMonths={loan.minimumMonthsBeforeSettlement}
-          />
-        }
-      />
+      <div className="mb-5">
+        <LoanDetailBackButton navigate={navigate} />
+        <LoanHeader
+          loan={loan}
+          customerName={customer.name}
+          subtitle={formatEnum(loan.repaymentMethod, language)}
+          actions={
+            <LoanActionBar
+              loanId={loan.id}
+              navigate={navigate}
+              showEarlySettlement={false}
+              monthsCompleted={detail.monthsCompleted}
+              minimumMonths={loan.minimumMonthsBeforeSettlement}
+              invoiceDocumentId={invoiceDocumentId}
+            />
+          }
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
         <KpiCard
-          label="Original principal"
+          label={t('kpiOriginalPrincipal')}
           value={formatLKR(loan.originalPrincipalAmount)}
         />
         <KpiCard
-          label="Current principal balance"
+          label={
+            language === 'si'
+              ? t('kpiCurrentPrincipalShort')
+              : t('kpiCurrentPrincipalBalance')
+          }
           value={formatLKR(loan.currentPrincipalBalance)}
         />
-        <KpiCard label="Pending interest due" value={formatLKR(pendingInterest)} />
         <KpiCard
-          label="Interest cycles due"
-          value={String(summary.cyclesDueCount)}
+          label={
+            language === 'si'
+              ? t('kpiPendingInterestShort')
+              : t('kpiPendingInterestDue')
+          }
+          value={formatLKR(pendingInterest)}
         />
         <KpiCard
-          label="Next estimated interest"
+          label={
+            language === 'si'
+              ? t('kpiNextInterestShort')
+              : t('kpiNextEstimatedInterest')
+          }
           value={formatLKR(summary.nextEstimatedInterest)}
         />
-        <KpiCard label="Monthly rate" value={`${loan.interestRate}%`} />
-        <KpiCard label="Next due date" value={nextDueLabel} />
+        <KpiCard
+          label={t('kpiMonthlyRate')}
+          value={`${loan.interestRate}%`}
+        />
       </div>
 
-      <section className="mb-8">
-        <SectionTitle icon={BanknoteIcon} title="Interest cycles" />
-        <DataTable
-          columns={[
-            'Cycle',
-            'Period',
-            'Opening principal',
-            'Interest due',
-            'Interest paid',
-            'Principal paid',
-            'Closing principal',
-            'Status',
-          ]}
-          rows={interestCycles.map((c) => [
-            String(c.cycleNumber),
-            `${formatDate(c.periodStart)} – ${formatDate(c.periodEnd)}`,
-            formatLKR(c.openingPrincipal),
-            formatLKR(c.interestDue),
-            formatLKR(c.interestPaid),
-            formatLKR(c.principalPaid),
-            formatLKR(c.closingPrincipal),
-            <StatusChip key={c.id} status={c.status} />,
-          ])}
-          emptyMessage="No interest cycles yet."
-        />
-      </section>
+      <LoanOriginationSection loan={loan} />
 
       <section className="mb-8">
-        <SectionTitle icon={FileTextIcon} title="Principal payment history" />
-        <DataTable
-          columns={['Payment', 'Date', 'Amount', 'Principal reduction', 'Balance after']}
-          rows={principalPayments.map((p) => [
-            p.paymentCode,
-            formatDate(p.paymentDate),
-            formatLKR(p.amount),
-            formatLKR(p.principalReduction),
-            formatLKR(p.principalAfter),
-          ])}
-          emptyMessage="No principal payments recorded yet."
-        />
+        <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
+        <LedgerTable entries={ledgerEntries} asOfDate={asOf} />
       </section>
 
       <GuaranteesSection
@@ -257,32 +288,69 @@ function InterestOnlyLoanDetail({
 function FixedInstallmentLoanDetail({
   detail,
   navigate,
+  invoiceDocumentId,
+  loanInvoiceDocumentNumber,
 }: {
   detail: LoanDetailData;
   navigate: ReturnType<typeof useNavigate>;
+  invoiceDocumentId?: string;
+  loanInvoiceDocumentNumber?: string;
 }) {
-  const { loan, customer, installments, guarantees, bike } = detail;
-  const asOfDate = useMemo(() => getSystemToday(), []);
+  const { t, language, tf } = useT();
+  const {
+    loan,
+    customer,
+    installments,
+    guarantees,
+    bike,
+    ledgerPayments,
+    ledgerInstallments,
+    lateFeeExemptByInstallmentId,
+  } = detail;
+  const asOfDate = useSystemToday();
+
+  const installmentsWithIds = useMemo(
+    () =>
+      installments.map((inst, index) => ({
+        ...inst,
+        id: inst.id ?? `ledger-${inst.installmentNumber}-${index}`,
+      })),
+    [installments]
+  );
 
   const lateFeeEngine = useMemo(
     () =>
       runLateFeeEngine(
-        installments,
+        installmentsWithIds,
         loan.installmentAmount ?? 0,
         loan.lateFeeRate,
-        { asOfDate }
+        { asOfDate, lateFeeExemptByInstallmentId }
       ),
-    [installments, loan.lateFeeRate, loan.installmentAmount, asOfDate]
+    [
+      installmentsWithIds,
+      loan.installmentAmount,
+      loan.lateFeeRate,
+      asOfDate,
+      lateFeeExemptByInstallmentId,
+    ]
   );
 
-  const enriched = useMemo(
-    () => enrichInstallmentsFromEngine(installments, lateFeeEngine),
-    [installments, lateFeeEngine]
-  );
-
-  const arrears = useMemo(
-    () => arrearsSummaryFromEngine(lateFeeEngine, installments, asOfDate),
-    [lateFeeEngine, installments, asOfDate]
+  const arrearsSummary = useMemo(
+    () =>
+      getFixedLoanArrearsSummary(
+        installmentsWithIds,
+        asOfDate,
+        loan.lateFeeRate,
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
+      ),
+    [
+      installmentsWithIds,
+      asOfDate,
+      loan.lateFeeRate,
+      loan.installmentAmount,
+      lateFeeExemptByInstallmentId,
+    ]
   );
 
   const displayLoanStatus = useMemo(
@@ -310,163 +378,334 @@ function FixedInstallmentLoanDetail({
 
   const nextDueLabel =
     loan.status === 'COMPLETED'
-      ? 'Completed'
+      ? t('statusCompleted')
       : nextFixed.dueDate
-        ? formatDate(nextFixed.dueDate)
-        : nextFixed.label;
+        ? formatDate(nextFixed.dueDate, 'short', language)
+        : nextFixed.label === 'No due payments'
+          ? t('noDuePayments')
+          : nextFixed.label;
 
-  const scheduleRows: InstallmentScheduleRow[] = useMemo(
+  const ledgerInstallmentsLive = useMemo(() => {
+    const liveByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [line.installmentNumber, line.lateFee])
+    );
+    const settledByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeSettled,
+      ])
+    );
+    const startDateByNumber = new Map(
+      lateFeeEngine.lines.map((line) => [
+        line.installmentNumber,
+        line.lateFeeStartDate,
+      ])
+    );
+    return enrichLedgerInstallmentsWithLiveLateFees(
+      ledgerInstallments,
+      liveByNumber,
+      settledByNumber,
+      startDateByNumber
+    );
+  }, [ledgerInstallments, lateFeeEngine]);
+
+  const ledgerEntries = useMemo(
     () =>
-      enriched.map((i) => ({
-        id: i.id,
-        installmentNumber: i.installmentNumber,
-        dueDate: i.dueDate,
-        installmentAmount: i.installmentAmount,
-        paidAmount: i.paidAmount,
-        overdueMonths: i.overdueMonths,
-        lateFeeAccrued: i.lateFeeAccrued,
-        remaining: i.remaining,
-        displayStatus: i.displayStatus,
-      })),
-    [enriched]
+      buildFixedInstallmentLedgerEntries(
+        loan.startDate,
+        loan.totalPayable ?? loan.principalAmount,
+        ledgerInstallmentsLive,
+        ledgerPayments,
+        asOfDate,
+        {
+          loanOpeningRef:
+            loanInvoiceDocumentNumber ?? loan.loanCode ?? null,
+        }
+      ),
+    [
+      loan.startDate,
+      loan.totalPayable,
+      loan.principalAmount,
+      loan.loanCode,
+      loanInvoiceDocumentNumber,
+      ledgerInstallmentsLive,
+      ledgerPayments,
+      asOfDate,
+    ]
   );
 
-  const financeLabel =
-    loan.loanPurpose === 'BIKE_INSTALLMENT' ? 'Finance amount' : 'Loan amount';
-
-  const downPaymentHint =
-    bike && loan.principalAmount <= bike.sellingPrice
-      ? roundLKR(bike.sellingPrice - loan.principalAmount)
-      : undefined;
+  const overdueLabel = useMemo(() => {
+    if (loan.status === 'COMPLETED') return null;
+    const oldest = oldestArrearsDueDate(
+      installments as InstallmentArrearsInput[],
+      asOfDate
+    );
+    if (!oldest) return null;
+    const days = daysBetweenDates(oldest, asOfDate);
+    if (days <= 0) return null;
+    return formatOverdueLabel(days, tf);
+  }, [loan.status, installments, asOfDate, tf]);
 
   const settlementEligible = canRequestEarlySettlement(
     detail.monthsCompleted,
     loan.minimumMonthsBeforeSettlement
   );
 
+  const isBikeInstallment = loan.loanPurpose === 'BIKE_INSTALLMENT';
+
   return (
     <div className="max-w-7xl mx-auto pb-12">
-      <LoanHeader
+      <div className="mb-5">
+        <LoanDetailBackButton navigate={navigate} />
+        <LoanHeader
+          loan={loan}
+          displayStatus={displayLoanStatus}
+          customerName={customer.name}
+          subtitle={`${formatEnum(loan.loanPurpose, language)} · ${formatEnum(loan.repaymentMethod, language)}`}
+          actions={
+            <LoanActionBar
+              loanId={loan.id}
+              navigate={navigate}
+              showEarlySettlement
+              settlementEligible={settlementEligible}
+              monthsCompleted={detail.monthsCompleted}
+              minimumMonths={loan.minimumMonthsBeforeSettlement}
+              invoiceDocumentId={invoiceDocumentId}
+            />
+          }
+        />
+      </div>
+
+      <LoanFinancialSummary
         loan={loan}
-        displayStatus={displayLoanStatus}
-        customerName={customer.name}
-        subtitle={`${formatEnum(loan.loanPurpose)} · ${formatEnum(loan.repaymentMethod)}`}
-        actions={
-          <LoanActionBar
-            loanId={loan.id}
-            navigate={navigate}
-            showEarlySettlement
-            settlementEligible={settlementEligible}
-            monthsCompleted={detail.monthsCompleted}
-            minimumMonths={loan.minimumMonthsBeforeSettlement}
-          />
-        }
+        nextDueLabel={nextDueLabel}
+        termMonths={loan.termMonths}
+        tf={tf}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
-        <KpiCard
-          label={financeLabel}
-          value={formatLKR(loan.principalAmount)}
-        />
-        <KpiCard label="Total interest" value={formatLKR(loan.totalInterestAmount ?? 0)} />
-        <KpiCard label="Total payable" value={formatLKR(loan.totalPayable ?? 0)} />
-        <KpiCard label="Paid" value={formatLKR(loan.paidAmount)} />
-        <KpiCard label="Balance" value={formatLKR(loan.balanceAmount)} />
-        <KpiCard
-          label="Monthly installment"
-          value={formatLKR(loan.installmentAmount ?? 0)}
-        />
-      </div>
-
-      {bike && (
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 rounded-xl bg-white p-5 ring-1 ring-neutral-200 shadow-sm">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Linked bike
-            </p>
-            <p className="mt-1 font-semibold text-neutral-900">{bike.model}</p>
-            <p className="text-sm text-neutral-600">
-              Stock ref {bike.bikeCode} · Engine {bike.engineNo}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Bike selling price
-            </p>
-            <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-              {formatLKR(bike.sellingPrice)}
-            </p>
-          </div>
-          {downPaymentHint !== undefined ? (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                Estimated down payment
-              </p>
-              <p className="mt-1 tabular-nums font-semibold text-neutral-900">
-                {formatLKR(downPaymentHint)}
-              </p>
-              <p className="mt-2 text-xs text-neutral-500">
-                Selling price minus finance amount
-              </p>
-            </div>
-          ) : null}
-          <div className="sm:col-span-3">
-            <Link
-              to={`/bikes/${bike.id}`}
-              className="text-sm font-semibold text-brand-600 hover:text-brand-500"
-            >
-              Open bike detail
-            </Link>
-          </div>
+      {loan.status !== 'COMPLETED' && arrearsSummary.hasArrears && (
+        <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            compact
+            label={t('overdueAmountLive')}
+            value={formatLKR(arrearsSummary.totalArrearsDue)}
+          />
+          <KpiCard
+            compact
+            label={t('lateFeeAccruedLabel')}
+            value={formatLKR(lateFeeEngine.totalLateFee)}
+          />
+          <KpiCard
+            compact
+            label={t('lateFeePaid')}
+            value={formatLKR(
+              installments.reduce((sum, i) => sum + i.lateFeePaid, 0)
+            )}
+          />
+          <KpiCard
+            compact
+            label={t('lateFeeRemainingLabel')}
+            value={formatLKR(lateFeeEngine.totalLateFeeOutstanding)}
+          />
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
-        <KpiCard label="Term" value={`${loan.termMonths ?? '—'} months`} />
-        <KpiCard label="Late fee rate" value={`${loan.lateFeeRate}%`} />
-        <KpiCard label="Next due" value={nextDueLabel} />
-        <KpiCard
-          label="Arrears"
-          value={
-            arrears.hasArrears
-              ? `${arrears.arrearsInstallmentCount} installment${arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue`
-              : 'None'
-          }
-          delta={
-            arrears.hasArrears
-              ? {
-                  value: formatLKR(arrears.totalArrearsDue),
-                  trend: 'down',
-                }
-              : undefined
-          }
-        />
-      </div>
+      {overdueLabel && (
+        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 px-4 py-2.5 text-sm font-medium text-danger-800">
+          {overdueLabel}
+        </div>
+      )}
 
-      {arrears.hasArrears && (
-        <div className="mb-6 rounded-lg bg-danger-50 border border-danger-200 p-4 text-sm text-danger-800 space-y-1">
-          <p className="font-semibold">Arrears summary</p>
-          <p>
-            {arrears.arrearsInstallmentCount} installment
-            {arrears.arrearsInstallmentCount === 1 ? '' : 's'} overdue
+      {bike && isBikeInstallment && (
+        <BikeInstallmentDetailsCard bike={bike} loan={loan} t={t} />
+      )}
+
+      {bike && !isBikeInstallment && (
+        <div className="mb-5 rounded-xl bg-white px-4 py-3.5 ring-1 ring-neutral-200 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            {t('linkedBike')}
           </p>
-          <p>Installments: {formatLKR(arrears.arrearsInstallmentAmount)}</p>
-          <p>Late fees: {formatLKR(arrears.lateFeesDue)}</p>
-          <p className="font-medium">Total due: {formatLKR(arrears.totalArrearsDue)}</p>
+          <p className="mt-0.5 font-semibold text-neutral-900">
+            {formatBikeSelectLabel(bike, t('notRegistered'))}
+          </p>
+          <Link
+            to={`/bikes/${bike.id}`}
+            className="mt-1.5 inline-block text-sm font-medium text-brand-600 hover:text-brand-500"
+          >
+            {t('openBikeDetail')}
+          </Link>
         </div>
       )}
+
+      <LoanOriginationSection loan={loan} />
 
       <section className="mb-8">
-        <SectionTitle icon={BanknoteIcon} title="Installment schedule" />
-        <InstallmentScheduleTable rows={scheduleRows} />
+        <SectionTitle icon={BanknoteIcon} title={t('loanLedger')} />
+        <LedgerTable
+          entries={ledgerEntries}
+          asOfDate={asOfDate}
+          lateFeeEngineLines={lateFeeEngine.lines}
+        />
       </section>
 
       <GuaranteesSection
         guarantees={guarantees}
         loanId={loan.id}
+        linkedBike={bike}
         navigate={navigate}
       />
     </div>
+  );
+}
+
+function LoanFinancialSummary({
+  loan,
+  nextDueLabel,
+  termMonths,
+  tf,
+}: {
+  loan: Loan;
+  nextDueLabel: string;
+  termMonths?: number;
+  tf: (
+    key: LabelKey,
+    params?: Record<string, string | number>
+  ) => string;
+}) {
+  const { t } = useT();
+
+  return (
+    <section
+      className="mb-5 rounded-xl border border-neutral-200/80 bg-gradient-to-b from-neutral-50/80 to-white p-2.5 sm:p-3"
+      aria-label={t('totalLoanAmount')}
+    >
+      <div className="grid grid-cols-2 gap-2 sm:gap-2.5 sm:grid-cols-3 lg:grid-cols-5 mb-2 sm:mb-2.5">
+        <KpiCard
+          compact
+          label={t('totalLoanAmount')}
+          value={formatLKR(loan.totalPayable ?? 0)}
+        />
+        <KpiCard
+          compact
+          label={t('paidAmountLabel')}
+          value={formatLKR(loan.paidAmount)}
+        />
+        <KpiCard
+          compact
+          label={t('remainingBalanceLabel')}
+          value={
+            loan.status === 'COMPLETED' || loan.balanceAmount <= 0
+              ? formatLKR(0)
+              : formatLKR(loan.balanceAmount)
+          }
+        />
+        <KpiCard compact label={t('loanNextDue')} value={nextDueLabel} />
+        <KpiCard
+          compact
+          label={t('loanTerm')}
+          value={
+            termMonths != null ? tf('termMonthsCount', { count: termMonths }) : '—'
+          }
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:gap-2.5 sm:grid-cols-3">
+        <KpiCard
+          compact
+          label={t('loanAmount')}
+          value={formatLKR(loan.principalAmount)}
+        />
+        <KpiCard
+          compact
+          label={t('totalInterest')}
+          value={formatLKR(loan.totalInterestAmount ?? 0)}
+        />
+        <KpiCard
+          compact
+          label={t('monthlyInstallment')}
+          value={formatLKR(loan.installmentAmount ?? 0)}
+        />
+      </div>
+    </section>
+  );
+}
+
+function BikeInstallmentDetailsCard({
+  bike,
+  loan,
+  t,
+}: {
+  bike: Bike;
+  loan: Loan;
+  t: (key: LabelKey) => string;
+}) {
+  const sellingPrice =
+    loan.originalPrincipalAmount ?? bike.soldPrice ?? bike.sellingPrice;
+
+  return (
+    <section className="mb-5">
+      <SectionTitle compact icon={BikeIcon} title={t('bikeDetails')} />
+      <div className="flex flex-col gap-4 rounded-xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-neutral-200 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <div className="min-w-0 lg:flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            {t('linkedBike')}
+          </p>
+          <p className="mt-0.5 text-base font-semibold text-neutral-900">
+            {formatBikeSelectLabel(bike, t('notRegistered'))}
+          </p>
+          <Link
+            to={`/bikes/${bike.id}`}
+            className="mt-1.5 inline-flex items-center text-sm font-medium text-brand-600 hover:text-brand-500"
+          >
+            {t('openBikeDetail')}
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3 border-t border-neutral-100 pt-3 lg:min-w-[min(100%,28rem)] lg:flex-shrink-0 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6 lg:gap-5">
+          <BikeDetailStat
+            label={t('sellingPriceLabel')}
+            value={formatLKR(sellingPrice)}
+          />
+          <BikeDetailStat
+            label={t('downPaymentLabel')}
+            value={formatLKR(loan.initialPayment ?? 0)}
+          />
+          <BikeDetailStat
+            label={t('loanAmount')}
+            value={formatLKR(loan.principalAmount)}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BikeDetailStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 leading-snug">
+        {label}
+      </p>
+      <p className="mt-0.5 text-base font-semibold tabular-nums text-neutral-900 leading-tight">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function LoanDetailBackButton({
+  navigate,
+}: {
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { t } = useT();
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/loans')}
+      className="mb-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-neutral-500 ring-1 ring-transparent transition-colors hover:bg-neutral-100 hover:text-neutral-700 hover:ring-neutral-200/80"
+    >
+      <ArrowLeftIcon className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
+      {t('backToLoans')}
+    </button>
   );
 }
 
@@ -484,7 +723,7 @@ function LoanHeader({
   actions: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-neutral-900 tabular-nums">
@@ -515,6 +754,7 @@ function LoanActionBar({
   settlementEligible = false,
   monthsCompleted,
   minimumMonths,
+  invoiceDocumentId,
 }: {
   loanId: string;
   navigate: ReturnType<typeof useNavigate>;
@@ -522,38 +762,41 @@ function LoanActionBar({
   settlementEligible?: boolean;
   monthsCompleted: number;
   minimumMonths: number;
+  invoiceDocumentId?: string;
 }) {
+  const { t, tf, language } = useT();
+  const viewInvoiceLabel = getDocumentLabel('viewInvoice', language);
+
   return (
     <div className="flex flex-col gap-2 sm:items-end">
       <div className="flex flex-wrap gap-2">
+        {invoiceDocumentId && (
+          <ActionButton
+            onClick={() => navigate(`/documents/${invoiceDocumentId}`)}
+          >
+            {viewInvoiceLabel}
+          </ActionButton>
+        )}
         <ActionButton
           primary
           onClick={() => navigate(`/payments/new?loanId=${loanId}`)}
         >
-          Record Payment
-        </ActionButton>
-        <ActionButton onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}>
-          Add Guarantee
+          {t('recordPaymentAction')}
         </ActionButton>
         {showEarlySettlement && (
           <ActionButton
             disabled={!settlementEligible}
             onClick={() => navigate(`/loans/${loanId}/early-settlement`)}
           >
-            Early Settlement
+            {t('earlySettlement')}
           </ActionButton>
         )}
-        <ActionButton
-          variant="danger"
-          onClick={() => window.alert(t('cancelLoanSupabaseSoon'))}
-        >
-          Cancel Loan
-        </ActionButton>
       </div>
       {showEarlySettlement && !settlementEligible && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
-          Early settlement is allowed after {minimumMonths} completed months.
-          {monthsCompleted > 0 && ` (${monthsCompleted} completed so far.)`}
+          {tf('earlySettlementMonthsRequired', { months: minimumMonths })}
+          {monthsCompleted > 0 &&
+            ` ${tf('earlySettlementMonthsProgress', { completed: monthsCompleted })}`}
         </p>
       )}
     </div>
@@ -590,122 +833,225 @@ function ActionButton({
 function SectionTitle({
   title,
   icon: Icon,
+  compact = false,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
+  compact?: boolean;
 }) {
   return (
-    <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900 mb-4">
-      <Icon className="h-5 w-5 text-brand-600" />
+    <h2
+      className={`flex items-center gap-2 font-semibold text-neutral-900 ${
+        compact ? 'mb-2.5 text-base' : 'mb-4 text-lg'
+      }`}
+    >
+      <Icon
+        className={`text-brand-600 ${compact ? 'h-4 w-4' : 'h-5 w-5'}`}
+      />
       {title}
     </h2>
   );
 }
 
-function DataTable({
-  columns,
-  rows,
-  emptyMessage,
-}: {
-  columns: string[];
-  rows: React.ReactNode[][];
-  emptyMessage: string;
-}) {
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-neutral-500 py-8 text-center bg-white rounded-xl ring-1 ring-neutral-200">
-        {emptyMessage}
-      </p>
-    );
-  }
-
+function GuaranteeStatusBadge({ status }: { status: Guarantee['status'] }) {
+  const { t } = useT();
+  const labelKey =
+    status === 'returned' ? 'guaranteeStatusReleased' : 'guaranteeStatusHeld';
   return (
-    <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-neutral-200">
-      <table className="min-w-full divide-y divide-neutral-200 text-sm">
-        <thead className="bg-neutral-50">
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col}
-                className="py-3.5 px-3 text-left font-semibold text-neutral-900 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap"
-              >
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-100">
-          {rows.map((row, ri) => (
-            <tr key={ri} className="hover:bg-neutral-50">
-              {row.map((cell, ci) => (
-                <td
-                  key={ci}
-                  className={`py-3 px-3 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6 whitespace-nowrap ${
-                    ci > 1 && ci < row.length - 1 ? 'text-right tabular-nums' : ''
-                  } ${ci === 0 ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <span className="inline-flex rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-800 ring-1 ring-inset ring-neutral-200">
+      {t(labelKey)}
+    </span>
   );
 }
 
 function GuaranteesSection({
   guarantees,
   loanId,
+  linkedBike,
   navigate,
 }: {
   guarantees: Guarantee[];
   loanId: string;
+  linkedBike?: import('../../types/entities').Bike;
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  const { t, language } = useT();
+
   return (
     <section>
-      <SectionTitle icon={ShieldIcon} title="Guarantees" />
+      <SectionTitle icon={ShieldIcon} title={t('guarantees')} />
       {guarantees.length === 0 ? (
         <EmptyState
           icon={FileTextIcon}
-          title="No guarantees"
-          description="Add a guarantee item linked to this loan."
+          title={t('noGuarantees')}
+          description={t('noGuaranteesOnLoanHint')}
           action={
             <button
               type="button"
               onClick={() => navigate(`/guarantees/new?loanId=${loanId}`)}
               className="mt-4 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
             >
-              Add Guarantee
+              {t('addGuarantee')}
             </button>
           }
         />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {guarantees.map((g) => (
-            <li
-              key={g.id}
-              className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
-            >
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <p className="text-xs text-neutral-500">{g.guaranteeCode}</p>
-                  <p className="font-medium text-neutral-900">
-                    {formatEnum(g.type)}
-                  </p>
+          {guarantees.map((g) => {
+            const lines = guaranteeDetailLines(g, t);
+            return (
+              <li
+                key={g.id}
+                className="rounded-xl bg-white p-4 ring-1 ring-neutral-200 shadow-sm"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <p className="text-xs text-neutral-500 tabular-nums">
+                      {g.fileNumber || g.guaranteeCode}
+                      {g.vehicleNumber || g.itemReference
+                        ? ` · ${g.vehicleNumber ?? g.itemReference}`
+                        : ''}
+                    </p>
+                    {linkedBike && (
+                      <div className="mt-2">
+                        <LinkedBikeSummary bike={linkedBike} />
+                      </div>
+                    )}
+                  </div>
+                  <GuaranteeStatusBadge status={g.status} />
                 </div>
-                <StatusChip status={g.status} />
-              </div>
-              <p className="mt-2 text-sm text-neutral-600">{g.description}</p>
-              <p className="mt-1 text-xs text-neutral-500">
-                {g.storageLocation} · Received {formatDate(g.receivedAt)}
-              </p>
-            </li>
-          ))}
+                {lines.length > 0 && (
+                  <dl className="mt-2 space-y-1 text-sm text-neutral-600">
+                    {lines.map((line) => (
+                      <div key={`${line.label}-${line.value}`}>
+                        <dt className="inline text-neutral-500 after:content-[':']">
+                          {line.label}
+                        </dt>{' '}
+                        <dd className="inline">{line.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {g.status === 'returned' && g.releasedAt && (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {t('guaranteeReleasedDate')}:{' '}
+                    {formatDate(g.releasedAt, 'short', language)}
+                  </p>
+                )}
+                {g.status === 'held' && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {t('guaranteeReceivedOn')}{' '}
+                    {formatDate(g.receivedAt, 'short', language)}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
+    </section>
+  );
+}
+
+function LoanOriginationSection({ loan }: { loan: Loan }) {
+  const { t, language } = useT();
+  const db = useDemoDb();
+  const originationTxns = listCashTransactionsForLoan(loan.id, db);
+  const isBikeInstallment = loan.loanPurpose === 'BIKE_INSTALLMENT';
+  const showOrigination =
+    (loan.initialPayment ?? 0) > 0 ||
+    (loan.netAdvancePayment ?? 0) > 0 ||
+    originationTxns.length > 0;
+  if (!showOrigination) return null;
+
+  const grossAmountLabel = isBikeInstallment
+    ? t('sellingPriceLabel')
+    : t('loanAmountField');
+  const initialPaidLabel = isBikeInstallment
+    ? t('downPaymentLabel')
+    : t('initialPayment');
+
+  return (
+    <section className="mb-6">
+      <SectionTitle compact icon={BanknoteIcon} title={t('originationPaymentSection')} />
+      <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl overflow-hidden">
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 text-sm border-b border-neutral-200">
+          <div>
+            <dt className="text-neutral-500">{grossAmountLabel}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.originalPrincipalAmount ?? loan.principalAmount)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{initialPaidLabel}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.initialPayment ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('serviceFee')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.serviceFee ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('registrationFee')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.registrationFee ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">{t('netAdvancePayment')}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.netAdvancePayment ?? 0)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">
+              {isBikeInstallment ? t('loanAmount') : t('financedPrincipal')}
+            </dt>
+            <dd className="font-semibold tabular-nums">
+              {formatLKR(loan.principalAmount)}
+            </dd>
+          </div>
+        </dl>
+        {originationTxns.length > 0 && (
+          <table className="min-w-full divide-y divide-neutral-200 text-sm">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="py-2 pl-4 text-left font-semibold text-neutral-900">
+                  {t('csvReference')}
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-neutral-900">
+                  {t('csvIncomeType')}
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-neutral-900">
+                  {t('field.date')}
+                </th>
+                <th className="py-2 pr-4 text-right font-semibold text-neutral-900">
+                  {t('colAmount')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200">
+              {originationTxns.map((txn) => (
+                <tr key={txn.id}>
+                  <td className="py-2 pl-4 tabular-nums">{txn.transactionCode}</td>
+                  <td className="py-2 px-3">
+                    {formatEnum(txn.transactionType, language)}
+                  </td>
+                  <td className="py-2 px-3 tabular-nums">
+                    {formatDate(txn.transactionDate, 'short', language)}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-medium tabular-nums">
+                    {formatLKR(txn.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   );
 }

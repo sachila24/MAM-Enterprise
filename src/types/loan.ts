@@ -77,6 +77,8 @@ export interface Loan {
   startDate: string;
   firstDueDate: string;
   dueDay?: number;
+  /** Recurring calendar day (1–31) for fixed-term installment due dates */
+  preferredDueDay?: number;
   dueDate?: string;
   minimumMonthsBeforeSettlement: number;
   status: LoanStatus;
@@ -93,6 +95,12 @@ export interface Loan {
   daysOverdue?: number;
   /** Denormalized sum of unpaid interest cycles (interest-only) */
   pendingInterestAmount?: number;
+  serviceFee?: number;
+  registrationFee?: number;
+  /** Gross cash received from customer at origination */
+  initialPayment?: number;
+  /** Initial payment − service − registration; reduces financed principal */
+  netAdvancePayment?: number;
 }
 
 /** Receipt / payment preview — interest-only */

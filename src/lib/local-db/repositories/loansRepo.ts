@@ -12,17 +12,29 @@ import { getLoanDetailFromDb } from '../loanDetail';
 import type { DbGuarantee, DbLoan, MamDemoDb } from '../types';
 import { buildAuditSummary, uiError } from '../../i18n/messages';
 import { getSystemToday } from '../../time/systemTime';
+import {
+  createLoanCreationDocument,
+  createLoanReleaseDocument,
+} from '../../documents/documentService';
+import {
+  computeOriginationFees,
+  validateOriginationFees,
+} from '../../finance/loanOriginationFees';
+import { createCashTransaction } from './cashTransactionsRepo';
 
 export { getLoanDetailFromDb };
 
 export interface CreateGuaranteeDraft {
-  itemType: DbGuarantee['item_type'];
-  itemReference?: string;
-  ownerNameOnDocument?: string;
-  description: string;
-  storageLocation: string;
-  receivedDate: string;
-  notes?: string;
+  fileNumber?: string;
+  vehicleNumber?: string;
+  guarantor1Name?: string;
+  guarantor1Address?: string;
+  guarantor1Phone?: string;
+  guarantor1Nic?: string;
+  guarantor2Name?: string;
+  guarantor2Address?: string;
+  guarantor2Phone?: string;
+  guarantor2Nic?: string;
 }
 
 export interface CreateLoanInput {
@@ -37,10 +49,16 @@ export interface CreateLoanInput {
   startDate: string;
   firstDueDate: string;
   dueDay?: number;
+  preferredDueDay?: number;
   bikeId?: string;
   notes?: string;
   /** Optional collateral items to store when the loan is created */
   guarantees?: CreateGuaranteeDraft[];
+  /** Bike installment — stored on locked finance invoice snapshot */
+  downPayment?: number;
+  initialPayment?: number;
+  serviceFee?: number;
+  registrationFee?: number;
 }
 
 function nextLoanCode(
@@ -81,16 +99,21 @@ function pushGuaranteesForNewLoan(
       guarantee_code: generateCode('GUA', db.counters),
       loan_id: loanId,
       customer_id: customerId,
-      item_type: g.itemType,
-      item_reference: g.itemReference,
-      owner_name_on_document: g.ownerNameOnDocument,
-      description: g.description,
-      storage_location: g.storageLocation,
-      notes: g.notes,
+      item_type: 'OTHER',
+      file_number: g.fileNumber,
+      vehicle_number: g.vehicleNumber,
+      guarantor1_name: g.guarantor1Name,
+      guarantor1_address: g.guarantor1Address,
+      guarantor1_phone: g.guarantor1Phone,
+      guarantor1_nic: g.guarantor1Nic,
+      guarantor2_name: g.guarantor2Name,
+      guarantor2_address: g.guarantor2Address,
+      guarantor2_phone: g.guarantor2Phone,
+      guarantor2_nic: g.guarantor2Nic,
+      description: '',
+      storage_location: '',
       status: 'HELD',
-      received_at: g.receivedDate.includes('T')
-        ? g.receivedDate
-        : `${g.receivedDate}T12:00:00.000Z`,
+      received_at: ts,
       created_at: ts,
     });
   }
@@ -122,6 +145,28 @@ export function createLoan(
   if (input.principalAmount <= 0) {
     throw new Error(uiError('financeAmountGreaterThanZero'));
   }
+
+  const grossLoanAmount = input.principalAmount;
+  const origination = computeOriginationFees(
+    {
+      initialPayment: input.initialPayment ?? 0,
+      serviceFee: input.serviceFee ?? 0,
+      registrationFee: input.registrationFee ?? 0,
+    },
+    grossLoanAmount
+  );
+  const feeError = validateOriginationFees(
+    {
+      initialPayment: origination.initialPayment,
+      serviceFee: origination.serviceFee,
+      registrationFee: origination.registrationFee,
+    },
+    grossLoanAmount
+  );
+  if (feeError) {
+    throw new Error(uiError(feeError as Parameters<typeof uiError>[0]));
+  }
+
   const isInterestOnly =
     input.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const loanCode = nextLoanCode(
@@ -132,10 +177,17 @@ export function createLoan(
 
   let dbLoan: DbLoan;
 
+  const feeFields = {
+    service_fee: origination.serviceFee,
+    registration_fee: origination.registrationFee,
+    customer_paid_amount: origination.initialPayment,
+    advance_payment: origination.netAdvancePayment,
+  };
+
   if (isInterestOnly) {
-    const principal = input.principalAmount;
+    const financedPrincipal = origination.financedPrincipal;
     const monthlyInterest = calculateMonthlyInterestDue(
-      principal,
+      financedPrincipal,
       input.interestRate
     );
     const firstDue =
@@ -148,15 +200,15 @@ export function createLoan(
       repayment_method: input.repaymentMethod,
       customer_id: input.customerId,
       bike_id: input.bikeId,
-      principal_amount: principal,
-      original_principal_amount: principal,
-      current_principal_balance: principal,
+      principal_amount: financedPrincipal,
+      original_principal_amount: grossLoanAmount,
+      current_principal_balance: financedPrincipal,
       interest_rate: input.interestRate,
       interest_rate_period: 'MONTHLY',
       interest_calculation_type: 'REDUCING_PRINCIPAL',
       discount_amount: input.discountAmount,
       paid_amount: 0,
-      balance_amount: principal,
+      balance_amount: financedPrincipal,
       late_fee_rate: 0,
       start_date: input.startDate,
       first_due_date: firstDue,
@@ -166,20 +218,26 @@ export function createLoan(
       status: 'ACTIVE',
       pending_interest_amount: monthlyInterest,
       notes: input.notes,
+      ...feeFields,
       created_at: ts,
       updated_at: ts,
     };
 
   } else {
+    const financedPrincipal = origination.financedPrincipal;
     const totals = calculateFixedInstallmentTotals({
-      financeAmount: input.principalAmount,
+      financeAmount: financedPrincipal,
       termMonths: input.termMonths ?? 36,
       monthlyFlatRatePercent: input.interestRate,
       discountAmount: input.discountAmount,
     });
     const firstDue =
       input.firstDueDate || computeFirstDueDate(input.startDate);
-    const schedule = buildFixedInstallmentSchedule(totals, firstDue);
+    const schedule = buildFixedInstallmentSchedule(
+      totals,
+      firstDue,
+      input.preferredDueDay
+    );
 
     dbLoan = {
       id,
@@ -188,9 +246,9 @@ export function createLoan(
       repayment_method: input.repaymentMethod,
       customer_id: input.customerId,
       bike_id: input.bikeId,
-      principal_amount: input.principalAmount,
-      original_principal_amount: input.principalAmount,
-      current_principal_balance: input.principalAmount,
+      principal_amount: financedPrincipal,
+      original_principal_amount: grossLoanAmount,
+      current_principal_balance: financedPrincipal,
       interest_rate: input.interestRate,
       interest_rate_period: 'MONTHLY',
       interest_calculation_type: 'FLAT_TERM',
@@ -205,11 +263,13 @@ export function createLoan(
       late_fee_rate: input.lateFeeRate,
       start_date: input.startDate,
       first_due_date: firstDue,
+      preferred_due_day: input.preferredDueDay,
       due_date: firstDue,
       minimum_months_before_settlement: 6,
       status: 'ACTIVE',
       pending_interest_amount: 0,
       notes: input.notes,
+      ...feeFields,
       created_at: ts,
       updated_at: ts,
     };
@@ -237,6 +297,7 @@ export function createLoan(
       if (bike) {
         bike.status = 'SOLD';
         bike.sold_date = ts;
+        bike.sold_price = grossLoanAmount;
         bike.sold_loan_id = id;
         bike.updated_at = ts;
       }
@@ -251,6 +312,47 @@ export function createLoan(
 
   pushGuaranteesForNewLoan(db, id, input.customerId, input.guarantees, ts);
 
+  const txnDate = input.startDate;
+  if (origination.netAdvancePayment > 0) {
+    createCashTransaction(
+      {
+        loanId: id,
+        customerId: input.customerId,
+        transactionType: 'LOAN_ADVANCE_PAYMENT',
+        amount: origination.netAdvancePayment,
+        transactionDate: txnDate,
+        notes: `Loan advance — ${loanCode}`,
+      },
+      db
+    );
+  }
+  if (origination.serviceFee > 0) {
+    createCashTransaction(
+      {
+        loanId: id,
+        customerId: input.customerId,
+        transactionType: 'SERVICE_FEE_INCOME',
+        amount: origination.serviceFee,
+        transactionDate: txnDate,
+        notes: `Service fee — ${loanCode}`,
+      },
+      db
+    );
+  }
+  if (origination.registrationFee > 0) {
+    createCashTransaction(
+      {
+        loanId: id,
+        customerId: input.customerId,
+        transactionType: 'REGISTRATION_FEE_INCOME',
+        amount: origination.registrationFee,
+        transactionDate: txnDate,
+        notes: `Registration fee — ${loanCode}`,
+      },
+      db
+    );
+  }
+
   db.audit_logs.push({
     id: generateId(),
     user_id: db.profiles[0]?.id ?? 'system',
@@ -260,6 +362,18 @@ export function createLoan(
     summary: buildAuditSummary('loanCreatedSummary', { code: loanCode }),
     created_at: ts,
   });
+
+  createLoanCreationDocument(db, id, {
+    downPayment: input.downPayment,
+    createdBy: db.profiles[0]?.id,
+  });
+
+  if (isInterestOnly) {
+    createLoanReleaseDocument(db, id, {
+      createdBy: db.profiles[0]?.id,
+    });
+  }
+
   saveDb(db);
   return mapLoan(dbLoan);
 }

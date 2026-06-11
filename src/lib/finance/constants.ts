@@ -1,6 +1,9 @@
 /** Default late fee % for fixed-term installment loans (owner may override per loan). */
 export const DEFAULT_LATE_FEE_RATE_PERCENT = 5;
 
+/** Calendar days after due date before a one-time late fee may accrue. */
+export const LATE_FEE_GRACE_DAYS = 7;
+
 /** Interest-only loans have no late fees. */
 export const INTEREST_ONLY_LATE_FEE_RATE = 0;
 

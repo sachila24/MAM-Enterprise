@@ -80,7 +80,8 @@ export function buildFixedInstallmentAllocationRows(
   allocation: PaymentAllocationResult,
   paymentDate: string,
   lateFeeRatePercent: number = DEFAULT_LATE_FEE_RATE_PERCENT,
-  monthlyInstallmentAmount?: number
+  monthlyInstallmentAmount?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): AllocationDisplayRow[] {
   const rows: AllocationDisplayRow[] = [];
   const paidByInst = new Map<string, { late: number; inst: number }>();
@@ -119,7 +120,7 @@ export function buildFixedInstallmentAllocationRows(
     })),
     monthlyInstallmentAmount ?? sorted[0]?.installmentAmount ?? 0,
     lateFeeRatePercent,
-    { paymentDate }
+    { paymentDate, lateFeeExemptByInstallmentId }
   );
 
   for (const inst of sorted) {

@@ -5,6 +5,7 @@ import {
 } from '../finance/dueDates';
 import {
   calculateMonthlyInterestDue,
+  deriveInterestCycleStatus,
   totalPendingInterest,
   type InterestCycleForAllocation,
 } from '../finance/interestOnly';
@@ -22,15 +23,6 @@ function toAllocationCycle(c: DbLoanInterestCycle): InterestCycleForAllocation {
     interestPaid: c.interest_paid,
     principalPaid: c.principal_paid,
   };
-}
-
-function deriveCycleStatus(
-  interestDue: number,
-  interestPaid: number
-): DbLoanInterestCycle['status'] {
-  if (interestPaid >= interestDue) return 'PAID';
-  if (interestPaid > 0) return 'PARTIAL';
-  return 'PENDING';
 }
 
 function openingPrincipalForCycle(
@@ -119,7 +111,7 @@ function mutateInterestOnlyCycles(
     .sort((a, b) => a.cycle_number - b.cycle_number);
 
   for (const cycle of allCycles) {
-    const nextStatus = deriveCycleStatus(
+    const nextStatus = deriveInterestCycleStatus(
       cycle.interest_due,
       cycle.interest_paid
     );

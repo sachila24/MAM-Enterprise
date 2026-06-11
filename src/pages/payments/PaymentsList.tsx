@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
+import { useToast } from '../../components/ui/Toast';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { ensurePaymentReceiptDocument } from '../../lib/documents/documentService';
 import { useT } from '../../i18n/I18nProvider';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
@@ -13,26 +15,34 @@ import {
   listLoans,
   listLoanPayments,
 } from '../../lib/local-db/repositories';
+import { useSystemToday } from '../../lib/time/systemTime';
 
 export function PaymentsList() {
-  const { t } = useT();
+  const { t, language } = useT();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const db = useDemoDb();
   const [search, setSearch] = useState('');
   const payments = listLoanPayments(db);
   const loans = listLoans(db);
   const customers = listCustomers(db);
-  const today = new Date().toISOString().split('T')[0];
+  const today = useSystemToday();
   const monthPrefix = today.slice(0, 7);
-  const enrichedPayments = payments.map((p) => {
-    const loan = loans.find((l) => l.id === p.loanId);
-    const customer = customers.find((c) => c.id === p.customerId);
-    return {
-      ...p,
-      loan,
-      customer,
-    };
-  });
+
+  const enrichedPayments = useMemo(
+    () =>
+      payments.map((p) => {
+        const loan = loans.find((l) => l.id === p.loanId);
+        const customer = customers.find((c) => c.id === p.customerId);
+        return {
+          ...p,
+          loan,
+          customer,
+        };
+      }),
+    [payments, loans, customers]
+  );
+
   const filteredPayments = enrichedPayments.filter((p) => {
     const loanCode = p.loan?.loanCode ?? '';
     const matchesSearch =
@@ -41,55 +51,67 @@ export function PaymentsList() {
       loanCode.toLowerCase().includes(search.toLowerCase());
     return matchesSearch;
   });
-  // Mock KPIs
+
   const collectedToday = payments
     .filter((p) => p.paymentDate === today && p.status === 'CONFIRMED')
     .reduce((sum, p) => sum + p.amount, 0);
   const collectedThisWeek = payments
-    .filter((p) => p.paymentDate.startsWith(monthPrefix) && p.status === 'CONFIRMED')
+    .filter(
+      (p) => p.paymentDate.startsWith(monthPrefix) && p.status === 'CONFIRMED'
+    )
     .reduce((sum, p) => sum + p.amount, 0);
   const pendingConfirmations = payments.filter(
     (p) => p.status !== 'CONFIRMED'
   ).length;
+
+  const handleViewReceipt = (paymentId: string) => {
+    const doc = ensurePaymentReceiptDocument(db, paymentId);
+    if (doc) {
+      navigate(`/documents/${doc.id}`);
+      return;
+    }
+    showToast(t('receiptUnavailable'), 'error');
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
         title={t('payments')}
         actions={
-        <button
-          onClick={() => navigate('/payments/new')}
-          className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
-          
+          <button
+            onClick={() => navigate('/payments/new')}
+            className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
             <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
             {t('recordPayment')}
           </button>
-        } />
-      
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
         <KpiCard label={t('collectedToday')} value={formatLKR(collectedToday)} />
         <KpiCard
           label={t('collectedThisWeek')}
-          value={formatLKR(collectedThisWeek)} />
-        
+          value={formatLKR(collectedThisWeek)}
+        />
         <KpiCard
           label={t('pendingConfirmations')}
           value={pendingConfirmations}
           delta={
-          pendingConfirmations > 0 ?
-          {
-            value: t('needsReview'),
-            trend: 'neutral'
-          } :
-          undefined
-          } />
-        
+            pendingConfirmations > 0
+              ? {
+                  value: t('needsReview'),
+                  trend: 'neutral',
+                }
+              : undefined
+          }
+        />
       </div>
 
       <FilterToolbar
         onSearchChange={setSearch}
-        searchPlaceholder={t('searchPayments')} />
-      
+        searchPlaceholder={t('searchPayments')}
+      />
 
       <div className="bg-white shadow-sm ring-1 ring-neutral-200 sm:rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -120,18 +142,21 @@ export function PaymentsList() {
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                   {t('field.status')}
                 </th>
+                <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                  <span className="sr-only">{t('colActions')}</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
-              {filteredPayments.map((p) =>
-              <tr
-                key={p.id}
-                className="hover:bg-neutral-50 transition-colors">
-                
+              {filteredPayments.map((p) => (
+                <tr
+                  key={p.id}
+                  className="hover:bg-neutral-50 transition-colors"
+                >
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-neutral-500 sm:pl-6 tabular-nums">
-                    {formatDate(p.paymentDate)}
+                    {formatDate(p.paymentDate, 'short', language)}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-brand-600 tabular-nums">
+                  <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-neutral-900 tabular-nums">
                     {p.receiptNumber}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900">
@@ -147,29 +172,42 @@ export function PaymentsList() {
                     {p.discountAmount > 0 ? formatLKR(p.discountAmount) : '—'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                    {formatEnum(p.paymentMethod)}
+                    {formatEnum(p.paymentMethod, language)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm">
                     <StatusChip
                       status={p.status === 'CONFIRMED' ? 'confirmed' : 'pending'}
                     />
                   </td>
+                  <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm sm:pr-6">
+                    {p.status === 'CONFIRMED' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewReceipt(p.id)}
+                        className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+                      >
+                        {t('viewReceipt')}
+                      </button>
+                    ) : (
+                      <span className="text-neutral-300">—</span>
+                    )}
+                  </td>
                 </tr>
-              )}
-              {filteredPayments.length === 0 &&
-              <tr>
+              ))}
+              {filteredPayments.length === 0 && (
+                <tr>
                   <td
-                  colSpan={8}
-                  className="px-3 py-8 text-center text-sm text-neutral-500">
-                  
+                    colSpan={9}
+                    className="px-3 py-8 text-center text-sm text-neutral-500"
+                  >
                     {t('noPaymentsFound')}
                   </td>
                 </tr>
-              }
+              )}
             </tbody>
           </table>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }

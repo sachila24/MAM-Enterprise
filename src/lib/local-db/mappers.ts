@@ -56,9 +56,9 @@ export function mapBike(b: DbBike): Bike {
     repairCost: b.repair_cost ?? 0,
     otherCost: b.other_cost ?? 0,
     status:
-      b.status === 'IN_STOCK'
+      b.status === 'IN_STOCK' || b.status === 'AVAILABLE'
         ? 'in_stock'
-        : b.status === 'SOLD'
+        : b.status === 'SOLD' || b.status === 'SETTLED'
           ? 'sold'
           : 'held',
     purchaseDate: b.purchase_date,
@@ -66,6 +66,12 @@ export function mapBike(b: DbBike): Bike {
     color: b.color,
     year: b.year,
     soldLoanId: b.sold_loan_id,
+    purchasedFromCustomerId: b.purchased_from_customer_id,
+    purchaseReceiptId: b.purchase_receipt_id,
+    purchasePaymentMethod: b.purchase_payment_method,
+    acquisitionSource: b.acquisition_source
+      ? (b.acquisition_source.toLowerCase() as 'purchase' | 'import' | 'trade_in')
+      : undefined,
   };
 }
 
@@ -95,11 +101,16 @@ export function mapLoan(l: DbLoan): Loan {
     startDate: l.start_date,
     firstDueDate: l.first_due_date,
     dueDay: l.due_day,
+    preferredDueDay: l.preferred_due_day,
     dueDate: l.due_date,
     minimumMonthsBeforeSettlement: l.minimum_months_before_settlement,
     status: l.status,
     notes: l.notes,
     pendingInterestAmount: l.pending_interest_amount,
+    serviceFee: l.service_fee ?? 0,
+    registrationFee: l.registration_fee ?? 0,
+    initialPayment: l.customer_paid_amount ?? 0,
+    netAdvancePayment: l.advance_payment ?? 0,
     createdAt: l.created_at,
     updatedAt: l.updated_at,
   };
@@ -190,10 +201,20 @@ export function mapGuarantee(g: DbGuarantee): Guarantee {
     guaranteeCode: g.guarantee_code,
     loanId: g.loan_id,
     type: g.item_type,
+    fileNumber: g.file_number,
+    vehicleNumber: g.vehicle_number,
+    guarantor1Name: g.guarantor1_name,
+    guarantor1Address: g.guarantor1_address,
+    guarantor1Phone: g.guarantor1_phone,
+    guarantor1Nic: g.guarantor1_nic,
+    guarantor2Name: g.guarantor2_name,
+    guarantor2Address: g.guarantor2_address,
+    guarantor2Phone: g.guarantor2_phone,
+    guarantor2Nic: g.guarantor2_nic,
     itemReference: g.item_reference,
     ownerNameOnDocument: g.owner_name_on_document,
-    description: g.description,
-    storageLocation: g.storage_location,
+    description: g.description ?? '',
+    storageLocation: g.storage_location ?? '',
     notes: g.notes,
     status: g.status === 'HELD' ? 'held' : 'returned',
     receivedAt: g.received_at,

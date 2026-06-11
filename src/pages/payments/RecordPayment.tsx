@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { CustomerSearchSelect } from '../../components/customers/CustomerSearchSelect';
-import { filterAffectedAllocationRows } from '../../lib/finance/allocationDisplay';
 import { useToast } from '../../components/ui/Toast';
 import { Stepper } from '../../components/ui/Stepper';
 import { CurrencyInput } from '../../components/ui/CurrencyInput';
@@ -13,12 +12,17 @@ import type { Customer, Loan } from '../../types/entities';
 import type { PaymentMethod } from '../../types/loan';
 import { isFixedInstallmentLoan, isInterestOnlyLoan } from '../../types/loan';
 import { formatLKR, formatDate, formatEnum } from '../../lib/format';
+import { formatLoanTypeLabel } from '../../lib/display/loanDisplay';
 import { usePaymentComputation, type PaymentFormState } from './usePaymentComputation';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { buildPaymentBundle } from '../../lib/local-db/paymentBundle';
-import { recordPayment } from '../../lib/local-db/repositories';
+import {
+  recordInterestOnlyPrincipalSettlement,
+  recordPayment,
+} from '../../lib/local-db/repositories';
+import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
-import { getSystemToday } from '../../lib/time/systemTime';
+import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 
 export function RecordPayment() {
   const { t } = useT();
@@ -32,6 +36,7 @@ export function RecordPayment() {
     { label: t('stepConfirm') },
   ];
   const db = useDemoDb();
+  const systemToday = useSystemToday();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const toastShownRef = useRef(false);
@@ -48,6 +53,9 @@ export function RecordPayment() {
     initialLoanId
   );
   const [loanSearch, setLoanSearch] = useState('');
+  const [ioPaymentMode, setIoPaymentMode] = useState<'interest' | 'principal'>(
+    'interest'
+  );
 
   const [form, setForm] = useState<PaymentFormState>({
     amount: 0,
@@ -58,6 +66,10 @@ export function RecordPayment() {
     chequeNumber: '',
     bankReference: '',
   });
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, paymentDate: systemToday }));
+  }, [systemToday]);
 
   const customers = previewBundle?.customers ?? [];
   const loans = previewBundle?.loans ?? [];
@@ -95,7 +107,7 @@ export function RecordPayment() {
     (l) =>
       !loanSearch ||
       l.loanCode.toLowerCase().includes(loanSearch.toLowerCase()) ||
-      formatEnum(l.loanPurpose).toLowerCase().includes(loanSearch.toLowerCase())
+      formatLoanTypeLabel(l).toLowerCase().includes(loanSearch.toLowerCase())
   );
 
   const canContinue = (): boolean => {
@@ -105,6 +117,13 @@ export function RecordPayment() {
       case 1:
         return !!selectedLoanId;
       case 2:
+        if (
+          selectedLoan &&
+          isInterestOnlyLoan(selectedLoan) &&
+          ioPaymentMode === 'principal'
+        ) {
+          return false;
+        }
         return form.amount > 0 || (form.discountAmount ?? 0) > 0;
       default:
         return true;
@@ -148,11 +167,6 @@ export function RecordPayment() {
     setIsSubmitting(true);
     toastShownRef.current = false;
 
-    const receiptRows = filterAffectedAllocationRows(
-      computation.allocationRows,
-      5
-    );
-
     const successState = {
       loanCode: selectedLoan.loanCode,
       loanId: selectedLoan.id,
@@ -164,7 +178,6 @@ export function RecordPayment() {
       paymentDate: form.paymentDate,
       repaymentMethod: selectedLoan.repaymentMethod,
       receipt: computation.receipt,
-      allocationRows: receiptRows,
       supabasePending: false,
     };
 
@@ -294,7 +307,7 @@ export function RecordPayment() {
                           {loan.loanCode}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          {formatEnum(loan.repaymentMethod)}
+                          {formatLoanTypeLabel(loan)}
                         </p>
                       </div>
                       <p className="text-sm font-semibold tabular-nums">
@@ -318,6 +331,155 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('enterPayment')}
               </h3>
+              {isInterestOnlyLoan(selectedLoan) &&
+                selectedLoan.currentPrincipalBalance > 0 &&
+                selectedLoan.status !== 'COMPLETED' && (
+                  <div className="flex gap-2 p-1 rounded-lg bg-neutral-100">
+                    <button
+                      type="button"
+                      onClick={() => setIoPaymentMode('interest')}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
+                        ioPaymentMode === 'interest'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-600'
+                      }`}
+                    >
+                      {t('allocInterest')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIoPaymentMode('principal')}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
+                        ioPaymentMode === 'principal'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-600'
+                      }`}
+                    >
+                      {t('principalSettlement')}
+                    </button>
+                  </div>
+                )}
+              {isInterestOnlyLoan(selectedLoan) &&
+              ioPaymentMode === 'principal' ? (
+                <div className="space-y-4 pt-2">
+                  <p className="text-sm text-neutral-600">
+                    {t('ledgerAllocPrincipalPayment')}:{' '}
+                    <span className="font-semibold tabular-nums">
+                      {formatLKR(selectedLoan.currentPrincipalBalance)}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        if (!selectedCustomer || isSubmittingRef.current) return;
+                        isSubmittingRef.current = true;
+                        setIsSubmitting(true);
+                        try {
+                          const half = roundLKR(
+                            selectedLoan.currentPrincipalBalance / 2
+                          );
+                          const result = recordInterestOnlyPrincipalSettlement(
+                            {
+                              loanId: selectedLoan.id,
+                              customerId: selectedCustomer.id,
+                              kind: 'HALF',
+                              paymentDate: form.paymentDate,
+                              clientSubmitId: crypto.randomUUID(),
+                            },
+                            db
+                          );
+                          navigate('/payments/success', {
+                            replace: true,
+                            state: {
+                              loanCode: selectedLoan.loanCode,
+                              loanId: selectedLoan.id,
+                              customerName: selectedCustomer.name,
+                              amount: half,
+                              paymentMethod: 'CASH',
+                              paymentDate: form.paymentDate,
+                              repaymentMethod: selectedLoan.repaymentMethod,
+                              receipt: result.allocation,
+                              receiptNumber: result.receiptNumber,
+                              supabasePending: false,
+                            },
+                          });
+                        } catch (err) {
+                          showToast(
+                            err instanceof Error
+                              ? err.message
+                              : t('paymentSaveFailed'),
+                            'error'
+                          );
+                          isSubmittingRef.current = false;
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="rounded-md bg-white px-4 py-2.5 text-sm font-semibold ring-1 ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      {t('halfSettlement')}
+                      <span className="block text-xs font-normal text-neutral-500 tabular-nums">
+                        {formatLKR(
+                          roundLKR(selectedLoan.currentPrincipalBalance / 2)
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        if (!selectedCustomer || isSubmittingRef.current) return;
+                        isSubmittingRef.current = true;
+                        setIsSubmitting(true);
+                        try {
+                          const result = recordInterestOnlyPrincipalSettlement(
+                            {
+                              loanId: selectedLoan.id,
+                              customerId: selectedCustomer.id,
+                              kind: 'FULL',
+                              paymentDate: form.paymentDate,
+                              clientSubmitId: crypto.randomUUID(),
+                            },
+                            db
+                          );
+                          navigate('/payments/success', {
+                            replace: true,
+                            state: {
+                              loanCode: selectedLoan.loanCode,
+                              loanId: selectedLoan.id,
+                              customerName: selectedCustomer.name,
+                              amount: selectedLoan.currentPrincipalBalance,
+                              paymentMethod: 'CASH',
+                              paymentDate: form.paymentDate,
+                              repaymentMethod: selectedLoan.repaymentMethod,
+                              receipt: result.allocation,
+                              receiptNumber: result.receiptNumber,
+                              supabasePending: false,
+                            },
+                          });
+                        } catch (err) {
+                          showToast(
+                            err instanceof Error
+                              ? err.message
+                              : t('paymentSaveFailed'),
+                            'error'
+                          );
+                          isSubmittingRef.current = false;
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
+                    >
+                      {t('fullSettlement')}
+                      <span className="block text-xs font-normal text-brand-100 tabular-nums">
+                        {formatLKR(selectedLoan.currentPrincipalBalance)}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <CurrencyInput
                 label={t('cashReceivedRequired')}
                 value={form.amount}
@@ -404,13 +566,6 @@ export function RecordPayment() {
                   setForm((f) => ({ ...f, discountAmount }))
                 }
               />
-              {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
-                <AppliedPreview
-                  cash={form.amount}
-                  discount={form.discountAmount ?? 0}
-                  total={computation.appliedTotal}
-                />
-              )}
               <p className="text-xs text-neutral-500">
                 {t('loanBalanceReducesHint')}
               </p>
@@ -484,6 +639,18 @@ export function RecordPayment() {
                   className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
                 />
               </div>
+              {(form.amount > 0 || (form.discountAmount ?? 0) > 0) && (
+                <AppliedPreview
+                  amountDue={computation.amountDue}
+                  discount={form.discountAmount ?? 0}
+                  cash={form.amount}
+                  netPayable={computation.netPayable}
+                  settlementTotal={computation.settlementTotal}
+                  isFixedInstallment={isFixedInstallmentLoan(selectedLoan)}
+                />
+              )}
+                </>
+              )}
             </div>
           )}
 
@@ -493,28 +660,53 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('confirmPayment')}
               </h3>
-              <p className="text-sm font-medium text-neutral-800 rounded-lg bg-brand-50 border border-brand-100 px-4 py-3">
+              <p className="text-xs text-neutral-600 rounded-md bg-neutral-50 border border-neutral-200 px-3 py-2">
                 {form.paymentMethod === 'CASH'
-                  ? `Confirm cash payment ${formatLKR(form.amount)}`
-                  : `Confirm ${formatEnum(form.paymentMethod).toLowerCase()} payment ${formatLKR(form.amount)}`}
+                  ? `${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
+                  : `${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
                 {(form.discountAmount ?? 0) > 0 &&
-                  ` with discount ${formatLKR(form.discountAmount ?? 0)}`}
-                . Total applied: {formatLKR(computation.appliedTotal)}.
+                  ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
+                .
               </p>
-              <dl className="divide-y divide-neutral-200 text-sm">
+              <dl className="divide-y divide-neutral-100 text-sm">
                 <Row label={t('field.customer')} value={selectedCustomer?.name ?? '—'} />
                 <Row label={t('field.loan')} value={selectedLoan.loanCode} />
-                <Row label={t('cashReceived')} value={formatLKR(form.amount)} bold />
+                <Row
+                  label={t('field.type')}
+                  value={formatLoanTypeLabel(selectedLoan)}
+                  muted
+                />
+                {computation.amountDue > 0 && (
+                  <Row
+                    label={
+                      isFixedInstallmentLoan(selectedLoan)
+                        ? t('installmentDue')
+                        : t('amountDue')
+                    }
+                    value={formatLKR(computation.amountDue)}
+                  />
+                )}
                 {(form.discountAmount ?? 0) > 0 && (
                   <Row
-                    label={t('discountGiven')}
+                    label={t('discountWaiver')}
                     value={formatLKR(form.discountAmount ?? 0)}
                   />
                 )}
-                <Row
-                  label={t('totalApplied')}
-                  value={formatLKR(computation.appliedTotal)}
-                />
+                {computation.amountDue > 0 && (form.discountAmount ?? 0) > 0 && (
+                  <Row
+                    label={t('netPayable')}
+                    value={formatLKR(computation.netPayable)}
+                  />
+                )}
+                <Row label={t('customerPays')} value={formatLKR(form.amount)} bold />
+                {isFixedInstallmentLoan(selectedLoan) &&
+                  computation.amountDue > 0 &&
+                  computation.settlementTotal > 0 && (
+                    <InstallmentCoverageRow
+                      installmentDue={computation.amountDue}
+                      settlementTotal={computation.settlementTotal}
+                    />
+                  )}
                 <Row label={t('field.method')} value={formatEnum(form.paymentMethod)} />
                 <Row label={t('field.date')} value={formatDate(form.paymentDate)} />
               </dl>
@@ -574,17 +766,29 @@ function Row({
   label,
   value,
   bold,
+  muted,
 }: {
   label: string;
   value: string;
   bold?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="py-2.5 flex justify-between items-baseline gap-4">
-      <dt className="text-neutral-500 text-left shrink-0">{label}</dt>
+    <div className="py-2 flex justify-between items-baseline gap-4">
+      <dt
+        className={`text-left shrink-0 ${
+          muted ? 'text-neutral-400 text-xs' : 'text-neutral-500'
+        }`}
+      >
+        {label}
+      </dt>
       <dd
-        className={`text-neutral-900 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
-          bold ? 'font-bold text-brand-600' : ''
+        className={`tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
+          bold
+            ? 'font-semibold text-neutral-900'
+            : muted
+              ? 'text-neutral-500 text-xs'
+              : 'text-neutral-800'
         }`}
       >
         {value}
@@ -639,41 +843,148 @@ function NavButtons({
   );
 }
 
+function getInstallmentCoverage(
+  installmentDue: number,
+  settlementTotal: number
+): { covered: boolean; remaining: number } {
+  if (installmentDue <= 0) {
+    return { covered: false, remaining: 0 };
+  }
+  const covered = settlementTotal >= installmentDue;
+  return {
+    covered,
+    remaining: covered ? 0 : roundLKR(installmentDue - settlementTotal),
+  };
+}
+
 function AppliedPreview({
-  cash,
+  amountDue,
   discount,
-  total,
+  cash,
+  netPayable,
+  settlementTotal,
+  isFixedInstallment,
 }: {
-  cash: number;
+  amountDue: number;
   discount: number;
-  total: number;
+  cash: number;
+  netPayable: number;
+  settlementTotal: number;
+  isFixedInstallment: boolean;
 }) {
   const { t } = useT();
+  const dueLabel = isFixedInstallment ? t('installmentDue') : t('amountDue');
+
   return (
     <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2.5">
+      {amountDue > 0 && (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{dueLabel}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(amountDue)}
+          </span>
+        </div>
+      )}
+      {discount > 0 && (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{t('discountWaiver')}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            −{formatLKR(discount)}
+          </span>
+        </div>
+      )}
+      {amountDue > 0 && discount > 0 && (
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-neutral-600 text-left shrink-0">{t('netPayable')}</span>
+          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(netPayable)}
+          </span>
+        </div>
+      )}
       <div className="flex justify-between items-baseline gap-4">
-        <span className="text-neutral-600 text-left shrink-0">{t('cashReceived')}</span>
+        <span className="text-neutral-600 text-left shrink-0">{t('customerPays')}</span>
         <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
           {formatLKR(cash)}
         </span>
       </div>
-      {discount > 0 && (
+      {isFixedInstallment && amountDue > 0 && settlementTotal > 0 && (
+        <InstallmentCoverageStatus
+          installmentDue={amountDue}
+          settlementTotal={settlementTotal}
+        />
+      )}
+    </div>
+  );
+}
+
+function InstallmentCoverageStatus({
+  installmentDue,
+  settlementTotal,
+}: {
+  installmentDue: number;
+  settlementTotal: number;
+}) {
+  const { t } = useT();
+  const { covered, remaining } = getInstallmentCoverage(
+    installmentDue,
+    settlementTotal
+  );
+
+  return (
+    <div
+      className={`border-t border-neutral-200 pt-2.5 ${
+        covered ? 'text-success-700' : 'text-amber-800'
+      }`}
+    >
+      {covered ? (
+        <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+          <span aria-hidden="true">✓</span>
+          {t('installmentCovered')}
+        </p>
+      ) : (
         <div className="flex justify-between items-baseline gap-4">
-          <span className="text-neutral-600 text-left shrink-0">{t('discountGiven')}</span>
-          <span className="font-medium tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-            {formatLKR(discount)}
+          <span className="font-medium text-left shrink-0">
+            {t('remainingForInstallment')}
+          </span>
+          <span className="font-semibold tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
+            {formatLKR(remaining)}
           </span>
         </div>
       )}
-      <div className="flex justify-between items-baseline gap-4 border-t border-neutral-200 pt-2.5">
-        <span className="font-medium text-neutral-900 text-left shrink-0">
-          {t('totalApplied')}
-        </span>
-        <span className="font-bold text-brand-600 tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums]">
-          {formatLKR(total)}
+    </div>
+  );
+}
+
+function InstallmentCoverageRow({
+  installmentDue,
+  settlementTotal,
+}: {
+  installmentDue: number;
+  settlementTotal: number;
+}) {
+  const { t } = useT();
+  const { covered, remaining } = getInstallmentCoverage(
+    installmentDue,
+    settlementTotal
+  );
+
+  if (covered) {
+    return (
+      <div className="py-2 text-sm text-success-700">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <span aria-hidden="true">✓</span>
+          {t('installmentCovered')}
         </span>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <Row
+      label={t('remainingForInstallment')}
+      value={formatLKR(remaining)}
+      bold
+    />
   );
 }
 
@@ -710,6 +1021,7 @@ function SummaryPanel({
         <p className="text-sm font-mono text-brand-100 tabular-nums">
           {loan.loanCode}
         </p>
+        <p className="mt-1 text-xs text-brand-200">{formatLoanTypeLabel(loan)}</p>
       </div>
       <div className="p-6 space-y-3 text-sm">
         {isIO && (
@@ -732,20 +1044,39 @@ function SummaryPanel({
         )}
         {isFixed && (
           <>
-            <SummaryLine
-              label={
-                loan.loanPurpose === 'BIKE_INSTALLMENT'
-                  ? t('financeAmount')
-                  : t('loanAmount')
-              }
-              value={formatLKR(loan.principalAmount)}
-            />
-            <SummaryLine
-              label={t('totalPayable')}
-              value={formatLKR(loan.totalPayable ?? 0)}
-            />
-            <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
-            <SummaryLine label={t('field.balance')} value={formatLKR(loan.balanceAmount)} />
+            {loan.loanPurpose === 'BIKE_INSTALLMENT' ? (
+              <>
+                <SummaryLine
+                  label={t('paymentSidebarSellingPrice')}
+                  value={formatLKR(loan.originalPrincipalAmount)}
+                />
+                <SummaryLine
+                  label={t('loanAmount')}
+                  value={formatLKR(loan.principalAmount)}
+                />
+                <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
+                <SummaryLine
+                  label={t('paymentSidebarRemainingBalance')}
+                  value={formatLKR(loan.balanceAmount)}
+                />
+              </>
+            ) : (
+              <>
+                <SummaryLine
+                  label={t('loanAmount')}
+                  value={formatLKR(loan.principalAmount)}
+                />
+                <SummaryLine
+                  label={t('totalPayable')}
+                  value={formatLKR(loan.totalPayable ?? 0)}
+                />
+                <SummaryLine label={t('paid')} value={formatLKR(loan.paidAmount)} />
+                <SummaryLine
+                  label={t('field.balance')}
+                  value={formatLKR(loan.balanceAmount)}
+                />
+              </>
+            )}
             {loan.installmentAmount != null && loan.installmentAmount > 0 && (
               <SummaryLine
                 label={t('monthlyInstallment')}
@@ -760,120 +1091,12 @@ function SummaryPanel({
                   : computation.paymentNextDue?.label ?? '—'
               }
             />
-            <SummaryLine
-              label={t('lateFeeRate')}
-              value={`${loan.lateFeeRate}%`}
-            />
-            {computation.fixedDueSummary && (
-              <>
-                <div className="pt-3 border-t border-brand-700" />
-                <SummaryLine
-                  label={t('lateFeesDue')}
-                  value={formatLKR(computation.fixedDueSummary.totalLateFeesDue)}
-                />
-                <SummaryLine
-                  label={t('arrearsInstallments')}
-                  value={formatLKR(
-                    computation.fixedDueSummary.totalArrearsInstallmentsDue
-                  )}
-                />
-                <SummaryLine
-                  label={t('currentMonth')}
-                  value={formatLKR(computation.fixedDueSummary.currentMonthDue)}
-                />
-                <SummaryLine
-                  label={t('totalDueToday')}
-                  value={formatLKR(computation.fixedDueSummary.totalDue)}
-                  highlight
-                />
-              </>
-            )}
           </>
         )}
-        {step >= 2 && computation.appliedTotal > 0 && computation.allocation && (
+        {step >= 3 && computation.receipt && (
           <>
             <div className="pt-3 border-t border-brand-700" />
-            <p className="text-xs uppercase tracking-wide text-brand-300">
-              {t('livePreview')}
-            </p>
-            {computation.receipt && 'cashReceived' in computation.receipt && (
-              <>
-                <SummaryLine
-                  label={t('cashEntered')}
-                  value={formatLKR(computation.receipt.cashReceived)}
-                />
-                {computation.receipt.discountApplied > 0 && (
-                  <SummaryLine
-                    label={t('discountApplied')}
-                    value={formatLKR(computation.receipt.discountApplied)}
-                  />
-                )}
-                <SummaryLine
-                  label={t('totalApplied')}
-                  value={formatLKR(computation.receipt.totalApplied)}
-                  highlight
-                />
-              </>
-            )}
-            {isIO &&
-              computation.receipt &&
-              'interestPaid' in computation.receipt && (
-              <>
-                <SummaryLine
-                  label={t('interestPaid')}
-                  value={formatLKR(computation.receipt.interestPaid)}
-                />
-                <SummaryLine
-                  label={t('principalPaid')}
-                  value={formatLKR(computation.receipt.principalPaid)}
-                />
-                <SummaryLine
-                  label={t('remainingPrincipal')}
-                  value={formatLKR(computation.receipt.remainingPrincipal)}
-                />
-                <SummaryLine
-                  label={t('nextEstInterest')}
-                  value={formatLKR(computation.receipt.nextEstimatedInterest)}
-                />
-                {computation.receipt.pendingInterestRemaining > 0 && (
-                  <SummaryLine
-                    label={t('pendingInterest')}
-                    value={formatLKR(
-                      computation.receipt.pendingInterestRemaining
-                    )}
-                  />
-                )}
-              </>
-            )}
-            {isFixed &&
-              computation.receipt &&
-              'lateFeePaid' in computation.receipt && (
-                <>
-                  <SummaryLine
-                    label={t('lateFeePaid')}
-                    value={formatLKR(computation.receipt.lateFeePaid)}
-                  />
-                  <SummaryLine
-                    label={t('installmentPaid')}
-                    value={formatLKR(computation.receipt.installmentPaid)}
-                  />
-                  {computation.receipt.advancePaid > 0 && (
-                    <SummaryLine
-                      label={t('allocAdvance')}
-                      value={formatLKR(computation.receipt.advancePaid)}
-                    />
-                  )}
-                  <SummaryLine
-                    label={t('arrearsRemaining')}
-                    value={formatLKR(computation.receipt.remainingArrears)}
-                  />
-                  <SummaryLine
-                    label={t('balanceAfterShort')}
-                    value={formatLKR(computation.receipt.loanBalance)}
-                    highlight
-                  />
-                </>
-              )}
+            <SimpleLedgerReceiptSummary receipt={computation.receipt} loan={loan} />
           </>
         )}
       </div>
@@ -904,6 +1127,79 @@ function SummaryLine({
   );
 }
 
+function getSimpleReceiptLines(
+  loan: Loan,
+  receipt: NonNullable<ReturnType<typeof usePaymentComputation>['receipt']>,
+  t: ReturnType<typeof useT>['t']
+): Array<{ label: string; value: string; highlight?: boolean }> {
+  if (isFixedInstallmentLoan(loan) && 'lateFeePaid' in receipt) {
+    return [
+      { label: t('lateFeePaid'), value: formatLKR(receipt.lateFeePaid) },
+      {
+        label: t('installmentPaid'),
+        value: formatLKR(receipt.installmentPaid),
+      },
+      {
+        label: t('remainingBalance'),
+        value: formatLKR(receipt.loanBalance),
+        highlight: true,
+      },
+    ];
+  }
+  if (isInterestOnlyLoan(loan) && 'interestPaid' in receipt) {
+    const installmentPaid = receipt.interestPaid + receipt.principalPaid;
+    return [
+      { label: t('lateFeePaid'), value: formatLKR(0) },
+      { label: t('installmentPaid'), value: formatLKR(installmentPaid) },
+      {
+        label: t('remainingBalance'),
+        value: formatLKR(receipt.remainingPrincipal),
+        highlight: true,
+      },
+    ];
+  }
+  return [];
+}
+
+function SimpleLedgerReceiptSummary({
+  loan,
+  receipt,
+  variant = 'dark',
+}: {
+  loan: Loan;
+  receipt: NonNullable<ReturnType<typeof usePaymentComputation>['receipt']>;
+  variant?: 'dark' | 'light';
+}) {
+  const { t } = useT();
+  const lines = getSimpleReceiptLines(loan, receipt, t);
+
+  if (variant === 'light') {
+    return (
+      <ul className="text-sm space-y-2 text-neutral-800">
+        {lines.map((line) => (
+          <li key={line.label} className="flex justify-between gap-4">
+            <span>{line.label}</span>
+            <span className="font-semibold tabular-nums">{line.value}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <>
+      {lines.map((line) => (
+        <SummaryLine
+          key={line.label}
+          label={line.label}
+          value={line.value}
+          highlight={line.highlight}
+        />
+      ))}
+    </>
+  );
+}
+
 function ReceiptPreview({
   loan,
   receipt,
@@ -917,29 +1213,7 @@ function ReceiptPreview({
       <h4 className="text-sm font-semibold text-neutral-900 mb-3">
         {t('receiptPreview')}
       </h4>
-      {isInterestOnlyLoan(loan) && 'interestPaid' in receipt && (
-        <ul className="text-sm space-y-1 text-neutral-700">
-          <li>{t('interestPaid')}: {formatLKR(receipt.interestPaid)}</li>
-          <li>{t('principalPaid')}: {formatLKR(receipt.principalPaid)}</li>
-          <li>{t('remainingPrincipal')}: {formatLKR(receipt.remainingPrincipal)}</li>
-          {receipt.pendingInterestRemaining > 0 && (
-            <li>
-              {t('pendingInterest')}: {formatLKR(receipt.pendingInterestRemaining)}
-            </li>
-          )}
-        </ul>
-      )}
-      {isFixedInstallmentLoan(loan) && 'lateFeePaid' in receipt && (
-        <ul className="text-sm space-y-1 text-neutral-700">
-          <li>{t('lateFeePaid')}: {formatLKR(receipt.lateFeePaid)}</li>
-          <li>{t('installmentPaid')}: {formatLKR(receipt.installmentPaid)}</li>
-          {receipt.advancePaid > 0 && (
-            <li>{t('advancePaid')}: {formatLKR(receipt.advancePaid)}</li>
-          )}
-          <li>{t('remainingArrears')}: {formatLKR(receipt.remainingArrears)}</li>
-          <li>{t('loanBalance')}: {formatLKR(receipt.loanBalance)}</li>
-        </ul>
-      )}
+      <SimpleLedgerReceiptSummary loan={loan} receipt={receipt} variant="light" />
     </div>
   );
 }

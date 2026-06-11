@@ -132,9 +132,11 @@ export function CustomerList() {
                 
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-neutral-900 sm:pl-6">
                     {customer.name}
-                    <div className="text-xs text-neutral-500 font-normal mt-0.5 tabular-nums">
-                      {customer.id}
-                    </div>
+                    {customer.customerCode && (
+                      <div className="text-xs text-neutral-500 font-normal mt-0.5 tabular-nums">
+                        {customer.customerCode}
+                      </div>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
                     {customer.nic}

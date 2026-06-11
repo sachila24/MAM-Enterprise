@@ -1,169 +1,150 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  CloudIcon,
   DownloadIcon,
-  CheckCircleIcon,
   RefreshCwIcon,
-  DatabaseIcon } from
-'lucide-react';
+  DatabaseIcon,
+} from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { useToast } from '../../components/ui/Toast';
 import { formatDateTime } from '../../lib/format';
-const backupHistory = [
-{
-  id: 1,
-  date: new Date(Date.now() - 86400000 * 2).toISOString(),
-  size: '4.2 MB',
-  type: 'Manual',
-  user: 'Sachila'
-},
-{
-  id: 2,
-  date: new Date(Date.now() - 86400000 * 7).toISOString(),
-  size: '4.1 MB',
-  type: 'Auto',
-  user: 'System'
-},
-{
-  id: 3,
-  date: new Date(Date.now() - 86400000 * 14).toISOString(),
-  size: '3.9 MB',
-  type: 'Auto',
-  user: 'System'
-}];
+import { downloadFullDatabaseBackup } from '../../lib/local-db/downloadBackup';
+import { restoreDemoDbFromBackup } from '../../lib/local-db/localDb';
+import {
+  getBackupMeta,
+  recordBackupDownload,
+  recordBackupRestore,
+} from '../../lib/local-db/backupMeta';
+import { useT } from '../../i18n/I18nProvider';
 
 export function Backup() {
+  const { t, language } = useT();
+  const { showToast } = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [meta, setMeta] = useState(() => getBackupMeta());
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const refreshMeta = () => setMeta(getBackupMeta());
+
   const handleDownload = () => {
     setIsDownloading(true);
-    setTimeout(() => {
+    try {
+      downloadFullDatabaseBackup();
+      recordBackupDownload();
+      refreshMeta();
+      showToast(t('backupDownloadSuccess'), 'success');
+    } catch {
+      showToast(t('backupDownloadFailed'), 'error');
+    } finally {
       setIsDownloading(false);
-    }, 2000);
+    }
   };
+
+  const handleUploadClick = () => {
+    if (isUploading) return;
+    uploadRef.current?.click();
+  };
+
+  const handleUploadBackup = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const isJson = file.name.toLowerCase().endsWith('.json');
+    if (!isJson) {
+      showToast(t('backupInvalidFileType'), 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const raw = await file.text();
+      if (!window.confirm(t('backupRestoreConfirm'))) {
+        return;
+      }
+      restoreDemoDbFromBackup(raw);
+      recordBackupRestore();
+      refreshMeta();
+      showToast(t('backupRestoreSuccess'), 'success');
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 150);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : t('backupRestoreFailed');
+      showToast(message, 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto">
-      <PageHeader
-        title="Backup & Sync"
-        subtitle="Manage your data security and exports" />
-      
+    <div className="max-w-3xl mx-auto">
+      <PageHeader title={t('nav.backup')} subtitle={t('backupSubtitle')} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Cloud Sync Status */}
-        <div className="lg:col-span-1">
-          <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-success-50 flex items-center justify-center">
-                <CloudIcon className="h-6 w-6 text-success-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900">
-                  Cloud Sync
-                </h3>
-                <div className="flex items-center gap-1 text-sm text-success-600 font-medium">
-                  <CheckCircleIcon className="h-4 w-4" />
-                  Active
-                </div>
-              </div>
-            </div>
-            <p className="text-sm text-neutral-500 mb-6">
-              Your data is automatically synced to the secure cloud database in
-              real-time. No manual action required.
-            </p>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Last synced:</span>
-                <span className="text-neutral-900 font-medium">Just now</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Storage used:</span>
-                <span className="text-neutral-900 font-medium">12.4 MB</span>
-              </div>
-            </div>
+      <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+          {t('manualLocalBackup')}
+        </h3>
+        <p className="text-sm text-neutral-500 mb-6">{t('manualBackupHint')}</p>
+
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-sm">
+          <div className="rounded-lg bg-neutral-50 px-4 py-3 ring-1 ring-neutral-200">
+            <dt className="font-medium text-neutral-500">{t('lastBackupAt')}</dt>
+            <dd className="mt-1 font-semibold text-neutral-900 tabular-nums">
+              {meta.lastBackupAt
+                ? formatDateTime(meta.lastBackupAt, language)
+                : t('backupNever')}
+            </dd>
           </div>
-        </div>
-
-        {/* Manual Backup */}
-        <div className="lg:col-span-2">
-          <div className="bg-white shadow-sm ring-1 ring-neutral-200 rounded-xl p-6 h-full flex flex-col justify-center">
-            <div className="max-w-xl">
-              <h3 className="text-lg font-semibold text-neutral-900 mb-2">
-                Manual Local Backup
-              </h3>
-              <p className="text-sm text-neutral-500 mb-6">
-                Download a complete copy of your database as CSV files. It is
-                recommended to keep one copy on a pen drive or external hard
-                drive for disaster recovery.
-              </p>
-              <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50">
-                
-                {isDownloading ?
-                <RefreshCwIcon className="-ml-0.5 h-5 w-5 animate-spin" /> :
-
-                <DatabaseIcon className="-ml-0.5 h-5 w-5" />
-                }
-                {isDownloading ? 'Preparing files...' : 'Download Full Backup'}
-              </button>
-            </div>
+          <div className="rounded-lg bg-neutral-50 px-4 py-3 ring-1 ring-neutral-200">
+            <dt className="font-medium text-neutral-500">{t('lastRestoreAt')}</dt>
+            <dd className="mt-1 font-semibold text-neutral-900 tabular-nums">
+              {meta.lastRestoreAt
+                ? formatDateTime(meta.lastRestoreAt, language)
+                : t('backupNever')}
+            </dd>
           </div>
-        </div>
-      </div>
+        </dl>
 
-      {/* Backup History */}
-      <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-        Recent Backups
-      </h3>
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-neutral-200">
-        <table className="min-w-full divide-y divide-neutral-200">
-          <thead className="bg-neutral-50">
-            <tr>
-              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-neutral-900 sm:pl-6">
-                Date & Time
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                Type
-              </th>
-              <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
-                Initiated By
-              </th>
-              <th className="px-3 py-3.5 text-right text-sm font-semibold text-neutral-900">
-                Size
-              </th>
-              <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-200 bg-white">
-            {backupHistory.map((backup) =>
-            <tr key={backup.id} className="hover:bg-neutral-50">
-                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-neutral-900 sm:pl-6">
-                  {formatDateTime(backup.date)}
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                  <span
-                  className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${backup.type === 'Auto' ? 'bg-info-50 text-info-700 ring-info-500/20' : 'bg-neutral-50 text-neutral-600 ring-neutral-500/10'}`}>
-                  
-                    {backup.type}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
-                  {backup.user}
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 text-right tabular-nums">
-                  {backup.size}
-                </td>
-                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                  <button className="text-brand-600 hover:text-brand-900">
-                    <DownloadIcon className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isDownloading || isUploading}
+            className="inline-flex items-center gap-x-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <RefreshCwIcon className="-ml-0.5 h-5 w-5 animate-spin" />
+            ) : (
+              <DatabaseIcon className="-ml-0.5 h-5 w-5" />
             )}
-          </tbody>
-        </table>
+            {isDownloading ? t('preparingFiles') : t('downloadFullBackup')}
+          </button>
+          <button
+            type="button"
+            onClick={handleUploadClick}
+            disabled={isUploading || isDownloading}
+            className="inline-flex items-center gap-x-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {isUploading ? (
+              <RefreshCwIcon className="-ml-0.5 h-5 w-5 animate-spin" />
+            ) : (
+              <DownloadIcon className="-ml-0.5 h-5 w-5 rotate-180" />
+            )}
+            {isUploading ? t('backupUploading') : t('uploadBackup')}
+          </button>
+          <input
+            ref={uploadRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleUploadBackup}
+          />
+        </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }

@@ -1,0 +1,1415 @@
+/**
+ * MAM finance documents — loan invoice, payment receipt, cash sale.
+ * Print only #document-print-area; hide .no-print and dev panels.
+ *
+ * Document classes:
+ *   receipt-print-b5    — payment receipts (B5 portrait, page-filling rhythm)
+ *   cash-sale-print-b5  — cash sale invoices (B5 portrait, single-page, natural height)
+ *   agreement-print-a4  — loan agreements (A4 portrait, compact fit)
+ */
+
+/* B5 176×250mm; A4 210×297mm — printable area after 8mm vertical / 10mm horizontal @page margins */
+:root {
+  --mam-b5-printable-height: 234mm;
+  --mam-b5-printable-width: 156mm;
+  --mam-a4-printable-height: 281mm;
+  --mam-a4-printable-width: 190mm;
+}
+
+/* Traditional MAM Trading loan bill */
+.mam-bill-sheet {
+  border: 2px double #1a1a1a;
+  padding: 1.25rem 1.5rem 1.5rem;
+  margin: 0 auto;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #111;
+  box-sizing: border-box;
+}
+
+.agreement-print-a4 .mam-bill-sheet {
+  max-width: 210mm;
+}
+
+.receipt-print-b5 .mam-bill-sheet {
+  width: 100%;
+  max-width: 176mm;
+  min-height: var(--mam-b5-printable-height);
+  display: flex;
+  flex-direction: column;
+  padding: 1.35rem 1.25rem 1.25rem;
+}
+
+.cash-sale-print-b5 .mam-bill-sheet {
+  width: 100%;
+  max-width: 176mm;
+  margin: 0 auto;
+  padding: 1.35rem 1.35rem 1.1rem;
+  box-sizing: border-box;
+}
+
+.mam-bill-header {
+  border-bottom: 2px solid #1a1a1a;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mam-bill-header-split {
+  text-align: center;
+}
+
+.mam-bill-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.mam-bill-header-brand {
+  flex-shrink: 0;
+}
+
+.mam-bill-header-info {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.mam-bill-header-info .mam-bill-company {
+  margin: 0 0 0.15rem;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.mam-bill-header-info .mam-bill-company-line {
+  margin: 0.05rem 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.mam-logo {
+  object-fit: contain;
+}
+
+.mam-logo-print {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.mam-bill-company {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mam-bill-company-line {
+  margin: 0.1rem 0;
+  font-size: 0.8rem;
+  color: #333;
+}
+
+.mam-bill-title {
+  margin: 0.45rem 0 0.3rem;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mam-bill-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.mam-bill-receipt-prominent {
+  margin: 0.2rem 0 0;
+  font-weight: 900;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.mam-bill-section {
+  margin-bottom: 1rem;
+}
+
+.mam-bill-section-heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  padding: 0.12rem 0.35rem;
+  background: #f0f0f0;
+  border-left: 3px solid #1a1a1a;
+}
+
+.mam-bill-detail-block {
+  padding: 0.35rem 0.5rem 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  background: #fafafa;
+}
+
+.mam-bill-detail-row {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  padding: 0.12rem 0;
+  border-bottom: 1px dotted #ddd;
+}
+
+.mam-bill-detail-row:last-child {
+  border-bottom: none;
+}
+
+.mam-bill-detail-label {
+  color: #444;
+  font-weight: 600;
+}
+
+.mam-bill-detail-value {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mam-bill-guarantor-block + .mam-bill-guarantor-block {
+  margin-top: 0.5rem;
+}
+
+.mam-bill-guarantor-grid {
+  display: grid;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.mam-bill-guarantor-grid-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mam-bill-guarantor-grid-one {
+  grid-template-columns: 1fr;
+}
+
+.mam-bill-guarantor-grid .mam-bill-guarantor-block {
+  height: 100%;
+}
+
+.mam-bill-guarantor-grid .mam-bill-guarantor-block + .mam-bill-guarantor-block {
+  margin-top: 0;
+}
+
+.mam-bill-guarantor-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #222;
+}
+
+.mam-bill-dates-box {
+  margin-top: 0.45rem;
+}
+
+.mam-bill-finance-box {
+  border: 1px solid #1a1a1a;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+}
+
+.mam-bill-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  padding: 0.2rem 0;
+}
+
+.mam-bill-row-label {
+  flex: 0 1 auto;
+  max-width: 58%;
+  line-height: 1.3;
+}
+
+.mam-bill-row-leader {
+  flex: 1 1 auto;
+  border-bottom: 1px dotted #666;
+  min-width: 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.mam-bill-row-value {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mam-bill-strong-value {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.mam-bill-due-value {
+  font-weight: 800;
+  font-size: 0.98rem;
+}
+
+.mam-bill-finance .mam-bill-row:nth-last-child(-n + 2) .mam-bill-row-value {
+  font-size: 0.95rem;
+}
+
+.mam-bill-terms-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  color: #555;
+  line-height: 1.35;
+}
+
+.mam-document-bottom {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.mam-document-bottom .mam-bill-notice-box {
+  margin: 0.4rem auto 0.2rem;
+  padding: 0.45rem 0.65rem;
+  border: 2px solid #6a6a6a;
+  background: #fff;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  text-align: center;
+  font-weight: 600;
+  max-width: 85%;
+  box-shadow: inset 0 0 0 1px #f1f1f1;
+}
+
+.mam-document-bottom .mam-bill-signatures {
+  margin-top: 0.75rem;
+  padding-top: 0.35rem;
+}
+
+.mam-document-bottom .mam-bill-footer {
+  margin-top: 0.45rem;
+}
+
+.mam-bill-locked {
+  font-size: 0.65rem;
+  color: #666;
+  font-style: italic;
+  margin: 0.5rem 0 0;
+  text-align: center;
+}
+
+.mam-bill-due-box {
+  margin-top: 0.4rem;
+}
+
+.mam-bill-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  align-items: end;
+}
+
+.mam-bill-signatures-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mam-bill-sig {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  font-size: 0.72rem;
+  min-width: 0;
+}
+
+.mam-bill-sig-write-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-height: 2.75rem;
+  width: 100%;
+}
+
+.mam-bill-sig-line {
+  border-top: 1px solid #000;
+  height: 0;
+  width: 94%;
+  max-width: 100%;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.mam-bill-sig-label {
+  display: block;
+  margin-top: 0.35rem;
+  line-height: 1.3;
+}
+
+.mam-bill-collateral + .mam-bill-collateral {
+  margin-top: 0.5rem;
+}
+
+.mam-bill-footer {
+  margin-top: 0.45rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  font-size: 6.5pt;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #a3a3a3;
+}
+
+.mam-bill-footer-line {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.mam-bill-footer-compact {
+  letter-spacing: 0.01em;
+}
+
+.mam-bill-duo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: start;
+}
+
+.mam-bill-loan-top-grid .mam-bill-duo-col {
+  min-width: 0;
+}
+
+.mam-bill-duo-col .mam-bill-section-heading {
+  margin-bottom: 0.2rem;
+}
+
+/* Payment receipt — B5 page-filling rhythm (screen + print) */
+.receipt-print-b5 .mam-bill-sheet {
+  padding: 1.1rem 1.15rem 0.5rem;
+}
+
+.receipt-print-b5 .mam-bill-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.receipt-print-b5 .mam-bill-header {
+  margin-bottom: 1rem;
+  padding-top: 0.2rem;
+  padding-bottom: 0.75rem;
+}
+
+.receipt-print-b5 .mam-bill-header-row {
+  gap: 0.9rem;
+}
+
+.receipt-print-b5 .mam-bill-header-info .mam-bill-company {
+  font-size: 1.32rem;
+  letter-spacing: 0.09em;
+}
+
+.receipt-print-b5 .mam-bill-header-info .mam-bill-company-line {
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.receipt-print-b5 .mam-bill-title {
+  margin: 0.55rem 0 0.4rem;
+  font-size: 1.1rem;
+}
+
+.receipt-print-b5 .mam-bill-meta {
+  gap: 0.6rem 1.4rem;
+  font-size: 0.9rem;
+}
+
+.receipt-print-b5 .mam-bill-receipt-prominent {
+  font-size: 1.06rem;
+  margin-top: 0.28rem;
+}
+
+.receipt-print-b5 .mam-bill-section {
+  margin-bottom: 1rem;
+}
+
+.receipt-print-b5 .mam-bill-section-heading {
+  margin-bottom: 0.45rem;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.94rem;
+  border-left: 4px solid #1a1a1a;
+  border-bottom: 1px solid #d4d4d4;
+  background: #ececec;
+}
+
+.receipt-print-b5 .mam-bill-duo-grid {
+  gap: 0.95rem 1.05rem;
+}
+
+.receipt-print-b5 .mam-bill-duo-col .mam-bill-section-heading {
+  margin-bottom: 0.35rem;
+}
+
+.receipt-print-b5 .mam-bill-finance-box {
+  padding: 0.72rem 0.9rem;
+  border: 1.5px solid #1a1a1a;
+  background: #fcfcfc;
+  box-shadow: inset 0 0 0 1px #efefef;
+}
+
+.receipt-print-b5 .mam-bill-row {
+  padding: 0.22rem 0;
+  font-size: 0.95rem;
+}
+
+.receipt-print-b5 .mam-bill-row + .mam-bill-row {
+  border-top: 1px dotted #e3e3e3;
+}
+
+.receipt-print-b5 .mam-bill-strong-value {
+  font-size: 1.2rem;
+}
+
+.receipt-print-b5 .mam-bill-due-value {
+  font-size: 1.04rem;
+}
+
+.receipt-print-b5 .mam-bill-terms-note {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.receipt-print-b5 .mam-document-bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+}
+
+.receipt-print-b5 .mam-document-bottom .mam-bill-notice-box {
+  margin-top: 0.3rem;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.72rem;
+  max-width: 88%;
+}
+
+.receipt-print-b5 .mam-document-bottom .mam-bill-signatures {
+  margin-top: 0.55rem;
+  padding-top: 0;
+  gap: 1.35rem;
+}
+
+.receipt-print-b5 .mam-document-bottom .mam-bill-footer {
+  margin-top: 0.35rem;
+}
+
+.receipt-print-b5 .mam-bill-sig {
+  font-size: 0.8rem;
+}
+
+.receipt-print-b5 .mam-bill-sig-write-area {
+  min-height: 2.35rem;
+}
+
+/* Cash sale invoice — full-page B5 business layout (natural height, no flex fill) */
+.cash-sale-print-b5 .mam-bill-body {
+  display: block;
+}
+
+.cash-sale-print-b5 .mam-bill-header {
+  margin-bottom: 1rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom-width: 2px;
+}
+
+.cash-sale-print-b5 .mam-bill-header-row {
+  gap: 1.1rem;
+  align-items: center;
+}
+
+.cash-sale-print-b5 .mam-bill-header-brand .mam-logo {
+  width: 68px;
+  height: 68px;
+}
+
+.cash-sale-print-b5 .mam-bill-header-info .mam-bill-company {
+  font-size: 1.45rem;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+}
+
+.cash-sale-print-b5 .mam-bill-header-info .mam-bill-company-line {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin-top: 0.12rem;
+}
+
+.cash-sale-print-b5 .mam-bill-title {
+  margin: 0.75rem 0 0.55rem;
+  font-size: 1.22rem;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+  margin-top: 0.35rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid #ccc;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-meta-item {
+  text-align: center;
+  font-size: 0.84rem;
+  color: #333;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-meta-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555;
+  margin-bottom: 0.2rem;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-meta-item strong {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #111;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-section {
+  margin-bottom: 0.85rem;
+}
+
+.cash-sale-print-b5 .mam-bill-section-heading {
+  margin-bottom: 0.42rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.96rem;
+  font-weight: 800;
+  border-left: 4px solid #1a1a1a;
+  border-bottom: 1px solid #d0d0d0;
+  background: #ececec;
+}
+
+.cash-sale-print-b5 .mam-bill-detail-block {
+  padding: 0.65rem 0.85rem;
+  border: 1.5px solid #1a1a1a;
+  background: #fcfcfc;
+}
+
+.cash-sale-print-b5 .mam-bill-detail-row {
+  padding: 0.32rem 0;
+  font-size: 0.92rem;
+  border-bottom: none;
+  grid-template-columns: 9.5rem 1fr;
+}
+
+.cash-sale-print-b5 .mam-bill-detail-label {
+  font-size: 0.84rem;
+}
+
+.cash-sale-print-b5 .mam-bill-detail-value {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.cash-sale-print-b5 .mam-bill-detail-row + .mam-bill-detail-row {
+  border-top: 1px dotted #d8d8d8;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-finance-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cash-sale-print-b5 .mam-bill-finance-box.mam-cash-sale-lines {
+  padding: 0.6rem 0.85rem;
+  border: 1.5px solid #1a1a1a;
+  background: #fff;
+}
+
+.cash-sale-print-b5 .mam-bill-row {
+  padding: 0.32rem 0;
+  font-size: 0.94rem;
+}
+
+.cash-sale-print-b5 .mam-bill-row + .mam-bill-row {
+  border-top: 1px dotted #d8d8d8;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-totals-box {
+  border: 2.5px double #1a1a1a;
+  background: #f5f5f5;
+  padding: 0.75rem 0.95rem;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-total-label {
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #111;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-total-value {
+  font-size: 1.45rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+  white-space: nowrap;
+}
+
+.cash-sale-print-b5 .mam-cash-sale-payment-block {
+  margin-top: 0;
+}
+
+.cash-sale-print-b5 .mam-document-bottom .mam-bill-notice-box {
+  margin-top: 0.3rem;
+  margin-bottom: 0.12rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.72rem;
+}
+
+.cash-sale-print-b5 .mam-document-bottom .mam-bill-signatures {
+  margin-top: 0.65rem;
+  padding-top: 0.35rem;
+  gap: 1.15rem;
+}
+
+.cash-sale-print-b5 .mam-document-bottom .mam-bill-sig-write-area {
+  min-height: 2.5rem;
+}
+
+.cash-sale-print-b5 .mam-document-bottom .mam-bill-sig {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cash-sale-print-b5 .mam-document-bottom .mam-bill-footer {
+  margin-top: 0.35rem;
+  padding-top: 0.08rem;
+}
+
+/* Loan agreements — compact single-page rhythm on A4 */
+.agreement-print-a4 .mam-bill-header {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+}
+
+.agreement-print-a4 .mam-bill-section {
+  margin-bottom: 0.45rem;
+}
+
+.agreement-print-a4 .mam-bill-section-heading {
+  margin-bottom: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.8rem;
+}
+
+.agreement-print-a4 .mam-bill-finance-box {
+  padding: 0.35rem 0.55rem;
+}
+
+.agreement-print-a4 .mam-bill-row {
+  padding: 0.1rem 0;
+  font-size: 0.84rem;
+}
+
+.agreement-print-a4 .mam-bill-due-box {
+  margin-top: 0.3rem;
+}
+
+.agreement-print-a4 .mam-bill-terms-note {
+  margin-top: 0.25rem;
+}
+
+.agreement-print-a4 .mam-bill-locked {
+  margin-top: 0.35rem;
+}
+
+.agreement-print-a4 .mam-bill-guarantor-grid {
+  margin-bottom: 0.15rem;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-notice-box {
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.7rem;
+  max-width: 88%;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-signatures {
+  margin-top: 0.7rem;
+  padding-top: 0.45rem;
+  gap: 1.15rem;
+  align-items: end;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-sig {
+  font-size: 0.74rem;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-sig-write-area {
+  min-height: 3.75rem;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-sig-label {
+  margin-top: 0.38rem;
+}
+
+.agreement-print-a4 .mam-document-bottom .mam-bill-footer {
+  margin-top: 0.4rem;
+  padding-top: 0.1rem;
+}
+
+#document-print-area.doc-invoice .doc-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doc-section-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.2rem;
+}
+
+.doc-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 1.5rem;
+}
+
+.doc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.doc-field-label {
+  font-size: 0.7rem;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.doc-field-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #000;
+}
+
+.doc-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2.5rem;
+}
+
+.doc-sig-line {
+  border-top: 1px solid #000;
+  padding-top: 0.35rem;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.doc-locked-banner {
+  font-size: 0.7rem;
+  color: #555;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.doc-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm 10mm;
+}
+
+@page agreement-a4 {
+  size: A4 portrait;
+  margin: 8mm 10mm;
+}
+
+@page receipt-b5 {
+  size: B5 portrait;
+  margin: 8mm 10mm;
+}
+
+@page cash-sale-b5 {
+  size: B5 portrait;
+  margin: 6mm;
+}
+
+.agreement-print-a4 {
+  page: agreement-a4;
+}
+
+.receipt-print-b5 {
+  page: receipt-b5;
+}
+
+.cash-sale-print-b5 {
+  page: cash-sale-b5;
+}
+
+@media print {
+  .no-print,
+  .dev-time-panel,
+  .mam-toast-host,
+  [data-sonner-toaster],
+  .sonner-toast,
+  .floating-controls,
+  .simulation-controls,
+  [data-radix-popper-content-wrapper],
+  [aria-label*='Developer time'],
+  [aria-label*='developer time'] {
+    display: none !important;
+  }
+
+  /* Hide all app chrome; reveal only the printable document */
+  body * {
+    visibility: hidden;
+  }
+
+  #document-print-area,
+  #document-print-area * {
+    visibility: visible;
+  }
+
+  #document-print-area {
+    position: absolute !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fixed-position UI (toasts, dev panels) must not appear in print output */
+  .fixed,
+  [class*='fixed'] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #document-print-area.fixed,
+  #document-print-area [class*='fixed'] {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  .flex.h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-auto {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  main,
+  .document-view-page,
+  .payment-success-page {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .document-view-page > div:not(#document-print-area) {
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #document-print-area,
+  #document-print-area *,
+  .receipt-document,
+  .receipt-sheet,
+  .mam-bill-sheet,
+  .mam-bill-body {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    transform: none !important;
+    clip: auto !important;
+    clip-path: none !important;
+  }
+
+  /* Cash sale — fixed B5 single page, natural height (no flex stretch) */
+  .cash-sale-print-b5 .receipt-sheet,
+  .cash-sale-print-b5 .mam-bill-sheet {
+    width: 100%;
+    max-width: none;
+    min-height: 0 !important;
+    height: auto !important;
+    display: block;
+    border: 2px double #1a1a1a;
+    padding: 0.85rem 0.9rem 0.65rem;
+    margin: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-body {
+    display: block;
+  }
+
+  .cash-sale-print-b5 .mam-bill-header {
+    margin-bottom: 0.65rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.55rem;
+    border-bottom-width: 2px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-header-row {
+    gap: 0.85rem;
+    align-items: center;
+  }
+
+  .cash-sale-print-b5 .mam-bill-header-brand .mam-logo {
+    width: 60px;
+    height: 60px;
+  }
+
+  .cash-sale-print-b5 .mam-bill-header-info .mam-bill-company {
+    font-size: 1.25rem;
+    letter-spacing: 0.1em;
+    line-height: 1.15;
+  }
+
+  .cash-sale-print-b5 .mam-bill-header-info .mam-bill-company-line {
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .cash-sale-print-b5 .mam-bill-title {
+    margin: 0.55rem 0 0.4rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem 0.75rem;
+    margin-top: 0.25rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid #ccc;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-meta-item {
+    text-align: center;
+    font-size: 0.76rem;
+    color: #333;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-meta-label {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    margin-bottom: 0.15rem;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-meta-item strong {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #111;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cash-sale-print-b5 .mam-bill-section,
+  .cash-sale-print-b5 .mam-cash-sale-section {
+    margin-bottom: 0.55rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-section-heading {
+    margin-bottom: 0.3rem;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.84rem;
+    font-weight: 800;
+    border-left: 4px solid #1a1a1a;
+    border-bottom: 1px solid #d0d0d0;
+    background: #ececec;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-detail-block,
+  .cash-sale-print-b5 .mam-bill-finance-box.mam-cash-sale-lines {
+    padding: 0.45rem 0.65rem;
+    border: 1.5px solid #1a1a1a;
+    background: #fcfcfc;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-detail-row {
+    padding: 0.22rem 0;
+    font-size: 0.82rem;
+    grid-template-columns: 8.5rem 1fr;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-bill-detail-label {
+    font-size: 0.76rem;
+  }
+
+  .cash-sale-print-b5 .mam-bill-detail-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .cash-sale-print-b5 .mam-bill-row {
+    padding: 0.22rem 0;
+    font-size: 0.84rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-finance-panel {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-totals-box {
+    border: 2.5px double #1a1a1a;
+    background: #f5f5f5;
+    padding: 0.55rem 0.75rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-total-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-total-label {
+    font-size: 0.88rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #111;
+  }
+
+  .cash-sale-print-b5 .mam-cash-sale-total-value {
+    font-size: 1.22rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #111;
+    white-space: nowrap;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom .mam-bill-notice-box {
+    margin-top: 0.25rem;
+    margin-bottom: 0.1rem;
+    padding: 0.32rem 0.45rem;
+    font-size: 0.67rem;
+    line-height: 1.35;
+    max-width: 88%;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom .mam-bill-signatures {
+    margin-top: 0.55rem;
+    padding-top: 0.28rem;
+    gap: 1rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom .mam-bill-sig-write-area {
+    min-height: 2.35rem;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom .mam-bill-sig {
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .cash-sale-print-b5 .mam-document-bottom .mam-bill-footer {
+    margin-top: 0.28rem;
+    padding-top: 0.08rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 6pt;
+    color: #ababab;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* A4 agreements / invoices — compact printable fit */
+  .agreement-print-a4 .mam-bill-sheet {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    border: 2px double #1a1a1a;
+    padding: 0.45rem 0.65rem 0.5rem;
+    margin: 0;
+  }
+
+  .agreement-print-a4 .mam-bill-header {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.3rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agreement-print-a4 .mam-bill-header-info .mam-bill-company {
+    font-size: 1.05rem;
+  }
+
+  .agreement-print-a4 .mam-bill-title {
+    margin: 0.35rem 0 0.25rem;
+    font-size: 0.95rem;
+  }
+
+  .agreement-print-a4 .mam-bill-meta {
+    gap: 0.35rem 1rem;
+    font-size: 0.75rem;
+  }
+
+  .agreement-print-a4 .mam-bill-section {
+    margin-bottom: 0.35rem;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .agreement-print-a4 .mam-bill-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .agreement-print-a4 .mam-bill-detail-block,
+  .agreement-print-a4 .mam-bill-finance-box,
+  .agreement-print-a4 .mam-bill-detail-row,
+  .agreement-print-a4 .mam-bill-row,
+  .agreement-print-a4 .mam-bill-guarantor-block,
+  .agreement-print-a4 .mam-bill-collateral,
+  .agreement-print-a4 .mam-bill-duo-grid {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .agreement-print-a4 .mam-bill-locked {
+    margin-top: 0.35rem;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .agreement-print-a4 .mam-bill-guarantor-grid {
+    gap: 0.45rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .agreement-print-a4 .mam-document-bottom {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-notice-box {
+    margin-top: 0.25rem;
+    margin-bottom: 0.1rem;
+    padding: 0.32rem 0.45rem;
+    font-size: 0.67rem;
+    line-height: 1.35;
+    max-width: 88%;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-signatures,
+  .agreement-print-a4 .mam-document-bottom .doc-signatures {
+    margin-top: 0.55rem;
+    padding-top: 0.3rem;
+    gap: 1rem;
+    align-items: end;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-sig-write-area {
+    min-height: 3.25rem;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-sig {
+    font-size: 0.72rem;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-sig-label {
+    margin-top: 0.32rem;
+  }
+
+  .agreement-print-a4 .mam-document-bottom .mam-bill-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 0.32rem;
+    padding-top: 0.08rem;
+    font-size: 6pt;
+    color: #ababab;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* B5 payment receipts — full printable area, natural vertical rhythm */
+  .receipt-print-b5 .mam-bill-sheet {
+    width: 100%;
+    max-width: none;
+    min-height: var(--mam-b5-printable-height) !important;
+    display: flex;
+    flex-direction: column;
+    border: 2px double #1a1a1a;
+    padding: 1rem 1.05rem 0.4rem;
+    margin: 0;
+  }
+
+  .receipt-print-b5 .mam-bill-body {
+    flex: 1 1 auto !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .receipt-print-b5 .mam-bill-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-b5 .mam-bill-section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .receipt-print-b5 .mam-bill-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .receipt-print-b5 .mam-bill-detail-block,
+  .receipt-print-b5 .mam-bill-finance-box,
+  .receipt-print-b5 .mam-bill-detail-row,
+  .receipt-print-b5 .mam-bill-row,
+  .receipt-print-b5 .mam-bill-duo-grid {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .receipt-print-b5 .mam-document-bottom {
+    margin-top: auto;
+    flex-shrink: 0;
+    padding-top: 0.35rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-b5 .mam-document-bottom .mam-bill-notice-box {
+    margin-top: 0.25rem;
+    padding: 0.32rem 0.45rem;
+    font-size: 0.67rem;
+    line-height: 1.35;
+    max-width: 88%;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-b5 .mam-document-bottom .mam-bill-signatures {
+    margin-top: 0.5rem;
+    padding-top: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-b5 .mam-document-bottom .mam-bill-footer {
+    margin-top: 0.3rem;
+    flex-shrink: 0;
+    padding-top: 0.15rem;
+    padding-bottom: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 6.5pt;
+    color: #ababab;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

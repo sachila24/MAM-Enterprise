@@ -1,8 +1,6 @@
+import { buildFixedInstallmentDueDates } from './dueDates';
 import { roundLKR } from './money';
-import {
-  calculateLateMonthsFromIndex,
-  resolveCurrentIndex,
-} from './lateFeeEngineV3';
+import { calculateLateMonthsFromDueDate } from '../time/systemTime';
 
 export interface FixedInstallmentTermsInput {
   financeAmount: number;
@@ -96,12 +94,7 @@ export function calculateLateFeeAmount(input: LateFeeInput): number {
  * Single-installment fallback (index 0 only).
  */
 export function calculateMonthsLate(dueDate: string, today: string): number {
-  return calculateLateMonthsFromIndex(
-    0,
-    resolveCurrentIndex([{ installmentIndex: 0, dueDate }], today),
-    today,
-    dueDate
-  );
+  return calculateLateMonthsFromDueDate(dueDate, today);
 }
 
 /** Late fee = baseLateFeeUnit × overdue months (whole LKR). */
@@ -122,7 +115,8 @@ export function monthsLate(dueDate: string, paymentDate: string): number {
 
 export function buildFixedInstallmentSchedule(
   totals: FixedInstallmentTotals,
-  firstDueDate: string
+  firstDueDate: string,
+  preferredDueDay?: number
 ): InstallmentScheduleLine[] {
   const { termMonths, financeAmount, totalInterest, monthlyInstallment } =
     totals;
@@ -131,11 +125,13 @@ export function buildFixedInstallmentSchedule(
   const principalPerMonth = roundLKR(financeAmount / termMonths);
   const interestPerMonth = roundLKR(totalInterest / termMonths);
   const lines: InstallmentScheduleLine[] = [];
-  const anchor = new Date(firstDueDate);
+  const dueDates = buildFixedInstallmentDueDates(
+    firstDueDate,
+    termMonths,
+    preferredDueDay
+  );
 
   for (let i = 0; i < termMonths; i++) {
-    const due = new Date(anchor);
-    due.setMonth(anchor.getMonth() + i);
     const isLast = i === termMonths - 1;
     const principalComponent = isLast
       ? roundLKR(financeAmount - principalPerMonth * (termMonths - 1))
@@ -152,7 +148,7 @@ export function buildFixedInstallmentSchedule(
 
     lines.push({
       installmentNumber: i + 1,
-      dueDate: due.toISOString().split('T')[0],
+      dueDate: dueDates[i],
       principalComponent,
       interestComponent,
       installmentAmount,

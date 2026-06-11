@@ -1,10 +1,29 @@
+import { LATE_FEE_GRACE_DAYS } from './constants';
 import { computeDueDateForCycle } from './dueDates';
 import { roundLKR } from './money';
 import {
+  addDaysToDate,
+  calculateLateFeeCyclesFromGraceEnd,
+  calculateLateMonthsFromDueDate,
   compareDateOnly,
   getAsOfDate,
   normalizeDate,
 } from '../time/systemTime';
+
+export { LATE_FEE_GRACE_DAYS };
+
+/** First calendar day late-fee cycles accrue (due date + grace days). */
+export function getLateFeeStartDate(dueDate: string): string {
+  return addDaysToDate(dueDate, LATE_FEE_GRACE_DAYS);
+}
+
+/** True when as-of is on or after the late-fee cycle start date. */
+export function isLateFeeAccrualEligible(
+  dueDate: string,
+  asOfDate: string
+): boolean {
+  return compareDateOnly(asOfDate, getLateFeeStartDate(dueDate)) >= 0;
+}
 
 export type LateFeeInstallmentStatus = 'PAID' | 'OVERDUE' | 'PENDING' | 'PARTIAL';
 
@@ -15,6 +34,13 @@ export interface LateFeeEngineInstallmentInput {
   installmentAmount: number;
   paidAmount: number;
   lateFeePaid?: number;
+  /** Historical charged snapshot from DB — used when principal is settled. */
+  lateFeeCharged?: number;
+  /**
+   * Fixed-term rule: ≥50% of installment paid before grace-end — never accrue
+   * late fees on this installment (set by lateFeeExemption helpers).
+   */
+  lateFeeExempt?: boolean;
 }
 
 export interface LateFeeEngineInput {
@@ -36,12 +62,17 @@ export interface LateFeeEngineLine {
   installmentNumber: number;
   installmentIndex: number;
   dueDate: string;
+  /** Monthly late-fee cycles since grace-end (fee = baseLateFee × lateMonths). */
   lateMonths: number;
   baseLateFee: number;
+  /** Live accrued late fee at asOf (display + allocation). */
   lateFee: number;
   lateFeeOutstanding: number;
   remainingInstallment: number;
   status: LateFeeInstallmentStatus;
+  /** Late-fee balance fully paid — no further monthly accumulation. */
+  lateFeeSettled: boolean;
+  lateFeeStartDate: string;
 }
 
 export interface LateFeeEngineTotals {
@@ -54,8 +85,6 @@ export interface LateFeeEngineTotals {
 export interface LateFeeEngineResult extends LateFeeEngineTotals {
   asOfDate: string;
   baseLateFee: number;
-  /** Index of the active payment period (count of installments strictly past due). */
-  currentIndex: number;
   lines: LateFeeEngineLine[];
 }
 
@@ -87,8 +116,7 @@ export interface IndexedInstallment {
 }
 
 /**
- * Payment-period index at paymentDate: count of installments whose due date
- * is strictly before the payment date (same due day → not counted).
+ * @deprecated Index-based late months — use calculateLateFeeCyclesFromGraceEnd.
  */
 export function resolveCurrentIndex(
   installments: IndexedInstallment[],
@@ -105,8 +133,7 @@ export function resolveCurrentIndex(
 }
 
 /**
- * Index-based late months: currentIndex − installmentIndex.
- * No calendar-month or date-diff aging.
+ * @deprecated Use calculateLateFeeCyclesFromGraceEnd from ../time/systemTime.
  */
 export function calculateLateMonthsFromIndex(
   installmentIndex: number,
@@ -131,15 +158,15 @@ function isPrincipalPaid(inst: LateFeeEngineInstallmentInput): boolean {
 function deriveStatus(
   inst: LateFeeEngineInstallmentInput,
   asOf: string,
-  lateMonths: number
+  lateFeeOutstanding: number,
+  remainingInstallment: number
 ): LateFeeInstallmentStatus {
-  if (isPrincipalPaid(inst)) return 'PAID';
+  const totalRemaining = roundLKR(lateFeeOutstanding + remainingInstallment);
+  if (totalRemaining <= 0) return 'PAID';
   const due = normalizeDate(inst.dueDate);
   if (compareDateOnly(due, asOf) > 0) return 'PENDING';
-  if (lateMonths > 0 && inst.paidAmount > 0) return 'PARTIAL';
-  if (lateMonths > 0) return 'OVERDUE';
-  if (inst.paidAmount > 0) return 'PARTIAL';
-  return 'PENDING';
+  if (inst.paidAmount > 0 || (inst.lateFeePaid ?? 0) > 0) return 'PARTIAL';
+  return 'OVERDUE';
 }
 
 interface SortedWithIndex extends LateFeeEngineInstallmentInput {
@@ -155,11 +182,71 @@ function sortWithIndices(
   return sorted.map((inst, installmentIndex) => ({ ...inst, installmentIndex }));
 }
 
+/** Late-fee penalty fully paid — freeze amount; stop monthly accumulation. */
+function isLateFeeSettled(inst: LateFeeEngineInstallmentInput): boolean {
+  const paid = inst.lateFeePaid ?? 0;
+  const charged = inst.lateFeeCharged ?? 0;
+  if (paid <= 0) return false;
+  if (charged > 0 && paid >= charged) return true;
+  return false;
+}
+
+function computeAccruedLateFee(
+  inst: SortedWithIndex,
+  baseLateFee: number,
+  asOf: string
+): {
+  lateMonths: number;
+  lateFee: number;
+  lateFeeSettled: boolean;
+} {
+  if (inst.lateFeeExempt) {
+    const lateFeePaid = inst.lateFeePaid ?? 0;
+    const charged = inst.lateFeeCharged ?? 0;
+    return {
+      lateMonths: 0,
+      lateFee: roundLKR(Math.max(lateFeePaid, charged)),
+      lateFeeSettled: true,
+    };
+  }
+
+  const due = normalizeDate(inst.dueDate);
+  const cycleStart = getLateFeeStartDate(due);
+  const lateMonths = calculateLateFeeCyclesFromGraceEnd(cycleStart, asOf);
+  const accrued = roundLKR(baseLateFee * lateMonths);
+
+  if (isLateFeeSettled(inst)) {
+    const lateFeePaid = inst.lateFeePaid ?? 0;
+    return {
+      lateMonths: isPrincipalPaid(inst) ? 0 : lateMonths,
+      lateFee: roundLKR(Math.max(lateFeePaid, inst.lateFeeCharged ?? 0)),
+      lateFeeSettled: true,
+    };
+  }
+
+  if (!isLateFeeAccrualEligible(due, asOf)) {
+    return { lateMonths: 0, lateFee: 0, lateFeeSettled: false };
+  }
+
+  if (isPrincipalPaid(inst)) {
+    const lateFeePaid = inst.lateFeePaid ?? 0;
+    const charged = inst.lateFeeCharged ?? 0;
+    return {
+      lateMonths: 0,
+      // Business rule: once installment principal is fully settled,
+      // this installment must not accrue additional late-fee cycles.
+      lateFee: roundLKR(Math.max(lateFeePaid, charged)),
+      lateFeeSettled: isLateFeeSettled(inst),
+    };
+  }
+
+  return { lateMonths, lateFee: accrued, lateFeeSettled: false };
+}
+
 function computeLine(
   inst: SortedWithIndex,
   baseLateFee: number,
-  asOf: string,
-  currentIndex: number
+  asOf: string
 ): LateFeeEngineLine {
   const due = normalizeDate(inst.dueDate);
   const lateFeePaid = inst.lateFeePaid ?? 0;
@@ -167,20 +254,14 @@ function computeLine(
     Math.max(0, inst.installmentAmount - inst.paidAmount)
   );
 
-  let lateMonths = 0;
-  let lateFee = 0;
-
-  if (!isPrincipalPaid(inst)) {
-    lateMonths = calculateLateMonthsFromIndex(
-      inst.installmentIndex,
-      currentIndex,
-      asOf,
-      due
-    );
-    lateFee = roundLKR(baseLateFee * lateMonths);
-  }
-
-  const lateFeeOutstanding = roundLKR(Math.max(0, lateFee - lateFeePaid));
+  const { lateMonths, lateFee, lateFeeSettled } = computeAccruedLateFee(
+    inst,
+    baseLateFee,
+    asOf
+  );
+  const lateFeeOutstanding = lateFeeSettled
+    ? 0
+    : roundLKR(Math.max(0, lateFee - lateFeePaid));
 
   return {
     installmentId: inst.installmentId,
@@ -192,12 +273,14 @@ function computeLine(
     lateFee,
     lateFeeOutstanding,
     remainingInstallment,
-    status: deriveStatus(inst, asOf, lateMonths),
+    status: deriveStatus(inst, asOf, lateFeeOutstanding, remainingInstallment),
+    lateFeeSettled,
+    lateFeeStartDate: getLateFeeStartDate(due),
   };
 }
 
 /**
- * Installment-index late-fee engine — single source of truth for all screens.
+ * Per-installment late-fee engine — monthly cycles from grace-end + as-of date.
  */
 export function computeLoanLateFeesV3(
   input: LateFeeEngineInput
@@ -209,11 +292,7 @@ export function computeLoanLateFeesV3(
   );
 
   const indexed = sortWithIndices(input.installments);
-  const currentIndex = resolveCurrentIndex(indexed, asOfDate);
-
-  const lines = indexed.map((inst) =>
-    computeLine(inst, baseLateFee, asOfDate, currentIndex)
-  );
+  const lines = indexed.map((inst) => computeLine(inst, baseLateFee, asOfDate));
 
   let totalLateFee = 0;
   let totalLateFeeOutstanding = 0;
@@ -241,7 +320,6 @@ export function computeLoanLateFeesV3(
   return {
     asOfDate,
     baseLateFee,
-    currentIndex,
     lines,
     totalLateFee,
     totalLateFeeOutstanding,
@@ -255,4 +333,12 @@ export function getLateFeeLineByInstallmentId(
   installmentId: string
 ): LateFeeEngineLine | undefined {
   return result.lines.find((l) => l.installmentId === installmentId);
+}
+
+/** Whole months overdue from due date (display only; includes grace). */
+export function displayOverdueMonthsFromDue(
+  dueDate: string,
+  asOfDate: string
+): number {
+  return calculateLateMonthsFromDueDate(dueDate, asOfDate);
 }

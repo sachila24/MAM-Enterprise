@@ -39,6 +39,8 @@ import {
 import type { PaymentPreviewBundle } from './paymentPreviewData';
 import type { PaymentAllocationResult } from '../../lib/finance/paymentAllocation';
 import { roundLKR } from '../../lib/finance/money';
+import { getDb } from '../../lib/local-db/localDb';
+import { createLateFeeExemptAfterAllocationFn } from '../../lib/finance/lateFeeExemption';
 
 export interface PaymentFormState {
   amount: number;
@@ -61,7 +63,8 @@ export function usePaymentComputation(
 ) {
   const cash = roundLKR(form.amount);
   const disc = roundLKR(form.discountAmount ?? 0);
-  const totalApply = roundLKR(cash + disc);
+  /** Cash + waiver applied toward due (not “customer paid” total). */
+  const settlementTotal = roundLKR(cash + disc);
 
   const cycles: InterestCycleForAllocation[] = useMemo(() => {
     if (!loan || !bundle) return [];
@@ -99,29 +102,53 @@ export function usePaymentComputation(
     };
   }, [loan, cycles]);
 
-  const fixedDueSummary = useMemo(() => {
+  const lateFeeExemptByInstallmentId = useMemo(() => {
+    if (!loan || !bundle) return undefined;
+    return bundle.lateFeeExemptByInstallmentIdByLoanId?.[loan.id];
+  }, [loan, bundle]);
+
+  const fixedAllocationCtx = useMemo(() => {
     if (!loan || !isFixedInstallmentLoan(loan) || installments.length === 0) {
       return null;
     }
-    return summarizeFixedInstallmentDue(
-      {
-        installments,
-        paymentDate: form.paymentDate,
-        lateFeeRatePercent: loan.lateFeeRate,
-        monthlyInstallmentAmount: loan.installmentAmount,
-        currentInstallmentNumber,
-      },
-      form.paymentDate
-    );
+    const db = getDb();
+    return {
+      installments,
+      paymentDate: form.paymentDate,
+      lateFeeRatePercent: loan.lateFeeRate,
+      monthlyInstallmentAmount: loan.installmentAmount,
+      currentInstallmentNumber,
+      loanBalanceAmount: loan.balanceAmount,
+      lateFeeExemptByInstallmentId,
+      recomputeLateFeeExemptAfterAllocation:
+        lateFeeExemptByInstallmentId !== undefined
+          ? createLateFeeExemptAfterAllocationFn(
+              db,
+              loan.id,
+              lateFeeExemptByInstallmentId,
+              installments,
+              form.paymentDate
+            )
+          : undefined,
+    };
   }, [
     loan,
     installments,
     form.paymentDate,
     currentInstallmentNumber,
+    lateFeeExemptByInstallmentId,
   ]);
 
+  const fixedDueSummary = useMemo(() => {
+    if (!fixedAllocationCtx) return null;
+    return summarizeFixedInstallmentDue(
+      fixedAllocationCtx,
+      form.paymentDate
+    );
+  }, [fixedAllocationCtx, form.paymentDate]);
+
   const allocation = useMemo(() => {
-    if (!loan || totalApply <= 0) return null;
+    if (!loan || settlementTotal <= 0) return null;
 
     let base: PaymentAllocationResult;
 
@@ -132,19 +159,12 @@ export function usePaymentComputation(
           monthlyInterestRatePercent: loan.interestRate,
           cycles,
         },
-        totalApply
+        settlementTotal
       );
-    } else if (isFixedInstallmentLoan(loan) && installments.length > 0) {
+    } else if (fixedAllocationCtx) {
       base = allocateFixedInstallmentPayment(
-        {
-          installments,
-          paymentDate: form.paymentDate,
-          lateFeeRatePercent: loan.lateFeeRate,
-          monthlyInstallmentAmount: loan.installmentAmount,
-          currentInstallmentNumber,
-          loanBalanceAmount: loan.balanceAmount,
-        },
-        totalApply
+        fixedAllocationCtx,
+        settlementTotal
       );
     } else {
       return null;
@@ -169,18 +189,17 @@ export function usePaymentComputation(
       allocations: finalLines,
       summary,
       totalAllocated,
-      unallocated: roundLKR(totalApply - totalAllocated),
+      unallocated: roundLKR(settlementTotal - totalAllocated),
     };
     return merged;
   }, [
     loan,
-    totalApply,
+    settlementTotal,
     cash,
     disc,
     form.paymentDate,
     cycles,
-    installments,
-    currentInstallmentNumber,
+    fixedAllocationCtx,
   ]);
 
   const allocationRows = useMemo(() => {
@@ -194,7 +213,8 @@ export function usePaymentComputation(
         allocation,
         form.paymentDate,
         loan.lateFeeRate,
-        loan.installmentAmount
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
       );
     }
     return [];
@@ -230,6 +250,7 @@ export function usePaymentComputation(
             paidAmount: i.paidAmount,
             lateFeePaid: i.lateFeePaid,
           })),
+          lateFeeExemptByInstallmentId,
         }
       );
     }
@@ -261,14 +282,31 @@ export function usePaymentComputation(
       return getNextDueDateForFixedInstallments(
         installments as InstallmentArrearsInput[],
         loan.lateFeeRate,
-        form.paymentDate
+        form.paymentDate,
+        loan.installmentAmount,
+        lateFeeExemptByInstallmentId
       );
     }
     return null;
-  }, [loan, cycles, installments, form.paymentDate, loan?.lateFeeRate]);
+  }, [
+    loan,
+    cycles,
+    installments,
+    form.paymentDate,
+    lateFeeExemptByInstallmentId,
+  ]);
+
+  const amountDue = roundLKR(
+    fixedDueSummary?.totalDue ?? interestOnlySummary?.totalInterestDue ?? 0
+  );
+  const netPayable = roundLKR(Math.max(0, amountDue - disc));
 
   return {
-    appliedTotal: totalApply,
+    /** @deprecated Use settlementTotal — kept for callers not yet updated */
+    appliedTotal: settlementTotal,
+    settlementTotal,
+    amountDue,
+    netPayable,
     cashAmount: cash,
     discountAmount: disc,
     cycles,

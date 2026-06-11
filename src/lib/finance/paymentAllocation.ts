@@ -7,6 +7,12 @@ import {
 } from './fixedInstallmentStatus';
 import { getLateFeeLineByInstallmentId } from './lateFeeEngineV3';
 import {
+  paymentMayAffectLateFeeExemption,
+  type LateFeeExemptAfterAllocationFn,
+} from './lateFeeExemption';
+
+export type { LateFeeExemptAfterAllocationFn };
+import {
   allocateInterestOnlyPayment,
   type InterestCycleForAllocation,
   totalPendingInterest,
@@ -60,6 +66,10 @@ export interface FixedInstallmentAllocationContext {
   monthlyInstallmentAmount?: number;
   currentInstallmentNumber: number;
   loanBalanceAmount: number;
+  /** Per-installment 50% pre-grace exemption (fixed-term loans only). */
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>;
+  /** Optional second-pass exemption update (includes in-flight installment allocations). */
+  recomputeLateFeeExemptAfterAllocation?: LateFeeExemptAfterAllocationFn;
 }
 
 export interface PaymentAllocationResult {
@@ -298,7 +308,10 @@ export function summarizeFixedInstallmentDue(
     })),
     monthlyInstallment,
     lateFeeRate,
-    { paymentDate: asOfDate }
+    {
+      paymentDate: asOfDate,
+      lateFeeExemptByInstallmentId: ctx.lateFeeExemptByInstallmentId,
+    }
   );
   const currentNum =
     ctx.currentInstallmentNumber ??
@@ -322,18 +335,17 @@ export function summarizeFixedInstallmentDue(
 }
 
 /**
- * Fixed installment waterfall:
- * 1. All overdue late fees (oldest installment first)
- * 2. All installment principal (oldest first; partial when funds run out)
- * 3. Advance / extra
+ * Fixed installment waterfall (oldest month first):
+ * For each installment in order: late fee, then installment principal.
+ * Advance / extra only after all due buckets are satisfied.
  */
-export function allocateFixedInstallmentPayment(
+function allocateFixedInstallmentPaymentOnce(
   ctx: FixedInstallmentAllocationContext,
-  paymentAmount: number
+  paymentAmount: number,
+  dueBefore: ReturnType<typeof summarizeFixedInstallmentDue>
 ): PaymentAllocationResult {
   const lateFeeRate =
     ctx.lateFeeRatePercent ?? DEFAULT_LATE_FEE_RATE_PERCENT;
-  const dueBefore = summarizeFixedInstallmentDue(ctx);
 
   let remaining = paymentAmount;
   const allocations: PaymentAllocationLine[] = [];
@@ -354,40 +366,47 @@ export function allocateFixedInstallmentPayment(
     })),
     monthlyInstallment,
     lateFeeRate,
-    { paymentDate: ctx.paymentDate }
+    {
+      paymentDate: ctx.paymentDate,
+      lateFeeExemptByInstallmentId: ctx.lateFeeExemptByInstallmentId,
+    }
   );
 
   for (const inst of sorted) {
-    const line = getLateFeeLineByInstallmentId(engine, inst.id);
-    const owed = line?.lateFeeOutstanding ?? 0;
-    if (owed <= 0 || remaining <= 0) continue;
-    const pay = roundLKR(Math.min(remaining, owed));
-    allocations.push({
-      allocationType: 'LATE_FEE',
-      installmentId: inst.id,
-      installmentNumber: inst.installmentNumber,
-      amount: pay,
-    });
-    lateFeesPaid = roundLKR(lateFeesPaid + pay);
-    remaining = roundLKR(remaining - pay);
-  }
+    if (remaining <= 0) break;
 
-  for (const inst of sorted) {
-    const owed = installmentOutstanding(inst);
-    if (owed <= 0 || remaining <= 0) continue;
-    const pay = roundLKR(Math.min(remaining, owed));
-    allocations.push({
-      allocationType: 'INSTALLMENT',
-      installmentId: inst.id,
-      installmentNumber: inst.installmentNumber,
-      amount: pay,
-    });
-    if (inst.installmentNumber === ctx.currentInstallmentNumber) {
-      currentMonthPaid = roundLKR(currentMonthPaid + pay);
-    } else {
-      installmentsPaid = roundLKR(installmentsPaid + pay);
+    const line = getLateFeeLineByInstallmentId(engine, inst.id);
+    const lateOwed = line?.lateFeeOutstanding ?? 0;
+    if (lateOwed > 0) {
+      const pay = roundLKR(Math.min(remaining, lateOwed));
+      allocations.push({
+        allocationType: 'LATE_FEE',
+        installmentId: inst.id,
+        installmentNumber: inst.installmentNumber,
+        amount: pay,
+      });
+      lateFeesPaid = roundLKR(lateFeesPaid + pay);
+      remaining = roundLKR(remaining - pay);
     }
-    remaining = roundLKR(remaining - pay);
+
+    if (remaining <= 0) break;
+
+    const instOwed = installmentOutstanding(inst);
+    if (instOwed > 0) {
+      const pay = roundLKR(Math.min(remaining, instOwed));
+      allocations.push({
+        allocationType: 'INSTALLMENT',
+        installmentId: inst.id,
+        installmentNumber: inst.installmentNumber,
+        amount: pay,
+      });
+      if (inst.installmentNumber === ctx.currentInstallmentNumber) {
+        currentMonthPaid = roundLKR(currentMonthPaid + pay);
+      } else {
+        installmentsPaid = roundLKR(installmentsPaid + pay);
+      }
+      remaining = roundLKR(remaining - pay);
+    }
   }
 
   let advanceAmount = 0;
@@ -421,6 +440,49 @@ export function allocateFixedInstallmentPayment(
       loanBalanceAfter,
     },
   };
+}
+
+export function allocateFixedInstallmentPayment(
+  ctx: FixedInstallmentAllocationContext,
+  paymentAmount: number
+): PaymentAllocationResult {
+  const dueBefore = summarizeFixedInstallmentDue(ctx);
+  const firstPass = allocateFixedInstallmentPaymentOnce(
+    ctx,
+    paymentAmount,
+    dueBefore
+  );
+
+  if (
+    !ctx.recomputeLateFeeExemptAfterAllocation ||
+    !paymentMayAffectLateFeeExemption(ctx.installments, ctx.paymentDate)
+  ) {
+    return firstPass;
+  }
+
+  const updatedExempt = ctx.recomputeLateFeeExemptAfterAllocation(
+    firstPass.allocations
+  );
+  const hasNewExempt = ctx.installments.some(
+    (inst) =>
+      updatedExempt[inst.id] === true &&
+      ctx.lateFeeExemptByInstallmentId?.[inst.id] !== true
+  );
+  if (!hasNewExempt) {
+    return firstPass;
+  }
+
+  return allocateFixedInstallmentPaymentOnce(
+    {
+      ...ctx,
+      lateFeeExemptByInstallmentId: updatedExempt,
+    },
+    paymentAmount,
+    summarizeFixedInstallmentDue({
+      ...ctx,
+      lateFeeExemptByInstallmentId: updatedExempt,
+    })
+  );
 }
 
 export { totalPendingInterest };

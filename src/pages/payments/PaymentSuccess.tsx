@@ -11,7 +11,12 @@ import type {
 } from '../../lib/finance/receipt';
 import type { AllocationDisplayRow } from '../../lib/finance/allocationDisplay';
 import type { RepaymentMethod } from '../../types/loan';
-import { PaymentReceiptPrint } from '../../components/payments/PaymentReceiptPrint';
+import { PaymentReceiptDocumentPrint } from '../../components/documents/PaymentReceiptDocumentPrint';
+import { findPaymentReceiptDocument } from '../../lib/documents/documentService';
+import { readDocumentSnapshot } from '../../lib/documents/snapshots';
+import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { useT } from '../../i18n/I18nProvider';
 
 export interface PaymentSuccessState {
@@ -39,6 +44,7 @@ export function PaymentSuccess() {
   const { t, language } = useT();
   const navigate = useNavigate();
   const location = useLocation();
+  const db = useDemoDb();
   const state = location.state as PaymentSuccessState | null;
 
   if (!state?.receipt) {
@@ -56,9 +62,16 @@ export function PaymentSuccess() {
   }
 
   const receiptNo = state.receiptNumber ?? '—';
+  const officialDoc = state.paymentId
+    ? findPaymentReceiptDocument(db, state.paymentId)
+    : undefined;
+  const officialSnapshot =
+    officialDoc && officialDoc.metadata_json
+      ? (readDocumentSnapshot(officialDoc) as PaymentReceiptDocumentSnapshot)
+      : undefined;
 
   return (
-    <div className="payment-success-page pb-16">
+    <div className="payment-success-page pb-16 print:pb-0 print:m-0">
       <div className="no-print mb-4">
         <button
           type="button"
@@ -90,15 +103,20 @@ export function PaymentSuccess() {
         </div>
       </div>
 
-      <PaymentReceiptPrint
-        receiptNumber={receiptNo}
-        paymentDate={state.paymentDate}
-        customerName={state.customerName}
-        paymentMethod={state.paymentMethod}
-        repaymentMethod={state.repaymentMethod}
-        receipt={state.receipt}
-        language={language}
-      />
+      {officialDoc && officialSnapshot?.kind === 'PAYMENT_RECEIPT' ? (
+        <div className="mx-auto max-w-[176mm] print:max-w-none">
+          <PaymentReceiptDocumentPrint
+            documentNumber={officialDoc.document_number}
+            createdAt={officialDoc.created_at}
+            snapshot={officialSnapshot}
+            language={language}
+          />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-900">
+          {t('documentNotFoundHint')}
+        </div>
+      )}
 
       <div className="no-print mt-6 flex flex-wrap gap-3">
         <button
@@ -109,6 +127,15 @@ export function PaymentSuccess() {
           <PrinterIcon className="h-4 w-4" />
           {t('printReceipt')}
         </button>
+        {officialDoc && (
+          <button
+            type="button"
+            onClick={() => navigate(`/documents/${officialDoc.id}`)}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-brand-700 ring-1 ring-brand-300 hover:bg-brand-50"
+          >
+            {getDocumentLabel('viewInvoice', language)}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => navigate(`/loans/${state.loanId}`)}

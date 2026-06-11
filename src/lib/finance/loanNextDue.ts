@@ -15,7 +15,8 @@ function isInstallmentFullySettled(
   inst: InstallmentArrearsInput & { id?: string },
   lateFeeRate: number,
   today: string,
-  monthlyInstallment?: number
+  monthlyInstallment?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): boolean {
   const instOut = Math.max(0, inst.installmentAmount - inst.paidAmount);
   const engine = computeLoanLateFeesV3({
@@ -30,6 +31,10 @@ function isInstallmentFullySettled(
         installmentAmount: inst.installmentAmount,
         paidAmount: inst.paidAmount,
         lateFeePaid: inst.lateFeePaid,
+        lateFeeCharged: inst.lateFeeAmount,
+        lateFeeExempt:
+          inst.id != null &&
+          lateFeeExemptByInstallmentId?.[inst.id] === true,
       },
     ],
   });
@@ -42,13 +47,22 @@ export function getNextDueDateForFixedInstallments(
   installments: InstallmentArrearsInput[],
   lateFeeRate: number,
   today: string,
-  monthlyInstallment?: number
+  monthlyInstallment?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): NextDueDisplay {
   const sorted = [...installments].sort(
     (a, b) => a.installmentNumber - b.installmentNumber
   );
   for (const inst of sorted) {
-    if (!isInstallmentFullySettled(inst, lateFeeRate, today, monthlyInstallment)) {
+    if (
+      !isInstallmentFullySettled(
+        inst,
+        lateFeeRate,
+        today,
+        monthlyInstallment,
+        lateFeeExemptByInstallmentId
+      )
+    ) {
       return { dueDate: inst.dueDate.split('T')[0], label: inst.dueDate.split('T')[0] };
     }
   }

@@ -22,6 +22,21 @@ export interface EarlySettlementQuote {
   finalSettlementAmount: number;
 }
 
+const EARLY_SETTLEMENT_NOTE_PREFIX = 'EARLY_SETTLEMENT:';
+
+/** Persisted on loan_payments.notes to link payment ↔ settlement record. */
+export function earlySettlementPaymentNote(settlementCode: string): string {
+  return `${EARLY_SETTLEMENT_NOTE_PREFIX}${settlementCode}`;
+}
+
+export function parseEarlySettlementPaymentNote(
+  notes: string | undefined
+): string | undefined {
+  if (!notes?.startsWith(EARLY_SETTLEMENT_NOTE_PREFIX)) return undefined;
+  const code = notes.slice(EARLY_SETTLEMENT_NOTE_PREFIX.length).trim();
+  return code || undefined;
+}
+
 export function canRequestEarlySettlement(
   monthsCompleted: number,
   minimumMonthsBeforeSettlement: number

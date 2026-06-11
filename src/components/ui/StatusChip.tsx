@@ -1,4 +1,5 @@
 import React from 'react';
+import { useT } from '../../i18n/I18nProvider';
 import { formatEnum } from '../../lib/format';
 export type StatusType =
 'active' |
@@ -19,10 +20,11 @@ interface StatusChipProps {
   showDot?: boolean;
 }
 export function StatusChip({ status, showDot = true }: StatusChipProps) {
+  const { language } = useT();
   const s = status.toLowerCase();
   let colorClass = 'bg-neutral-100 text-neutral-700 ring-neutral-200';
   let dotClass = 'bg-neutral-500';
-  if (['active', 'confirmed', 'paid', 'in_stock', 'released', 'returned'].includes(s)) {
+  if (['active', 'confirmed', 'paid', 'applied', 'in_stock', 'released', 'returned'].includes(s)) {
     colorClass = 'bg-success-50 text-success-700 ring-success-200';
     dotClass = 'bg-success-500';
   } else if (['overdue', 'danger', 'cancelled'].includes(s)) {
@@ -31,7 +33,7 @@ export function StatusChip({ status, showDot = true }: StatusChipProps) {
   } else if (['partial'].includes(s)) {
     colorClass = 'bg-info-50 text-info-700 ring-info-200';
     dotClass = 'bg-info-500';
-  } else if (['held', 'warning', 'pending', 'reserved'].includes(s)) {
+  } else if (['held', 'warning', 'pending', 'reserved', 'unpaid'].includes(s)) {
     colorClass = 'bg-warning-50 text-warning-700 ring-warning-200';
     dotClass = 'bg-warning-500';
   } else if (['info'].includes(s)) {
@@ -48,7 +50,7 @@ export function StatusChip({ status, showDot = true }: StatusChipProps) {
         aria-hidden="true" />
 
       }
-      {formatEnum(status)}
+      {formatEnum(status, language)}
     </span>);
 
 }

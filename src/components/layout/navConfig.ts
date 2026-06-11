@@ -6,11 +6,9 @@ import {
   Database,
   FileText,
   LayoutDashboard,
-  Receipt,
   ReceiptText,
   Settings,
   Shield,
-  UserCog,
   Users,
 } from 'lucide-react';
 import type { DictionaryKey } from '../../i18n/I18nProvider';
@@ -34,13 +32,14 @@ export const navGroups: NavGroup[] = [
       { nameKey: 'nav.customers', href: '/customers', icon: Users },
       { nameKey: 'nav.loans', href: '/loans', icon: Banknote },
       { nameKey: 'nav.payments', href: '/payments', icon: CreditCard },
-      { nameKey: 'nav.receipts', href: '/receipts', icon: Receipt },
+      { nameKey: 'nav.documents', href: '/documents', icon: FileText },
     ],
   },
   {
     labelKey: 'navGroup.inventory',
     items: [
       { nameKey: 'nav.bikeStock', href: '/bikes', icon: Bike },
+      { nameKey: 'nav.bikePurchase', href: '/bikes/purchase', icon: Bike },
       { nameKey: 'nav.guarantees', href: '/guarantees', icon: Shield },
     ],
   },
@@ -56,7 +55,6 @@ export const navGroups: NavGroup[] = [
     labelKey: 'navGroup.admin',
     items: [
       { nameKey: 'nav.backup', href: '/backup', icon: Database },
-      { nameKey: 'nav.staff', href: '/staff', icon: UserCog },
       { nameKey: 'nav.settings', href: '/settings', icon: Settings },
     ],
   },

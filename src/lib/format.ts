@@ -11,13 +11,21 @@ export function setFormatDisplayMode(mode: DisplayMode): void {
   formatDisplayMode = mode;
 }
 
+export function getFormatDisplayMode(): DisplayMode {
+  return formatDisplayMode;
+}
+
 export function formatEnum(
   value: string | null | undefined,
   mode: DisplayMode = formatDisplayMode
 ): string {
   if (!value || value === '__unset__') return '—';
 
-  const key = ENUM_LABEL_KEYS[value];
+  const upper = value.toUpperCase();
+  const key =
+    ENUM_LABEL_KEYS[value] ??
+    ENUM_LABEL_KEYS[upper] ??
+    ENUM_LABEL_KEYS[value.toLowerCase()];
   if (key) return getLabel(key, mode);
 
   return value
@@ -36,37 +44,42 @@ export function formatLKR(
   return opts?.withSymbol === false ? formatted : `LKR ${formatted}`;
 }
 
+function localeForMode(mode: DisplayMode): string {
+  if (mode === 'si') return 'si-LK';
+  return 'en-GB';
+}
+
 export function formatDate(
   date: Date | string,
-  format: 'short' | 'long' = 'short'
+  format: 'short' | 'long' = 'short',
+  mode: DisplayMode = formatDisplayMode
 ): string {
   if (!date) return '—';
   const d = new Date(date);
+  const locale = localeForMode(mode);
 
-  const clear = d.toLocaleDateString('en-GB', {
-    day: '2-digit',
+  return d.toLocaleDateString(locale, {
+    day: format === 'long' ? 'numeric' : '2-digit',
     month: 'short',
     year: 'numeric',
   });
-
-  if (format === 'long') {
-    return clear;
-  }
-
-  return clear;
 }
 
-export function formatDateTime(date: Date | string): string {
+export function formatDateTime(
+  date: Date | string,
+  mode: DisplayMode = formatDisplayMode
+): string {
   if (!date) return '—';
   const d = new Date(date);
+  const locale = localeForMode(mode);
 
-  const datePart = d.toLocaleDateString('en-GB', {
+  const datePart = d.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 
-  const timePart = d.toLocaleTimeString('en-US', {
+  const timePart = d.toLocaleTimeString(locale, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,

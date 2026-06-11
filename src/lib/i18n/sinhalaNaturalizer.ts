@@ -9,7 +9,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   'action.delete': 'මකන්න',
   'action.search': 'සොයන්න',
   'action.filter': 'පෙරහන් කරන්න',
-  'action.export': 'Export කරන්න',
+  'action.export': 'අපනයනය කරන්න',
   'action.back': 'ආපසු',
   'action.next': 'ඊළඟ',
   'action.confirm': 'තහවුරු කරන්න',
@@ -19,17 +19,22 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   'action.viewAll': 'සියල්ල බලන්න',
 
   // Payments / receipts / allocation
-  recordPayment: 'ගෙවීම දාන්න',
-  recordPaymentSubtitle: 'පාරිභෝගිකයා, ණය සහ ගෙවීම එකම තැනින්',
+  recordPayment: 'ගෙවීම සටහන් කරන්න',
+  recordPaymentSubtitle: 'ගනුදෙනුකරු, ණය සහ ගෙවීම එකම තැනින්',
   cashReceived: 'ලැබුණු මුදල',
   discount: 'වට්ටම',
   discountGiven: 'දුන් වට්ටම',
   totalApplied: 'යෙදුණු මුළු මුදල',
+  amountDue: 'ගෙවිය යුතු මුදල',
+  discountWaiver: 'වට්ටම / මුදවා හැරීම',
+  netPayable: 'ශුද්ධ ගෙවිය යුතු',
+  customerPays: 'පාරිභෝගිකයා ගෙවන්නේ',
+  installmentSettled: 'වාරිකය සම්පූර්ණයි',
   loanBalance: 'ණය ඉතිරිය',
   nextDue: 'ඊළඟ ගෙවීම',
   paymentSummary: 'ගෙවීම් සාරාංශය',
-  paymentSummaryEmpty: 'සාරාංශය බලන්න පාරිභෝගිකයෙක් සහ ණයක් තෝරන්න.',
-  enterPayment: 'ගෙවීම දාන්න',
+  paymentSummaryEmpty: 'සාරාංශය බලන්න ගනුදෙනුකරුවෙකු සහ ණයක් තෝරන්න.',
+  enterPayment: 'ගෙවීම ඇතුළත් කරන්න',
   confirmPayment: 'ගෙවීම තහවුරු කරන්න',
   reviewPayment: 'ගෙවීම බලන්න',
   savingPayment: 'ගෙවීම සුරකිමින්...',
@@ -52,7 +57,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   collectedThisWeek: 'මේ සතියේ ලැබුණු',
   pendingConfirmations: 'තහවුරු කළ යුතු',
   needsReview: 'බලන්න අවශ්‍යයි',
-  searchPayments: 'රිසිට්, පාරිභෝගිකයා හෝ ණය ID සොයන්න...',
+  searchPayments: 'රිසිට්, ගනුදෙනුකරු හෝ ණය ID සොයන්න...',
   noPaymentsFound: 'ගැලපෙන ගෙවීම් නැහැ.',
   paymentMethod: 'ගෙවූ ක්‍රමය',
   paymentDate: 'ගෙවූ දිනය',
@@ -68,10 +73,10 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   discountApplied: 'යෙදුණු වට්ටම',
   loanBalanceAfter: 'ගෙවීමෙන් පසු ණය ඉතිරිය',
   loanAmount: 'ණය මුදල',
-  financeAmount: 'Finance amount (මූල්‍ය මුදල)',
+  financeAmount: 'මූල්‍ය මුදල',
   paid: 'ගෙවා ඇත',
   totalPayable: 'ගෙවිය යුතු මුළු මුදල',
-  monthlyInstallment: 'Monthly installment (මාසික වාරිකය)',
+  monthlyInstallment: 'මාසික වාරිකය',
   nextDueDate: 'ඊළඟ ගෙවීම් දිනය',
   lateFeeRate: 'ප්‍රමාද ගාස්තු අනුපාතය',
   lateFeesDue: 'ගෙවිය යුතු ප්‍රමාද ගාස්තු',
@@ -79,8 +84,8 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   currentMonth: 'මේ මාසය',
   totalDueToday: 'අද ගෙවිය යුතු මුදල',
   interestPaid: 'ගෙවූ පොලිය',
-  principalPaid: 'ගෙවූ Principal',
-  remainingPrincipal: 'ඉතිරි Principal',
+  principalPaid: 'ගෙවූ මුල් මුදල',
+  remainingPrincipal: 'ඉතිරි මුල් මුදල',
   pendingInterest: 'ඉතිරි පොලිය',
   lateFeePaid: 'ගෙවූ ප්‍රමාද ගාස්තු',
   installmentPaid: 'ගෙවූ වාරිකය',
@@ -98,7 +103,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   fullScheduleHint: 'මෙම ගෙවීමට බලපාන සියලු වාරික සහ ගාස්තු',
   affectedByPayment: 'මෙම ගෙවීමෙන් වෙනස් වූ',
   allocInterest: 'පොලිය',
-  allocPrincipal: 'Principal',
+  allocPrincipal: 'මුල් මුදල',
   allocLateFee: 'ප්‍රමාද ගාස්තු',
   allocInstallment: 'වාරිකය',
   allocAdvance: 'ඉදිරි ගෙවීම',
@@ -114,11 +119,11 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   balanceAfterShort: 'පසු ඉතිරිය',
 
   // Loans
-  createLoan: 'ණය විවෘත කරන්න',
-  createLoanSubtitle: 'නව ණය ගිණුමක් සකස් කරන්න',
+  createLoan: 'ණය සාදන්න',
+  createLoanSubtitle: 'නව ණය ගිවිසුමක් සකස් කරන්න',
   newLoan: 'නව ණය',
   loansSubtitle: 'මුදල් ණය සහ බයික් වාරික සියල්ල',
-  selectCustomer: 'පාරිභෝගිකයෙක් තෝරන්න',
+  selectCustomer: 'ගනුදෙනුකරුවෙකු තෝරන්න',
   selectLoan: 'ණයක් තෝරන්න',
   searchLoan: 'ණය කේතය හෝ වර්ගය සොයන්න',
   noLoansForCustomer: 'මෙම පාරිභෝගිකයාට ණය නැහැ.',
@@ -127,19 +132,19 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   bikeInstallment: 'බයික් වාරික',
   repaymentMethod: 'ගෙවන ක්‍රමය',
   fixedMonthlyInstallments: 'ස්ථිර මාසික වාරික',
-  monthlyInterestReducing: 'Monthly interest / Reducing principal (මාසික පොලිය)',
-  fixedTermInstallment: 'Fixed term installment (ස්ථිර කාල වාරික)',
+  monthlyInterestReducing: 'මාසික පොලිය / අඩු වන මුල් මුදල',
+  fixedTermInstallment: 'ස්ථිර කාල වාරිකය',
   interestOnlyTerms: 'පොලිය පමණක් කොන්දේසි',
-  loanAmountField: 'ණය මුදල',
+  loanAmountField: 'මුළු මුදල',
   monthlyInterestRate: 'මාසික පොලිය (%)',
   startDate: 'ආරම්භ දිනය',
   dueDay: 'ගෙවීම් දිනය (1-28)',
   firstDueDate: 'පළමු ගෙවීම් දිනය',
+  recurringPaymentDay: 'මාසික ගෙවීම් දිනය',
   bikeInstallmentTerms: 'බයික් සහ වාරික කොන්දේසි',
   fixedInstallmentTerms: 'ස්ථිර වාරික කොන්දේසි',
   selectInStockBike: '-- තොගයේ ඇති බයික් එකක් තෝරන්න --',
   bikeSellingPrice: 'බයික් විකුණුම් මිල',
-  downPayment: 'Down payment (මුලින් ගෙවූ මුදල)',
   termMonths: 'කාලය (මාස)',
   monthlyFlatRate: 'Monthly flat rate (%)',
   lateFeeRateField: 'ප්‍රමාද ගාස්තු (%)',
@@ -147,8 +152,8 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   guaranteeItems: 'ඇපකර',
   addAnotherGuarantee: 'තව ඇපකරයක්',
   confirmLoan: 'ණය තහවුරු කරන්න',
-  creatingLoan: 'ණය විවෘත කරමින්...',
-  loanCreated: 'ණය ගිණුම විවෘත කළා',
+  creatingLoan: 'ණය සාදමින්...',
+  loanCreated: 'ණය සාර්ථකව සාදන ලදී',
   loanCreateFailed: 'ණය විවෘත කරන්න බැරි වුණා',
   loanNotFound: 'ණය හමු වුණේ නැහැ',
   recordPaymentAction: 'ගෙවීම දාන්න',
@@ -156,11 +161,11 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   cancelLoan: 'ණය අවලංගු කරන්න',
   addGuarantee: 'ඇපකරයක් එකතු කරන්න',
   totalActiveLoans: 'සක්‍රිය ණය',
-  outstandingPortfolio: 'ඉතිරි ණය එකතුව',
+  outstandingPortfolio: 'ඉතිරි ණය මුළු එකතුව',
   overdueLoans: 'ප්‍රමාද ණය',
   needsAttention: 'අවධානය අවශ්‍යයි',
   completedThisMonth: 'මේ මාසයේ අවසන්',
-  searchLoans: 'ID හෝ පාරිභෝගිකයා සොයන්න...',
+  searchLoans: 'ID හෝ ගනුදෙනුකරු සොයන්න...',
   allStatuses: 'සියලු තත්ත්ව',
   allTypes: 'සියලු වර්ග',
   noLoansFound: 'ගැලපෙන ණය නැහැ.',
@@ -170,7 +175,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   currentPrincipal: 'දැනට Principal',
   monthlyInterestDueLabel: 'ගෙවිය යුතු මාසික පොලිය',
   principalBalance: 'Principal ඉතිරිය',
-  totalInterest: 'මුළු පොලිය',
+  totalInterest: 'පොලී මුදල',
   lateFeePerMonthOverdue: 'ප්‍රමාද වුණොත් මාසික ගාස්තුව',
   sellingPriceLabel: 'විකිණුම් මිල',
   removeItem: 'ඉවත් කරන්න',
@@ -182,7 +187,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   viewLoan: 'ණය බලන්න',
 
   // Reports / CSV
-  reportsSubtitle: 'දෛනික වැඩට අවශ්‍ය CSV වාර්තා බාගන්න',
+  reportsSubtitle: 'දෛනික කාර්යාල කටයුතු සඳහා CSV වාර්තා බාගන්න',
   reportCategoryCollections: 'එකතු කිරීම්',
   reportCategoryLoans: 'ණය සහ අවදානම',
   reportCategoryBikes: 'බයික් තොග',
@@ -215,7 +220,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   noDownloadsYet: 'තවම බාගත කිරීම් නැහැ. වාර්තාවක් සකස් කරන්න.',
   csvDate: 'දිනය',
   csvAmount: 'මුදල',
-  csvCustomer: 'පාරිභෝගිකයා',
+  csvCustomer: 'ගනුදෙනුකරු',
   csvLoan: 'ණය',
   csvReceipt: 'රිසිට්',
   csvMethod: 'ක්‍රමය',
@@ -226,10 +231,10 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   csvDescription: 'විස්තරය',
 
   // Activity log
-  activityLogSubtitle: 'වැදගත් ක්‍රියා වගකීම සඳහා සටහන් වෙනවා',
+  activityLogSubtitle: 'වගකීම සඳහා වැදගත් ක්‍රියා සටහන් වේ',
   searchActivity: 'සාරාංශය හෝ යොමුව සොයන්න...',
   colWhen: 'වේලාව',
-  colUser: 'භාවිතා කළ අය',
+  colUser: 'පරිශීලක',
   colAction: 'ක්‍රියාව',
   colSummary: 'සාරාංශය',
   colReference: 'යොමුව',
@@ -248,7 +253,7 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   activityTypeSystem: 'පද්ධතිය',
   loanCreatedSummary: 'ණය {code} විවෘත කළා',
   paymentAuditSummary: 'ගෙවීම {code} · {receipt} · ණය {loanCode}',
-  customerCreatedSummary: 'පාරිභෝගිකයා {code} එකතු කළා',
+  customerCreatedSummary: 'ගනුදෙනුකරු {code} එකතු කරන ලදී',
   earlySettlementAuditSummary: 'කලින් අවසන් කිරීම {code} · ණය {loanCode}',
   paymentAdded: 'ගෙවීම එකතු කළා',
   guaranteeAdded: 'ඇපකර එකතු කළා',
@@ -279,27 +284,28 @@ const NATURAL_SINHALA_BY_KEY: Record<NaturalSinhalaKey, string> = {
   enterPaymentAmount: 'ගෙවීමක් හෝ වට්ටමක් දාන්න',
   paymentUnallocated: 'මෙම ගෙවීමෙන් {amount} LKR යොදන්න බැරි වුණා. මුදල හෝ වට්ටම වෙනස් කරන්න.',
   bikeSaveInProgress: 'බයික් විස්තර සුරකිමින් ඉන්නවා. ටිකක් ඉන්න.',
-  chassisExists: 'මෙම chassis අංකය තියෙන බයික් එකක් දැනටමත් තියෙනවා',
+  chassisExists: 'මේ chassis අංකය තියෙන යතුරුපැදියක් දැනටමත් ගබඩාවේ තියෙනවා',
+  registrationExists:
+    'මෙම ලියාපදිංචි අංකය සහිත යතුරුපැදියක් දැනටමත් ගබඩාවේ ඇත.',
   bikeInstallmentMustFixedTerm: 'බයික් වාරිකයට ස්ථිර කාල වාරික ක්‍රමය භාවිතා කරන්න',
   selectedBikeNotFound: 'තෝරාගත් බයික් එක හමු වුණේ නැහැ',
   selectedBikeNotInStock: 'තෝරාගත් බයික් එක දැන් තොගයේ නැහැ',
   customerRequired: 'පාරිභෝගිකයෙක් අවශ්‍යයි',
   earlySettlementFixedOnly: 'කලින් අවසන් කිරීම ස්ථිර වාරික ණය සඳහා පමණයි',
   expenseAddedSuccess: 'වියදම එකතු කළා',
-  settingsSavedSuccess: 'සැකසුම් සුරැකුණා',
+  settingsSavedSuccess: 'සැකසුම් සාර්ථකව සුරකින ලදී',
   invitationSentSuccess: 'ආරාධනාව යැව්වා',
   earlySettlementRecorded: 'කලින් අවසන් කිරීම {code} සටහන් කළා',
   couldNotConfirmSettlement: 'අවසන් කිරීම තහවුරු කරන්න බැරි වුණා',
   earlySettlementMonthsRequired: 'කලින් අවසන් කිරීමට මාස {months} සම්පූර්ණ වෙන්න ඕන',
-  voidReceiptNotImplemented: 'Local demo එකේ රිසිට් අවලංගු කිරීම තවම නැහැ',
   cancelLoanSupabaseSoon: 'Supabase සම්බන්ධ කළාම ණය අවලංගු කරන්න පුළුවන්',
   invalidDemoDb: 'Demo database එක වැරදියි',
   guaranteeRequiredHint: 'ඇපකර අවශ්‍යයි. ප්‍රමාද ගාස්තු නැහැ. නොගෙවූ පොලිය ඉතිරි වෙනවා.',
 };
 
 const NATURAL_SINHALA_BY_TEXT: Record<string, string> = {
-  ගනුදෙනුකරුවන්: 'පාරිභෝගිකයන්',
-  ගනුදෙනුකරු: 'පාරිභෝගිකයා',
+  පාරිභෝගිකයන්: 'ගනුදෙනුකරුවන්',
+  පාරිභෝගිකයා: 'ගනුදෙනුකරු',
   'ගෙවීම සාර්ථකව සටහන් කරන ලදී': 'ගෙවීම සාර්ථකයි',
   'පාරිභෝගිකයා තෝරන්න': 'පාරිභෝගිකයෙක් තෝරන්න',
   'ගනුදෙනුකරු තෝරන්න': 'පාරිභෝගිකයෙක් තෝරන්න',
@@ -312,8 +318,8 @@ const NATURAL_SINHALA_BY_TEXT: Record<string, string> = {
 };
 
 const NATURAL_SINHALA_PATTERNS: Array<[RegExp, string]> = [
-  [/ගනුදෙනුකරු/g, 'පාරිභෝගිකයා'],
-  [/ගනුදෙනුකරුවන්/g, 'පාරිභෝගිකයන්'],
+  [/පාරිභෝගිකයා/g, 'ගනුදෙනුකරු'],
+  [/පාරිභෝගිකයන්/g, 'ගනුදෙනුකරුවන්'],
   [/සාර්ථකව සුරකින ලදී/g, 'සුරැකුණා'],
   [/සාර්ථකව එකතු විය/g, 'එකතු කළා'],
   [/සටහන් කරන ලදී/g, 'සටහන් කළා'],
@@ -346,12 +352,23 @@ function naturalizeFallback(text: string): string {
   return natural;
 }
 
+/** True when text still contains Latin letters (legacy mixed EN/SI overrides). */
+function containsLatinLetters(text: string): boolean {
+  return /[A-Za-z]/.test(text);
+}
+
 export function getNaturalSinhala(
   textKey: NaturalSinhalaKey,
   fallbackText?: string
 ): string {
   const override = NATURAL_SINHALA_BY_KEY[textKey];
-  if (override) return override;
+  if (override) {
+    // Sinhala-only UI: never show English left in old naturalizer entries
+    if (containsLatinLetters(override) && fallbackText) {
+      return naturalizeFallback(fallbackText);
+    }
+    return override;
+  }
 
   return naturalizeFallback(fallbackText ?? textKey);
 }

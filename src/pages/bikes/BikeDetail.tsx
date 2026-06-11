@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { BikeIcon, EditIcon, CheckIcon } from 'lucide-react';
+import { BikeIcon, EditIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { KpiCard } from '../../components/ui/KpiCard';
@@ -9,18 +9,21 @@ import { useToast } from '../../components/ui/Toast';
 import { formatLKR, formatDate } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
-  attachBikeToLoan,
   bikeProfit,
   getBike,
   getLoan,
   listLoans,
-  markBikeSold,
 } from '../../lib/local-db/repositories';
-import { CurrencyInput } from '../../components/ui/CurrencyInput';
+import { CreateCashSaleDialog } from '../../components/bikes/CreateCashSaleDialog';
 import { useT } from '../../i18n/I18nProvider';
+import {
+  findCashSaleDocumentForBike,
+  findBikePurchaseDocumentForBike,
+  findLoanCreationDocument,
+} from '../../lib/documents/documentService';
 
 export function BikeDetail() {
-  const { t } = useT();
+  const { t, language } = useT();
   const { id } = useParams();
   const navigate = useNavigate();
   const db = useDemoDb();
@@ -28,13 +31,7 @@ export function BikeDetail() {
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'loans'>(
     'overview'
   );
-  const [soldOpen, setSoldOpen] = useState(false);
-  const [linkLoanId, setLinkLoanId] = useState('');
-  const [soldPrice, setSoldPrice] = useState(0);
-  const [soldRepairCost, setSoldRepairCost] = useState(0);
-  const [soldOtherCost, setSoldOtherCost] = useState(0);
-  const [isSavingSold, setIsSavingSold] = useState(false);
-  const isSavingSoldRef = useRef(false);
+  const [cashSaleOpen, setCashSaleOpen] = useState(false);
 
   const bike = id ? getBike(id, db) : undefined;
   const loans = listLoans(db);
@@ -49,15 +46,19 @@ export function BikeDetail() {
     return getLoan(bike.soldLoanId, db);
   }, [bike?.soldLoanId, db]);
 
-  const linkableLoans = useMemo(() => {
-    if (!bike?.id) return [];
-    return loans.filter(
-      (l) =>
-        l.status === 'ACTIVE' &&
-        l.loanPurpose === 'BIKE_INSTALLMENT' &&
-        (!l.bikeId || l.bikeId === bike.id)
-    );
-  }, [loans, bike?.id]);
+  const saleReceiptDoc = useMemo(() => {
+    if (!bike?.id || bike.status !== 'sold') return undefined;
+    if (bike.soldLoanId) {
+      return findLoanCreationDocument(db, bike.soldLoanId);
+    }
+    return findCashSaleDocumentForBike(db, bike.id);
+  }, [db, bike?.id, bike?.status, bike?.soldLoanId]);
+
+  const purchaseReceiptDoc = useMemo(
+    () =>
+      bike?.id ? findBikePurchaseDocumentForBike(db, bike.id) : undefined,
+    [db, bike?.id]
+  );
 
   if (!bike) {
     return (
@@ -74,41 +75,17 @@ export function BikeDetail() {
   const profit = bike.status === 'sold' ? bikeProfit(bike) : 0;
   const displayReg = bike.registrationNo || bike.chassisNo;
 
-  const handleMarkSold = () => {
-    if (isSavingSoldRef.current) return;
-    if (bike.status !== 'in_stock' || soldPrice <= 0) {
-      showToast(t('enterValidSoldPrice'), 'error');
-      return;
-    }
-    isSavingSoldRef.current = true;
-    setIsSavingSold(true);
-    try {
-      const updated = markBikeSold(
-        bike.id,
-        {
-          soldPrice,
-          repairCost: soldRepairCost,
-          otherCost: soldOtherCost,
-          loanId: linkLoanId || undefined,
-        },
-        db
-      );
-      if (!updated) {
-        throw new Error(t('couldNotUpdateBike'));
-      }
-      if (linkLoanId) {
-        attachBikeToLoan(linkLoanId, bike.id, db);
-      }
-      showToast(`${bike.bikeCode} ${t('bikeMarkedSold')}`, 'success');
-      setSoldOpen(false);
-      setLinkLoanId('');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t('couldNotUpdateBike');
-      showToast(message, 'error');
-      isSavingSoldRef.current = false;
-      setIsSavingSold(false);
-    }
+  const handleCashSaleComplete = ({
+    documentId,
+    openPrint,
+  }: {
+    documentId: string;
+    openPrint: boolean;
+  }) => {
+    showToast(`${bike.bikeCode} — ${t('cashSaleCompleted')}`, 'success');
+    setCashSaleOpen(false);
+    const printQuery = openPrint ? '?print=1' : '';
+    navigate(`/documents/${documentId}${printQuery}`);
   };
 
   const tabs = [
@@ -134,16 +111,30 @@ export function BikeDetail() {
             {bike.status === 'in_stock' && (
               <button
                 type="button"
-                onClick={() => {
-                  setSoldPrice(bike.sellingPrice);
-                  setSoldRepairCost(bike.repairCost);
-                  setSoldOtherCost(bike.otherCost);
-                  setSoldOpen(true);
-                }}
-                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50"
+                onClick={() => setCashSaleOpen(true)}
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500"
               >
-                <CheckIcon className="-ml-0.5 h-4 w-4 text-success-600" />
-                {t('markAsSold')}
+                {t('createCashSaleInvoice')}
+              </button>
+            )}
+            {purchaseReceiptDoc && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/documents/${purchaseReceiptDoc.id}`)
+                }
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+              >
+                {t('viewPurchaseReceipt')}
+              </button>
+            )}
+            {saleReceiptDoc && (
+              <button
+                type="button"
+                onClick={() => navigate(`/documents/${saleReceiptDoc.id}`)}
+                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm ring-1 ring-inset ring-brand-200 hover:bg-brand-50"
+              >
+                {t('viewSaleReceipt')}
               </button>
             )}
             <button
@@ -174,7 +165,7 @@ export function BikeDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
         <KpiCard
           label={bike.status === 'sold' ? t('soldPriceLabel') : t('listPrice')}
           value={formatLKR(
@@ -200,17 +191,21 @@ export function BikeDetail() {
           />
         )}
         <KpiCard
-          label={bike.status === 'sold' ? t('soldDateLabel') : t('purchaseDateLabel')}
+          label={t('purchaseDateLabel')}
+          value={formatDate(bike.purchaseDate, 'short', language)}
+        />
+        <KpiCard
+          label={t('soldDateLabel')}
           value={
             bike.status === 'sold' && bike.soldDate
-              ? formatDate(bike.soldDate)
-              : formatDate(bike.purchaseDate)
+              ? formatDate(bike.soldDate, 'short', language)
+              : t('statusInStock')
           }
         />
       </div>
 
       <div className="border-b border-neutral-200 mb-6">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-8" aria-label={t('ariaTabs')}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -303,7 +298,7 @@ export function BikeDetail() {
                     <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                       <p className="text-sm text-neutral-500">{t('addedToStockHistory')}</p>
                       <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
-                        {formatDate(bike.purchaseDate)}
+                        {formatDate(bike.purchaseDate, 'short', language)}
                       </p>
                     </div>
                   </div>
@@ -315,13 +310,13 @@ export function BikeDetail() {
                     <div className="relative flex space-x-3">
                       <div>
                         <span className="h-8 w-8 rounded-full bg-success-50 flex items-center justify-center ring-8 ring-white">
-                          <CheckIcon className="h-4 w-4 text-success-600" />
+                          <span className="h-2 w-2 rounded-full bg-success-600" />
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                         <p className="text-sm text-neutral-500">{t('markedAsSoldHistory')}</p>
                         <p className="whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
-                          {formatDate(bike.soldDate)}
+                          {formatDate(bike.soldDate, 'short', language)}
                         </p>
                       </div>
                     </div>
@@ -349,7 +344,7 @@ export function BikeDetail() {
                         {loan.loanCode}
                       </p>
                       <p className="mt-1 text-sm text-neutral-500 tabular-nums">
-                        {formatDate(loan.startDate)}
+                        {formatDate(loan.startDate, 'short', language)}
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
@@ -370,75 +365,14 @@ export function BikeDetail() {
         </div>
       )}
 
-      {soldOpen && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div
-            role="dialog"
-            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl ring-1 ring-neutral-200"
-          >
-            <h3 className="text-lg font-semibold text-neutral-900">
-              {bike.bikeCode} — {t('markSoldConfirmTitle')}
-            </h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              {t('markSoldHint')}
-            </p>
-            <div className="mt-4 space-y-4">
-              <CurrencyInput
-                label={`${t('soldPriceLabel')} *`}
-                value={soldPrice}
-                onChange={setSoldPrice}
-              />
-              <CurrencyInput
-                label={t('repairCost')}
-                value={soldRepairCost}
-                onChange={setSoldRepairCost}
-              />
-              <CurrencyInput
-                label={t('otherCost')}
-                value={soldOtherCost}
-                onChange={setSoldOtherCost}
-              />
-            </div>
-            <label className="mt-4 block text-xs font-semibold text-neutral-700 mb-1">
-              {t('linkLoanOptional')}
-            </label>
-            <select
-              value={linkLoanId}
-              onChange={(e) => setLinkLoanId(e.target.value)}
-              className="block w-full rounded-md border-0 py-2 pl-3 pr-8 text-sm ring-1 ring-inset ring-neutral-300 bg-white"
-            >
-              <option value="">{t('noLoanLink')}</option>
-              {linkableLoans.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.loanCode}
-                </option>
-              ))}
-            </select>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSoldOpen(false);
-                  setLinkLoanId('');
-                }}
-                disabled={isSavingSold}
-                className="rounded-md px-3 py-2 text-sm font-semibold text-neutral-800 ring-1 ring-inset ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
-              >
-                {t('action.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleMarkSold}
-                disabled={isSavingSold}
-                className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 min-w-[7.5rem]"
-              >
-                {isSavingSold ? t('savingGeneric') : t('confirmSold')}
-              </button>
-            </div>
-          </div>
-        </div>
+      {cashSaleOpen && (
+        <CreateCashSaleDialog
+          bike={bike}
+          open={cashSaleOpen}
+          onClose={() => setCashSaleOpen(false)}
+          onComplete={handleCashSaleComplete}
+        />
       )}
     </div>
   );
 }
-

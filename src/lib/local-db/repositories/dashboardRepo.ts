@@ -5,12 +5,13 @@ import {
   type OverdueSeverity,
 } from '../../finance/overdueDisplay';
 import {
-  daysBetweenDates,
-  getFixedLoanArrearsSummary,
-  oldestArrearsDueDate,
   runLateFeeEngine,
   type InstallmentArrearsInput,
 } from '../../finance/fixedInstallmentStatus';
+import {
+  buildLateFeeExemptByInstallmentId,
+  toLateFeeExemptRecord,
+} from '../../finance/lateFeeExemption';
 import { countInterestCyclesDueByDate } from '../../finance/dueDates';
 import {
   interestOutstandingOnCycle,
@@ -20,6 +21,13 @@ import {
 import { summarizeFixedInstallmentDue } from '../../finance/paymentAllocation';
 import { getLateFeeLineByInstallmentId } from '../../finance/lateFeeEngineV3';
 import { roundLKR } from '../../finance/money';
+import {
+  countOpenOverdueLoans,
+  isOpenLoanStatus,
+  loanHasArrears,
+  overdueCollectibleAmountForLoan,
+  overdueDaysForLoan,
+} from '../../finance/loanOverdue';
 import { getDb } from '../localDb';
 import { mapCustomer, mapLoan } from '../mappers';
 import type { MamDemoDb } from '../types';
@@ -30,7 +38,6 @@ import {
 import { getLabel, type DisplayMode } from '../../i18n/simpleLabels';
 import {
   getSystemToday,
-  isDateBefore,
   normalizeDate,
 } from '../../time/systemTime';
 
@@ -38,6 +45,8 @@ const today = () => getSystemToday();
 
 export type DashboardOverdueLoan = Loan & {
   customer?: Customer;
+  /** Past-due installments + collectible late fees (not full loan balance). */
+  overdueAmount: number;
   daysOverdue: number;
   monthsOverdue: number;
   severity: OverdueSeverity;
@@ -84,37 +93,18 @@ function mapInterestCycles(
   }));
 }
 
-function loanHasArrears(loanId: string, db: MamDemoDb, asOf: string): boolean {
-  const loan = db.loans.find((l) => l.id === loanId);
-  if (!loan) return false;
-  if (loan.status === 'OVERDUE') return true;
-
-  if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
-    const cycles = mapInterestCycles(loanId, db, asOf);
-    return totalPendingInterest(cycles) > 0;
-  }
-
-  if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return false;
-
-  const installments = mapInstallments(loanId, db);
-  return getFixedLoanArrearsSummary(
-    installments,
-    asOf,
-    loan.late_fee_rate,
-    loan.installment_amount
-  ).hasArrears;
-}
-
 function fixedDueTodayAmount(
   installments: (InstallmentArrearsInput & { id: string })[],
   asOf: string,
   lateFeeRate: number,
-  monthlyInstallment?: number
+  monthlyInstallment?: number,
+  lateFeeExemptByInstallmentId?: Readonly<Record<string, boolean>>
 ): number {
   if (installments.length === 0) return 0;
   const base = monthlyInstallment ?? installments[0]?.installmentAmount ?? 0;
   const engine = runLateFeeEngine(installments, base, lateFeeRate, {
     asOfDate: asOf,
+    lateFeeExemptByInstallmentId,
   });
   let dueToday = 0;
   for (const inst of installments) {
@@ -145,7 +135,7 @@ function expectedCollectionForLoan(
   asOf: string
 ): number {
   const loan = db.loans.find((l) => l.id === loanId);
-  if (!loan || !['ACTIVE', 'OVERDUE'].includes(loan.status)) return 0;
+  if (!loan || !isOpenLoanStatus(loan.status)) return 0;
 
   if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
     const cycles = mapInterestCycles(loanId, db, asOf);
@@ -158,6 +148,9 @@ function expectedCollectionForLoan(
   if (loan.repayment_method !== 'FIXED_TERM_INSTALLMENT') return 0;
 
   const installments = mapInstallments(loanId, db);
+  const lateFeeExemptByInstallmentId = toLateFeeExemptRecord(
+    buildLateFeeExemptByInstallmentId(db, loanId)
+  );
   if (loanHasArrears(loanId, db, asOf)) {
     return summarizeFixedInstallmentDue(
       {
@@ -166,6 +159,7 @@ function expectedCollectionForLoan(
         lateFeeRatePercent: loan.late_fee_rate,
         monthlyInstallmentAmount: loan.installment_amount,
         currentInstallmentNumber: 1,
+        lateFeeExemptByInstallmentId,
       },
       asOf
     ).totalDue;
@@ -174,28 +168,9 @@ function expectedCollectionForLoan(
     installments,
     asOf,
     loan.late_fee_rate,
-    loan.installment_amount
+    loan.installment_amount,
+    lateFeeExemptByInstallmentId
   );
-}
-
-function overdueDaysForLoan(loanId: string, db: MamDemoDb, asOf: string): number {
-  const loan = db.loans.find((l) => l.id === loanId);
-  if (!loan) return 0;
-
-  if (loan.repayment_method === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
-    const cycles = mapInterestCycles(loanId, db, asOf);
-    const oldest = cycles
-      .filter(
-        (c) =>
-          interestOutstandingOnCycle(c) > 0 && isDateBefore(c.dueDate, asOf)
-      )
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
-    return oldest ? daysBetweenDates(oldest.dueDate, asOf) : 0;
-  }
-
-  const installments = mapInstallments(loanId, db);
-  const oldest = oldestArrearsDueDate(installments, asOf);
-  return oldest ? daysBetweenDates(oldest, asOf) : 0;
 }
 
 export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {
@@ -206,9 +181,7 @@ export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {
     (p) => p.status === 'CONFIRMED' && p.payment_date === asOf
   );
 
-  const activeLoans = db.loans.filter((l) =>
-    ['ACTIVE', 'OVERDUE'].includes(l.status)
-  );
+  const activeLoans = db.loans.filter((l) => isOpenLoanStatus(l.status));
 
   const todayExpectedCollections = roundLKR(
     activeLoans.reduce(
@@ -217,9 +190,7 @@ export function getDashboardKpis(db: MamDemoDb = getDb()): DashboardKpis {
     )
   );
 
-  const overdueCount = activeLoans.filter((l) =>
-    loanHasArrears(l.id, db, asOf)
-  ).length;
+  const overdueCount = countOpenOverdueLoans(db, asOf);
 
   const inStockCount = db.bikes.filter((b) => b.status === 'IN_STOCK').length;
   const soldThisMonth = db.bikes.filter(
@@ -242,8 +213,7 @@ export function getOverdueLoans(
 
   return db.loans
     .filter(
-      (l) =>
-        ['ACTIVE', 'OVERDUE'].includes(l.status) && loanHasArrears(l.id, db, asOf)
+      (l) => isOpenLoanStatus(l.status) && loanHasArrears(l.id, db, asOf)
     )
     .map((l) => {
       const c = db.customers.find((x) => x.id === l.customer_id);
@@ -254,6 +224,7 @@ export function getOverdueLoans(
         ...mapLoan(l),
         status: 'OVERDUE' as const,
         customer: c ? mapCustomer(c, db) : undefined,
+        overdueAmount: overdueCollectibleAmountForLoan(l.id, db, asOf),
         daysOverdue,
         monthsOverdue,
         severity: getOverdueSeverity(daysOverdue),
