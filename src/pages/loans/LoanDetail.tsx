@@ -35,11 +35,7 @@ import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
 import { getNextDueDateForFixedInstallments } from '../../lib/finance/loanNextDue';
-import {
-  resolveLoanDetailPreview,
-  LOAN_DETAIL_PREVIEW_LINKS,
-  type LoanDetailData,
-} from './loanDetailPreviewData';
+import type { LoanDetailData } from './loanDetailTypes';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   getLoanDetailFromDb,
@@ -88,8 +84,7 @@ export function LoanDetail() {
     }
   }, [id, db, asOfToday]);
 
-  const detail =
-    (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
+  const detail = id ? getLoanDetailFromDb(id, db) : null;
   const demoLinks = listLoanDetailLinks(db);
   const loanInvoiceDoc = id ? findLoanCreationDocument(db, id) : undefined;
 
@@ -99,30 +94,30 @@ export function LoanDetail() {
         <EmptyState
           icon={AlertCircleIcon}
           title={t('loanNotFound')}
-          description={t('chooseDemoLoanBelow')}
+          description={t('chooseLoanBelow')}
           action={
-            <ul className="mt-4 space-y-2 text-sm">
-              {demoLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              {LOAN_DETAIL_PREVIEW_LINKS.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            demoLinks.length > 0 ? (
+              <ul className="mt-4 space-y-2 text-sm">
+                {demoLinks.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      to={`/loans/${link.id}`}
+                      className="font-semibold text-brand-600 hover:text-brand-500"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Link
+                to="/loans"
+                className="inline-flex items-center gap-2 font-semibold text-brand-600 hover:text-brand-500"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                {t('backToLoans')}
+              </Link>
+            )
           }
         />
       </div>

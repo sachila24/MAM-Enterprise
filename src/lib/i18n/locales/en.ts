@@ -323,7 +323,7 @@ export const app = {
   lateFeeRemainingLabel: 'Late fee remaining',
   noGuarantees: 'No guarantees',
   noGuaranteesOnLoanHint: 'Add a guarantee item linked to this loan.',
-  chooseDemoLoanBelow: 'Choose a demo loan below.',
+  chooseLoanBelow: 'Choose a loan below, or return to the loans list.',
   bikeStockRefEngine: 'Stock ref {code} · Engine {engine}',
   openBikeDetail: 'Open bike detail',
   guaranteeReceivedOn: 'Received',

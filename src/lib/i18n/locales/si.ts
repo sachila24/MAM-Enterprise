@@ -323,7 +323,7 @@ export const app: Record<AppLabelKey, string> = {
   lateFeeRemainingLabel: 'ඉතිරි ප්‍රමාද ගාස්තු',
   noGuarantees: 'ඇපකර නැත',
   noGuaranteesOnLoanHint: 'මෙම ණයට සම්බන්ධ ඇපකර අයිතමයක් එකතු කරන්න.',
-  chooseDemoLoanBelow: 'පහත ඩෙමෝ ණයක් තෝරන්න.',
+  chooseLoanBelow: 'පහත ණයක් තෝරන්න, නැතහොත් ණය ලැයිස්තුවට ආපසු යන්න.',
   bikeStockRefEngine: 'තොග යොමු {code} · එන්ජින් {engine}',
   openBikeDetail: 'බයික් විස්තර විවෘත කරන්න',
   guaranteeReceivedOn: 'ලැබුණු',

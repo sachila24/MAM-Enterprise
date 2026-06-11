@@ -199,20 +199,3 @@ export function getSystemTimestamp(): string {
   return getRealDate().toISOString();
 }
 
-/** Temporary diagnostic — call from devtools or once on loan detail load. */
-export function debugTimeContext(label = 'TIME_DEBUG'): void {
-  const now = getSystemDate();
-  const real = getRealDate();
-  console.log(label, {
-    simulated: now.toString(),
-    simulatedUtcIso: now.toISOString(),
-    realWallClock: real.toString(),
-    utcDateOnly: getSystemToday(),
-    timezoneOffsetMinutes: now.getTimezoneOffset(),
-    executionContext:
-      typeof globalThis !== 'undefined' &&
-      typeof (globalThis as { window?: unknown }).window !== 'undefined'
-        ? 'browser'
-        : 'node',
-  });
-}

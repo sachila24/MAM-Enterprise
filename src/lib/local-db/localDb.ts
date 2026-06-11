@@ -407,6 +407,3 @@ export function initLocalDemoDb(): MamDemoDb {
   return getDbSnapshot();
 }
 
-export function isDemoMode(): boolean {
-  return typeof window !== 'undefined' && !!localStorage.getItem(STORAGE_KEY);
-}
