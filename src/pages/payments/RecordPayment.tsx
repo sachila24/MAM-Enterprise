@@ -239,8 +239,7 @@ export function RecordPayment() {
 
       {isDevEnvironment() && !previewBundle && (
         <div className="mb-8 rounded-lg bg-warning-50 border border-warning-200 p-4 text-sm text-warning-800">
-          No loan data loaded yet. Connect Supabase later, or load a preview
-          scenario to test allocation calculations.
+          No loan data loaded yet. Create a customer and loan first.
         </div>
       )}
 
@@ -271,7 +270,7 @@ export function RecordPayment() {
                   />
                   {isDevEnvironment() && previewBundle && (
                     <p className="mt-3 text-xs text-neutral-500">
-                      {t('misc.localDemo')} · {previewBundle.label}
+                      {previewBundle.label}
                     </p>
                   )}
                 </>

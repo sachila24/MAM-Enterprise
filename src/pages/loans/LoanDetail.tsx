@@ -17,7 +17,10 @@ import {
   guaranteeDetailLines,
 } from '../../lib/guarantee/guaranteeFields';
 import type { LabelKey } from '../../lib/i18n/simpleLabels';
-import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
+import {
+  canRequestEarlySettlement,
+  earliestEarlySettlementDate,
+} from '../../lib/finance/earlySettlement';
 import {
   getFixedLoanDisplayStatus,
   getFixedLoanArrearsSummary,
@@ -226,7 +229,6 @@ function InterestOnlyLoanDetail({
               loanId={loan.id}
               navigate={navigate}
               showEarlySettlement={false}
-              monthsCompleted={detail.monthsCompleted}
               minimumMonths={loan.minimumMonthsBeforeSettlement}
               invoiceDocumentId={invoiceDocumentId}
             />
@@ -447,7 +449,12 @@ function FixedInstallmentLoanDetail({
   }, [loan.status, installments, asOfDate, tf]);
 
   const settlementEligible = canRequestEarlySettlement(
-    detail.monthsCompleted,
+    loan.startDate,
+    asOfDate,
+    loan.minimumMonthsBeforeSettlement
+  );
+  const earliestSettlementDate = earliestEarlySettlementDate(
+    loan.startDate,
     loan.minimumMonthsBeforeSettlement
   );
 
@@ -468,8 +475,8 @@ function FixedInstallmentLoanDetail({
               navigate={navigate}
               showEarlySettlement
               settlementEligible={settlementEligible}
-              monthsCompleted={detail.monthsCompleted}
               minimumMonths={loan.minimumMonthsBeforeSettlement}
+              earliestSettlementDate={earliestSettlementDate}
               invoiceDocumentId={invoiceDocumentId}
             />
           }
@@ -752,16 +759,16 @@ function LoanActionBar({
   navigate,
   showEarlySettlement,
   settlementEligible = false,
-  monthsCompleted,
   minimumMonths,
+  earliestSettlementDate,
   invoiceDocumentId,
 }: {
   loanId: string;
   navigate: ReturnType<typeof useNavigate>;
   showEarlySettlement: boolean;
   settlementEligible?: boolean;
-  monthsCompleted: number;
   minimumMonths: number;
+  earliestSettlementDate?: string;
   invoiceDocumentId?: string;
 }) {
   const { t, tf, language } = useT();
@@ -792,11 +799,12 @@ function LoanActionBar({
           </ActionButton>
         )}
       </div>
-      {showEarlySettlement && !settlementEligible && (
+      {showEarlySettlement && !settlementEligible && earliestSettlementDate && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
-          {tf('earlySettlementMonthsRequired', { months: minimumMonths })}
-          {monthsCompleted > 0 &&
-            ` ${tf('earlySettlementMonthsProgress', { completed: monthsCompleted })}`}
+          {tf('earlySettlementAvailableFrom', {
+            months: minimumMonths,
+            date: formatDate(earliestSettlementDate, 'short', language),
+          })}
         </p>
       )}
     </div>

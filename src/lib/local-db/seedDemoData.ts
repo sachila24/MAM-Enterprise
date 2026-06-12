@@ -2,10 +2,11 @@ import type { MamDemoDb } from './types';
 import { createDefaultBusinessSettings } from './businessSettings';
 import { createDefaultAppAuth } from './appAuth';
 import { getSystemTimestamp } from '../time/systemTime';
+import { DEFAULT_OWNER_PROFILE } from './defaultOwner';
 
 /**
  * Empty local DB seed — business defaults only, no sample entities.
- * Demo entities were removed for production cleanup; use Create flows to populate data.
+ * Used for fresh installs and explicit database reset only.
  */
 export function buildSeedDatabase(): MamDemoDb {
   const ts = getSystemTimestamp();
@@ -14,10 +15,10 @@ export function buildSeedDatabase(): MamDemoDb {
     version: 1,
     profiles: [
       {
-        id: 'profile-owner-1',
-        full_name: 'Sachila',
-        email: 'sachila@mamtrading.lk',
-        role: 'OWNER',
+        id: DEFAULT_OWNER_PROFILE.id,
+        full_name: DEFAULT_OWNER_PROFILE.full_name,
+        email: DEFAULT_OWNER_PROFILE.email,
+        role: DEFAULT_OWNER_PROFILE.role,
         active: true,
         created_at: ts,
       },

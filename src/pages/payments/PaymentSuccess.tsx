@@ -98,7 +98,7 @@ export function PaymentSuccess() {
           </p>
           {!state.supabasePending && (
             <p className="mt-1 text-xs text-success-700">
-              {t('misc.savedToLocalDemo')}
+              {t('paymentSavedLocally')}
             </p>
           )}
         </div>

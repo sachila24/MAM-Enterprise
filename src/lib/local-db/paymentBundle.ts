@@ -108,8 +108,8 @@ export function buildPaymentBundle(db: MamDemoDb): PaymentPreviewBundle {
   }
 
   return {
-    id: 'local-demo',
-    label: 'Local demo data',
+    id: 'local-shop',
+    label: 'Shop records',
     customers,
     loans: activeLoans.map(mapLoan),
     interestCyclesByLoanId,

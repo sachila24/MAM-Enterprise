@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   UserIcon,
   MenuIcon,
@@ -12,6 +12,8 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from '../../lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resetDemoDb } from '../../lib/local-db/localDb';
+import { useDemoDb } from '../../lib/local-db/useDemoDb';
+import { getSignedInProfileDisplay } from '../../lib/display/profileDisplay';
 import { isDevEnvironment } from '../../lib/env/isDevEnvironment';
 
 interface HeaderProps {
@@ -24,6 +26,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const showDevControls = isDevEnvironment();
+  const db = useDemoDb();
+  const profile = useMemo(() => getSignedInProfileDisplay(db), [db]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -105,9 +109,11 @@ export function Header({ onMenuClick }: HeaderProps) {
                     className="text-sm font-semibold leading-6 text-neutral-900"
                     aria-hidden="true"
                   >
-                    Sachila
+                    {profile.name}
                   </span>
-                  <span className="text-xs leading-4 text-neutral-500">Owner</span>
+                  <span className="text-xs leading-4 text-neutral-500">
+                    {profile.role === 'OWNER' ? t('roleOwner') : t('roleStaff')}
+                  </span>
                 </div>
                 <ChevronDown className="hidden lg:block h-4 w-4 text-neutral-400" />
               </button>

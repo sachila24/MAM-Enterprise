@@ -80,12 +80,6 @@ export function CashSaleInvoicePrint({
               <h2 className="mam-bill-section-heading">{L.customerDetails}</h2>
               <div className="mam-bill-detail-block">
                 <DetailRow label={L.customerName} value={snapshot.customer.name} />
-                {snapshot.customer.customerCode && (
-                  <DetailRow
-                    label={L.customerCode}
-                    value={snapshot.customer.customerCode}
-                  />
-                )}
                 <DetailRow label={L.nic} value={snapshot.customer.nic} />
                 <DetailRow label={L.phone} value={snapshot.customer.phone} />
                 <DetailRow label={L.address} value={snapshot.customer.address} />
@@ -191,9 +185,6 @@ export function CashSaleInvoicePrint({
                         value={snapshot.createdBy}
                       />
                     )}
-                  {snapshot.notes?.trim() && (
-                    <DetailRow label={L.remarks} value={snapshot.notes} />
-                  )}
                 </div>
               )}
             </div>

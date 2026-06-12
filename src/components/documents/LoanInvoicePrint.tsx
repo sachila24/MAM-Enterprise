@@ -1,6 +1,9 @@
 import { formatLKR, formatDate } from '../../lib/format';
-import { getDocumentLabels } from '../../lib/i18n/documentLabels';
-import { lateFeeRuleLabel } from '../../lib/documents/snapshots';
+import {
+  formatLateFeeGraceForPrint,
+  formatLateFeeRuleForPrint,
+  getDocumentLabels,
+} from '../../lib/i18n/documentLabels';
 import type {
   DocumentGuarantorSnapshot,
   LoanCreationDocumentSnapshot,
@@ -90,6 +93,23 @@ function resolveGuarantors(snapshot: LoanCreationDocumentSnapshot): {
   };
 }
 
+function resolveLoanAgreementTitle(
+  snapshot: LoanCreationDocumentSnapshot,
+  L: ReturnType<typeof getDocumentLabels>
+): string {
+  if (snapshot.bike) return L.bikeLoanAgreementTitle;
+  if (snapshot.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL') {
+    return L.ioLoanAgreementTitle;
+  }
+  return L.installmentAgreementTitle;
+}
+
+function formatIoInterestRatePercent(snapshot: LoanCreationDocumentSnapshot): string {
+  if (snapshot.financeAmount <= 0 || snapshot.monthlyInstallment <= 0) return '—';
+  const rate = (snapshot.monthlyInstallment / snapshot.financeAmount) * 100;
+  return `${rate.toFixed(2)}%`;
+}
+
 export interface LoanInvoicePrintProps {
   documentNumber: string;
   createdAt: string;
@@ -105,6 +125,10 @@ export function LoanInvoicePrint({
 }: LoanInvoicePrintProps) {
   const L = getDocumentLabels(language);
   const guarantors = resolveGuarantors(snapshot);
+  const isInterestOnly =
+    snapshot.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
+  const isBikeLoan = Boolean(snapshot.bike);
+  const title = resolveLoanAgreementTitle(snapshot, L);
 
   const initialPaid =
     snapshot.initialPayment ??
@@ -124,7 +148,7 @@ export function LoanInvoicePrint({
       className="receipt-document doc-invoice mam-bill agreement-print-a4"
     >
       <div className="receipt-sheet mam-bill-sheet">
-        <MamDocumentHeader title={L.loanInvoiceTitle}>
+        <MamDocumentHeader title={title}>
           <div className="mam-bill-meta">
             <span>
               {L.invoiceNumber}: <strong>{documentNumber}</strong>
@@ -182,39 +206,62 @@ export function LoanInvoicePrint({
 
           <section className="mam-bill-section mam-bill-finance">
             <h2 className="mam-bill-section-heading">{L.financeDetails}</h2>
-            <div className="mam-bill-finance-box">
-              <BillRow label={L.cashPrice} value={formatLKR(snapshot.cashPrice)} />
-              <BillRow label={L.initialPayment} value={formatLKR(initialPaid)} />
-              <BillRow
-                label={L.serviceFee}
-                value={formatLKR(snapshot.serviceFee ?? 0)}
-              />
-              <BillRow
-                label={L.registrationFee}
-                value={formatLKR(snapshot.registrationFee ?? 0)}
-              />
-              <BillRow label={L.netAdvancePayment} value={formatLKR(netAdvance)} />
-              <BillRow
-                label={L.financeAmount}
-                value={formatLKR(snapshot.financeAmount)}
-              />
-              <BillRow
-                label={L.interestAmount}
-                value={formatLKR(snapshot.interestAmount)}
-              />
-              <BillRow
-                label={L.installmentCount}
-                value={String(snapshot.installmentCount)}
-              />
-              <BillRow
-                label={L.monthlyInstallment}
-                value={formatLKR(snapshot.monthlyInstallment)}
-              />
-              <BillRow
-                label={L.totalPayable}
-                value={formatLKR(snapshot.totalPayable)}
-              />
-            </div>
+            {isInterestOnly ? (
+              <div className="mam-bill-finance-box">
+                <BillRow
+                  label={L.financeAmount}
+                  value={formatLKR(snapshot.financeAmount)}
+                />
+                <BillRow
+                  label={L.interestRatePercent}
+                  value={formatIoInterestRatePercent(snapshot)}
+                />
+                <BillRow
+                  label={L.monthlyInterestAmount}
+                  value={formatLKR(snapshot.monthlyInstallment)}
+                />
+                {snapshot.interestAmount > 0 && (
+                  <BillRow
+                    label={L.interestAmount}
+                    value={formatLKR(snapshot.interestAmount)}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="mam-bill-finance-box">
+                <BillRow label={L.cashPrice} value={formatLKR(snapshot.cashPrice)} />
+                <BillRow label={L.initialPayment} value={formatLKR(initialPaid)} />
+                <BillRow
+                  label={L.serviceFee}
+                  value={formatLKR(snapshot.serviceFee ?? 0)}
+                />
+                <BillRow
+                  label={L.registrationFee}
+                  value={formatLKR(snapshot.registrationFee ?? 0)}
+                />
+                <BillRow label={L.netAdvancePayment} value={formatLKR(netAdvance)} />
+                <BillRow
+                  label={L.financeAmount}
+                  value={formatLKR(snapshot.financeAmount)}
+                />
+                <BillRow
+                  label={L.interestAmount}
+                  value={formatLKR(snapshot.interestAmount)}
+                />
+                <BillRow
+                  label={L.installmentCount}
+                  value={String(snapshot.installmentCount)}
+                />
+                <BillRow
+                  label={L.monthlyInstallment}
+                  value={formatLKR(snapshot.monthlyInstallment)}
+                />
+                <BillRow
+                  label={L.totalPayable}
+                  value={formatLKR(snapshot.totalPayable)}
+                />
+              </div>
+            )}
             <div className="mam-bill-finance-box mam-bill-dates-box">
               <BillRow
                 label={L.loanReleaseDate}
@@ -225,14 +272,15 @@ export function LoanInvoicePrint({
                 value={formatDate(snapshot.firstDueDate)}
               />
             </div>
-            <p className="mam-bill-terms-note">
-              {L.lateFeeRule}:{' '}
-              {lateFeeRuleLabel(
-                snapshot.lateFeeRatePercent,
-                snapshot.monthlyInstallment
-              )}{' '}
-              · {L.gracePeriod}: {snapshot.gracePeriodDays} {L.days}
-            </p>
+            {!isInterestOnly && (
+              <p className="mam-bill-terms-note">
+                {formatLateFeeRuleForPrint(
+                  snapshot.lateFeeRatePercent,
+                  snapshot.monthlyInstallment
+                )}{' '}
+                · {formatLateFeeGraceForPrint(snapshot.gracePeriodDays)}
+              </p>
+            )}
           </section>
 
           {hasGuarantorSection && (
@@ -277,6 +325,7 @@ export function LoanInvoicePrint({
           guarantorSignature={L.guarantorSignature}
           authorizedOfficer={L.authorizedOfficer}
           variant="three"
+          showLegalNotice={isBikeLoan}
         />
       </div>
     </div>

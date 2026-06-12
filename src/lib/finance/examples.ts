@@ -8,7 +8,11 @@ import {
   buildFixedInstallmentDueDates,
   computeFirstDueDate,
 } from './dueDates';
-import { calculateEarlySettlementQuote, canRequestEarlySettlement } from './earlySettlement';
+import {
+  calculateEarlySettlementQuote,
+  canRequestEarlySettlement,
+  computeFixedInstallmentSettlementBalance,
+} from './earlySettlement';
 import {
   allocateInterestOnlyPayment,
   calculateNextCycleInterestDue,
@@ -843,14 +847,49 @@ export const EXAMPLE_DISCOUNT_INTEREST_ONLY_C = (() => {
   };
 })();
 
+const EXAMPLE_5_BALANCE = computeFixedInstallmentSettlementBalance(
+  300_000,
+  270_000,
+  Array.from({ length: 12 }, (_, i) => ({
+    principalComponent: 25_000,
+    interestComponent: 22_500,
+    installmentAmount: 47_500,
+    paidAmount: i < 6 ? 47_500 : 0,
+  }))
+);
+
 export const EXAMPLE_5_EARLY_SETTLEMENT = {
-  beforeMinimum: canRequestEarlySettlement(5, 6),
-  afterMinimum: canRequestEarlySettlement(7, 6),
-  quote: calculateEarlySettlementQuote({
-    monthsCompleted: 7,
+  beforeMinimum: canRequestEarlySettlement('2025-07-01', '2025-12-15', 6),
+  afterMinimum: canRequestEarlySettlement('2025-07-01', '2026-01-01', 6),
+  balance: EXAMPLE_5_BALANCE,
+  quoteNoCurrentMonth: calculateEarlySettlementQuote({
+    startDate: '2025-07-01',
+    asOfDate: '2026-06-08',
     minimumMonthsBeforeSettlement: 6,
-    remainingPrincipal: 200_000,
-    remainingInterest: 80_000,
+    balance: {
+      originalPrincipal: 300_000,
+      originalTotalInterest: 270_000,
+      paidPrincipal: 90_000,
+      paidInterest: 150_000,
+      remainingPrincipal: 210_000,
+      remainingInterest: 120_000,
+    },
+    discountPercentage: 10,
+    currentMonthDue: 15_834,
+    includeCurrentMonthDue: false,
+  }),
+  quote: calculateEarlySettlementQuote({
+    startDate: '2025-07-01',
+    asOfDate: '2026-06-08',
+    minimumMonthsBeforeSettlement: 6,
+    balance: {
+      originalPrincipal: 300_000,
+      originalTotalInterest: 270_000,
+      paidPrincipal: 90_000,
+      paidInterest: 150_000,
+      remainingPrincipal: 210_000,
+      remainingInterest: 120_000,
+    },
     discountPercentage: 10,
     currentMonthDue: 15_834,
     includeCurrentMonthDue: true,
@@ -1057,17 +1096,42 @@ export function verifyFinanceExamples(): ExampleCheck[] {
       actual: EXAMPLE_4_ARREARS.twoMonthsLate,
     },
     {
-      name: 'Settlement: blocked before month 6',
+      name: 'Settlement: blocked before 6 calendar months',
       pass: EXAMPLE_5_EARLY_SETTLEMENT.beforeMinimum === false,
       expected: false,
       actual: EXAMPLE_5_EARLY_SETTLEMENT.beforeMinimum,
     },
     {
-      name: 'Settlement: final amount',
+      name: 'Settlement: allowed after 6 calendar months',
+      pass: EXAMPLE_5_EARLY_SETTLEMENT.afterMinimum === true,
+      expected: true,
+      actual: EXAMPLE_5_EARLY_SETTLEMENT.afterMinimum,
+    },
+    {
+      name: 'Settlement: discount on interest only',
       pass:
-        EXAMPLE_5_EARLY_SETTLEMENT.quote.finalSettlementAmount === 287_834,
-      expected: 287_834,
+        EXAMPLE_5_EARLY_SETTLEMENT.quoteNoCurrentMonth.finalSettlementAmount ===
+        318_000,
+      expected: 318_000,
+      actual: EXAMPLE_5_EARLY_SETTLEMENT.quoteNoCurrentMonth.finalSettlementAmount,
+    },
+    {
+      name: 'Settlement: final amount with current month',
+      pass:
+        EXAMPLE_5_EARLY_SETTLEMENT.quote.finalSettlementAmount === 333_834,
+      expected: 333_834,
       actual: EXAMPLE_5_EARLY_SETTLEMENT.quote.finalSettlementAmount,
+    },
+    {
+      name: 'Settlement: balance from installment components',
+      pass:
+        EXAMPLE_5_EARLY_SETTLEMENT.balance.remainingPrincipal === 150_000 &&
+        EXAMPLE_5_EARLY_SETTLEMENT.balance.remainingInterest === 135_000,
+      expected: { remainingPrincipal: 150_000, remainingInterest: 135_000 },
+      actual: {
+        remainingPrincipal: EXAMPLE_5_EARLY_SETTLEMENT.balance.remainingPrincipal,
+        remainingInterest: EXAMPLE_5_EARLY_SETTLEMENT.balance.remainingInterest,
+      },
     },
     {
       name: 'IO multi-cycle: count',

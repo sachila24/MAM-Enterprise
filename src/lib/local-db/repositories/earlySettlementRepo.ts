@@ -1,5 +1,6 @@
 import {
   calculateEarlySettlementQuote,
+  computeFixedInstallmentSettlementBalance,
   earlySettlementPaymentNote,
 } from '../../finance/earlySettlement';
 import { roundLKR } from '../../finance/money';
@@ -79,10 +80,19 @@ export function confirmEarlySettlement(
 
   const totalPayable = loan.total_payable ?? loan.balance_amount;
   const balanceBefore = loan.balance_amount;
-  const paidRatio = totalPayable > 0 ? loan.paid_amount / totalPayable : 0;
-  const remainingPrincipal = roundLKR(loan.principal_amount * (1 - paidRatio));
-  const remainingInterest = roundLKR(
-    Math.max(0, loan.balance_amount - remainingPrincipal)
+  const totalInterest =
+    loan.total_interest_amount ??
+    roundLKR(Math.max(0, totalPayable - loan.principal_amount));
+
+  const settlementBalance = computeFixedInstallmentSettlementBalance(
+    loan.principal_amount,
+    totalInterest,
+    installments.map((i) => ({
+      principalComponent: i.principal_component,
+      interestComponent: i.interest_component,
+      installmentAmount: i.installment_amount,
+      paidAmount: i.paid_amount,
+    }))
   );
 
   const currentInst = installments.find(
@@ -93,10 +103,10 @@ export function confirmEarlySettlement(
     : 0;
 
   const quote = calculateEarlySettlementQuote({
-    monthsCompleted,
+    startDate: loan.start_date,
+    asOfDate: input.settlementDate,
     minimumMonthsBeforeSettlement: loan.minimum_months_before_settlement,
-    remainingPrincipal,
-    remainingInterest,
+    balance: settlementBalance,
     discountPercentage: input.discountPercentage,
     currentMonthDue,
     includeCurrentMonthDue: input.includeCurrentMonthDue,
@@ -169,8 +179,8 @@ export function confirmEarlySettlement(
     customer_id: loan.customer_id,
     settlement_date: input.settlementDate,
     months_completed: monthsCompleted,
-    remaining_principal: quote.remainingPrincipal,
-    remaining_interest: quote.remainingInterest,
+    remaining_principal: settlementBalance.remainingPrincipal,
+    remaining_interest: settlementBalance.remainingInterest,
     discount_percentage: input.discountPercentage,
     discount_amount: quote.discountAmount,
     current_month_due: quote.currentMonthDue,

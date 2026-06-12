@@ -73,12 +73,6 @@ export function BikePurchaseReceiptPrint({
             <h2 className="mam-bill-section-heading">{L.sellerDetails}</h2>
             <div className="mam-bill-detail-block">
               <DetailRow label={L.customerName} value={snapshot.seller.name} />
-              {snapshot.seller.customerCode && (
-                <DetailRow
-                  label={L.customerCode}
-                  value={snapshot.seller.customerCode}
-                />
-              )}
               <DetailRow label={L.nic} value={snapshot.seller.nic} />
               <DetailRow label={L.phone} value={snapshot.seller.phone} />
               <DetailRow label={L.address} value={snapshot.seller.address} />
