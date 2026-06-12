@@ -1,6 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  deleteBackupFromDisk,
+  listBackupsOnDisk,
+  readBackupFromDisk,
+  saveBackupToDisk,
+} from './backupManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,6 +18,8 @@ const isDev = !app.isPackaged && process.env.ELECTRON_DEV === 'true';
 
 /** @type {import('electron').BrowserWindow | null} */
 let mainWindow = null;
+let quitAfterBackup = false;
+let closeBackupTimer = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,7 +41,6 @@ function createWindow() {
     mainWindow?.show();
   });
 
-  // Keep window.print() and print CSS working in the renderer.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       shell.openExternal(url);
@@ -57,6 +64,15 @@ function createWindow() {
   });
 }
 
+function finishQuitAfterBackup() {
+  if (closeBackupTimer) {
+    clearTimeout(closeBackupTimer);
+    closeBackupTimer = null;
+  }
+  quitAfterBackup = true;
+  app.quit();
+}
+
 ipcMain.handle('mam:print', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) {
@@ -76,6 +92,30 @@ ipcMain.handle('mam:print', async (event) => {
   });
 });
 
+ipcMain.handle('mam:backup:save', async (_event, envelopeJson) => {
+  if (typeof envelopeJson !== 'string' || !envelopeJson.trim()) {
+    throw new Error('Backup payload is empty.');
+  }
+  return saveBackupToDisk(envelopeJson);
+});
+
+ipcMain.handle('mam:backup:list', async () => {
+  return listBackupsOnDisk();
+});
+
+ipcMain.handle('mam:backup:read', async (_event, id) => {
+  return readBackupFromDisk(id);
+});
+
+ipcMain.handle('mam:backup:delete', async (_event, id) => {
+  await deleteBackupFromDisk(id);
+  return { ok: true };
+});
+
+ipcMain.on('mam:backup:close-ready', () => {
+  finishQuitAfterBackup();
+});
+
 app.whenReady().then(() => {
   createWindow();
 
@@ -84,6 +124,15 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+app.on('before-quit', (event) => {
+  if (quitAfterBackup || !mainWindow) return;
+  event.preventDefault();
+  mainWindow.webContents.send('mam:app-closing');
+  closeBackupTimer = setTimeout(() => {
+    finishQuitAfterBackup();
+  }, 8000);
 });
 
 app.on('window-all-closed', () => {

@@ -31,6 +31,7 @@ import { Backup } from './pages/admin/Backup';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
 import { DevTimePanel } from './components/dev/DevTimePanel';
+import { AutoBackupBootstrap } from './components/backup/AutoBackupBootstrap';
 import { isDevEnvironment } from './lib/env/isDevEnvironment';
 import { DocumentsList } from './pages/documents/DocumentsList';
 import { DocumentView } from './pages/documents/DocumentView';
@@ -47,6 +48,7 @@ export function App() {
       <FormatModeSync />
       <ToastProvider>
         {isDevEnvironment() ? <DevTimePanel /> : null}
+        <AutoBackupBootstrap />
         <AppRouter>
           <Routes>
             <Route path="/login" element={<Login />} />

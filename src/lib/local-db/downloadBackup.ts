@@ -1,4 +1,8 @@
 import { getDb } from './localDb';
+import {
+  buildBackupEnvelope,
+  serializeBackupEnvelope,
+} from '../backup/buildEnvelope';
 
 function formatBackupFilename(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -10,10 +14,11 @@ function formatBackupFilename(date: Date): string {
   return `mam-backup-${y}-${m}-${d}-${h}-${min}.json`;
 }
 
-/** Export full MamDemoDb snapshot and trigger a browser download. */
+/** Export full database snapshot (with metadata envelope) and trigger download. */
 export function downloadFullDatabaseBackup(): void {
   const db = getDb();
-  const json = JSON.stringify(db, null, 2);
+  const envelope = buildBackupEnvelope(db, 'manual');
+  const json = serializeBackupEnvelope(envelope);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   try {
