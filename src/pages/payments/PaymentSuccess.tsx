@@ -18,6 +18,7 @@ import type { PaymentReceiptDocumentSnapshot } from '../../lib/documents/types';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { useT } from '../../i18n/I18nProvider';
+import { printPage } from '../../lib/electron/printPage';
 
 export interface PaymentSuccessState {
   loanCode: string;
@@ -37,7 +38,7 @@ export interface PaymentSuccessState {
 }
 
 function handlePrint(): void {
-  window.print();
+  printPage();
 }
 
 export function PaymentSuccess() {

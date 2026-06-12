@@ -3,14 +3,12 @@
  * Production builds ignore manual overrides; invalid stored values fall back to real time.
  */
 
+import { isDevEnvironment } from '../env/isDevEnvironment';
+
 const STORAGE_KEY = 'mam-dev-manual-date';
 
 type DevTimeListener = () => void;
 const listeners = new Set<DevTimeListener>();
-
-function isDevEnvironment(): boolean {
-  return typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
-}
 
 function readStoredManualDate(): Date | null {
   if (!isDevEnvironment()) return null;
@@ -93,9 +91,17 @@ export function subscribeDevTime(listener: DevTimeListener): () => void {
   };
 }
 
-/** Snapshot for useSyncExternalStore — changes when manual date changes. */
+/**
+ * Snapshot for useSyncExternalStore — must be stable between store updates.
+ * Full ISO timestamps change every millisecond and cause React error #185
+ * (maximum update depth) in production when subscribed via useSystemToday.
+ */
 export function getDevTimeSnapshot(): string {
-  return getSystemDateISO();
+  const d = getSystemDate();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function advanceDays(days: number): void {

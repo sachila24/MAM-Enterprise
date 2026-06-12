@@ -14,13 +14,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { KpiCard } from '../components/ui/KpiCard';
 import { formatLKR, formatDateTime } from '../lib/format';
 import { useDemoDb } from '../lib/local-db/useDemoDb';
-import {
-  getDashboardKpis,
-  getOverdueLoans,
-  getRecentActivity,
-  type DashboardOverdueLoan,
-} from '../lib/local-db/repositories';
-import { getBusinessSettingsForm } from '../lib/local-db/repositories/settingsRepo';
+import type { DashboardOverdueLoan } from '../lib/local-db/repositories';
 import { useT } from '../i18n/I18nProvider';
 import {
   getGreetingPeriod,
@@ -28,6 +22,15 @@ import {
   useSystemToday,
 } from '../lib/time/systemTime';
 import { formatOverdueHuman } from '../lib/display/ledgerDisplay';
+import { DashboardErrorBoundary } from './dashboard/DashboardErrorBoundary';
+import {
+  loadBusinessName,
+  loadDashboardKpis,
+  loadOverdueLoans,
+  loadRecentActivity,
+  parseDashboardDate,
+  safeNumber,
+} from './dashboard/dashboardSafe';
 
 function greetingKey(
   period: ReturnType<typeof getGreetingPeriod>
@@ -37,27 +40,56 @@ function greetingKey(
   return 'goodMorning';
 }
 
+function formatActivityTimeLabel(
+  when: string,
+  language: ReturnType<typeof useT>['language']
+): string {
+  const normalized = parseDashboardDate(when);
+  if (!normalized) return '—';
+  try {
+    const formatted = formatDateTime(normalized, language);
+    const timePart = formatted.split(',')[1]?.trim();
+    return timePart || formatted;
+  } catch (err) {
+    console.warn('[Dashboard:activity] invalid activity timestamp', { when, err });
+    return '—';
+  }
+}
+
 export function Dashboard() {
+  return (
+    <DashboardErrorBoundary>
+      <DashboardContent />
+    </DashboardErrorBoundary>
+  );
+}
+
+function DashboardContent() {
   const { t, language } = useT();
   const db = useDemoDb();
   const asOfToday = useSystemToday();
-  const kpis = useMemo(() => getDashboardKpis(db), [db, asOfToday]);
-  const overdueLoans = useMemo(() => getOverdueLoans(db), [db, asOfToday]);
+  const kpis = useMemo(
+    () => loadDashboardKpis(db, asOfToday),
+    [db, asOfToday]
+  );
+  const overdueLoans = useMemo(() => loadOverdueLoans(db), [db, asOfToday]);
   const recentActivity = useMemo(
-    () => getRecentActivity(db, 10, language),
+    () => loadRecentActivity(db, 10, language),
     [db, language]
   );
-  const businessName = useMemo(
-    () => getBusinessSettingsForm(db).businessName.trim(),
-    [db]
-  );
+  const businessName = useMemo(() => loadBusinessName(db), [db]);
 
   const headerSubtitle = useMemo(() => {
-    const now = getSystemTime();
-    const period = getGreetingPeriod(now);
-    const greeting = businessName || t(greetingKey(period));
-    const timestamp = formatDateTime(now, language);
-    return `${greeting} — ${timestamp}`;
+    try {
+      const now = getSystemTime();
+      const period = getGreetingPeriod(now);
+      const greeting = businessName || t(greetingKey(period));
+      const timestamp = formatDateTime(now, language);
+      return `${greeting} — ${timestamp}`;
+    } catch (err) {
+      console.error('[Dashboard:header] subtitle failed', err);
+      return businessName || t('dashboard');
+    }
   }, [t, language, asOfToday, businessName]);
 
   const quickActions = (
@@ -92,6 +124,11 @@ export function Dashboard() {
     </div>
   );
 
+  const overdueCount = safeNumber(kpis.overdueCount);
+  const todayPaymentsCount = safeNumber(kpis.todayPaymentsCount);
+  const inStockCount = safeNumber(kpis.inStockCount);
+  const soldThisMonth = safeNumber(kpis.soldThisMonth);
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -116,10 +153,10 @@ export function Dashboard() {
           >
             <KpiCard
               label={t('activeOverduesToday')}
-              value={kpis.overdueCount}
+              value={overdueCount}
               icon={AlertCircleIcon}
               delta={
-                kpis.overdueCount > 0
+                overdueCount > 0
                   ? {
                       value: t('needsAttention'),
                       trend: 'down',
@@ -130,7 +167,7 @@ export function Dashboard() {
           </Link>
           <KpiCard
             label={t('paymentsReceivedToday')}
-            value={kpis.todayPaymentsCount}
+            value={todayPaymentsCount}
             icon={CreditCardIcon}
           />
         </div>
@@ -178,7 +215,7 @@ export function Dashboard() {
                   {t('inStock')}
                 </dt>
                 <dd className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 tabular-nums">
-                  {kpis.inStockCount}
+                  {inStockCount}
                 </dd>
               </div>
               <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200">
@@ -186,7 +223,7 @@ export function Dashboard() {
                   {t('soldThisMonth')}
                 </dt>
                 <dd className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 tabular-nums">
-                  {kpis.soldThisMonth}
+                  {soldThisMonth}
                 </dd>
               </div>
               <div className="overflow-hidden rounded-xl bg-white px-4 py-5 shadow-sm ring-1 ring-neutral-200 flex items-center justify-center">
@@ -262,7 +299,7 @@ export function Dashboard() {
                             </div>
                             <div className="whitespace-nowrap text-right text-xs text-neutral-500">
                               <time dateTime={activity.when}>
-                                {formatDateTime(activity.when).split(',')[1]}
+                                {formatActivityTimeLabel(activity.when, language)}
                               </time>
                             </div>
                           </div>
@@ -289,8 +326,12 @@ function OverdueQueueRow({
   t: ReturnType<typeof useT>['t'];
   language: ReturnType<typeof useT>['language'];
 }) {
-  const customerPhone = loan.customer?.phone?.replace(/\s/g, '') ?? '';
+  const customerPhone =
+    typeof loan.customer?.phone === 'string'
+      ? loan.customer.phone.replace(/\s/g, '')
+      : '';
   const customerName = loan.customer?.name ?? t('misc.unknown');
+  const daysOverdue = safeNumber(loan.daysOverdue);
 
   return (
     <li className="flex items-stretch divide-x divide-neutral-100">
@@ -328,7 +369,7 @@ function OverdueQueueRow({
               {t('overduePeriodLabel')}
             </p>
             <p className="mt-0.5 text-sm font-medium text-danger-600">
-              {formatOverdueHuman(loan.daysOverdue, language)}
+              {formatOverdueHuman(daysOverdue, language)}
             </p>
           </div>
         </div>

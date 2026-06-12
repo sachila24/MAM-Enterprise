@@ -1,6 +1,8 @@
 import React from 'react';
+import logoSrc from '../../assets/mam-logo.svg';
 
-const LOGO_SRC = '/assets/mam-logo.svg';
+/** Vite-resolved URL — works in browser, Electron dev, and file:// packaged builds. */
+const LOGO_SRC = logoSrc;
 
 export interface MamLogoProps {
   /** Pixel width/height of the square logo area */

@@ -23,6 +23,7 @@ import {
 import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
 import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
+import { isDevEnvironment } from '../../lib/env/isDevEnvironment';
 
 export function RecordPayment() {
   const { t } = useT();
@@ -236,7 +237,7 @@ export function RecordPayment() {
         <Stepper steps={STEPS} current={currentStep} />
       </div>
 
-      {!previewBundle && (
+      {isDevEnvironment() && !previewBundle && (
         <div className="mb-8 rounded-lg bg-warning-50 border border-warning-200 p-4 text-sm text-warning-800">
           No loan data loaded yet. Connect Supabase later, or load a preview
           scenario to test allocation calculations.
@@ -268,9 +269,11 @@ export function RecordPayment() {
                       setSelectedLoanId(null);
                     }}
                   />
-                  <p className="mt-3 text-xs text-neutral-500">
-                    {t('misc.localDemo')} · {previewBundle.label}
-                  </p>
+                  {isDevEnvironment() && previewBundle && (
+                    <p className="mt-3 text-xs text-neutral-500">
+                      {t('misc.localDemo')} · {previewBundle.label}
+                    </p>
+                  )}
                 </>
               )}
             </div>

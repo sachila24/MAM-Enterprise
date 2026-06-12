@@ -12,8 +12,13 @@ import {
   normalizeBusinessSettings,
 } from './businessSettings';
 import { DEFAULT_APP_AUTH, isValidAppAuth, normalizeAppAuth } from './appAuth';
+import { getStorageAdapter } from '../../storage/storageAdapter';
 
 export const STORAGE_KEY = 'mam_demo_db_v1';
+
+function storage() {
+  return getStorageAdapter();
+}
 
 /** @deprecated Use subscribe() from this module; kept for compatibility. */
 export const DEMO_DB_EVENT = 'mam-demo-db-changed';
@@ -58,7 +63,7 @@ const SSR_SNAPSHOT: MamDemoDb = {
 
 function readRaw(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem(STORAGE_KEY) ?? '';
+  return storage().getItem(STORAGE_KEY) ?? '';
 }
 
 function isValidDb(value: unknown): value is MamDemoDb {
@@ -82,7 +87,7 @@ function seedAndPersist(): MamDemoDb {
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, cachedRaw);
+    storage().setItem(STORAGE_KEY, cachedRaw);
   }
   return db;
 }
@@ -97,7 +102,7 @@ function parseStoredDb(raw: string): MamDemoDb {
   } catch {
     console.warn('[mam demo] Corrupted localStorage — re-seeding demo data');
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
+      storage().removeItem(STORAGE_KEY);
     }
     return seedAndPersist();
   }
@@ -174,7 +179,7 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeAppAuth(cachedDb);
   if (bikesRepaired) {
     cachedRaw = JSON.stringify(cachedDb);
-    localStorage.setItem(STORAGE_KEY, cachedRaw);
+    storage().setItem(STORAGE_KEY, cachedRaw);
   } else {
     cachedRaw = raw;
   }
@@ -212,7 +217,7 @@ export function saveDb(db: MamDemoDb): void {
   if (typeof window === 'undefined') return;
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
-  localStorage.setItem(STORAGE_KEY, cachedRaw);
+  storage().setItem(STORAGE_KEY, cachedRaw);
   notifyListeners();
 }
 
@@ -388,7 +393,7 @@ export function seedDemoDb(): MamDemoDb {
 
 export function resetDemoDb(): MamDemoDb {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
+    storage().removeItem(STORAGE_KEY);
   }
   cachedRaw = '';
   cachedDb = null;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider } from './i18n/I18nProvider';
 import { FormatModeSync } from './components/layout/FormatModeSync';
 import { ToastProvider } from './components/ui/Toast';
@@ -31,16 +31,23 @@ import { Backup } from './pages/admin/Backup';
 import { Settings } from './pages/admin/Settings';
 import { ActivityLog } from './pages/admin/ActivityLog';
 import { DevTimePanel } from './components/dev/DevTimePanel';
+import { isDevEnvironment } from './lib/env/isDevEnvironment';
 import { DocumentsList } from './pages/documents/DocumentsList';
 import { DocumentView } from './pages/documents/DocumentView';
+
+/** file:// (packaged Electron) needs hash routing; http dev/prod keeps browser history. */
+const AppRouter =
+  typeof window !== 'undefined' && window.location.protocol === 'file:'
+    ? HashRouter
+    : BrowserRouter;
 
 export function App() {
   return (
     <I18nProvider>
       <FormatModeSync />
       <ToastProvider>
-        <DevTimePanel />
-        <BrowserRouter>
+        {isDevEnvironment() ? <DevTimePanel /> : null}
+        <AppRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
 
@@ -106,7 +113,7 @@ export function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </AppRouter>
       </ToastProvider>
     </I18nProvider>);
 

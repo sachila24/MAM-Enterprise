@@ -16,6 +16,7 @@ import {
 import { getDb } from '../../lib/local-db/localDb';
 import { syncAllFixedInstallmentLateFees } from '../../lib/local-db/fixedInstallmentSync';
 import { syncAllInterestOnlyLoans } from '../../lib/local-db/interestOnlySync';
+import { isDevEnvironment } from '../../lib/env/isDevEnvironment';
 
 const PANEL_COLLAPSED_KEY = 'mam-dev-time-panel-collapsed';
 
@@ -51,7 +52,7 @@ function writePanelCollapsed(collapsed: boolean): void {
 }
 
 export function DevTimePanel() {
-  if (!import.meta.env.DEV) {
+  if (!isDevEnvironment()) {
     return null;
   }
 
