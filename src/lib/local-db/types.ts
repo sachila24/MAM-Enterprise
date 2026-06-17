@@ -39,7 +39,16 @@ export interface DbBike {
   sold_price?: number;
   repair_cost?: number;
   other_cost?: number;
-  status: 'IN_STOCK' | 'SOLD' | 'HELD';
+  status:
+    | 'IN_STOCK'
+    | 'AVAILABLE'
+    | 'HELD'
+    | 'RESERVED'
+    | 'SOLD'
+    | 'SETTLED'
+    | 'RETURNED'
+    | 'ARCHIVED'
+    | 'INACTIVE';
   purchase_date: string;
   sold_date?: string;
   sold_loan_id?: string;
@@ -212,6 +221,8 @@ export interface DbEarlySettlement {
   current_month_due: number;
   final_settlement_amount: number;
   status: 'QUOTED' | 'PAID' | 'CANCELLED';
+  /** Linked loan payment row when settlement is confirmed */
+  payment_id?: string;
   created_at: string;
 }
 

@@ -5,11 +5,12 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { FilterToolbar } from '../../components/ui/FilterToolbar';
 import { StatusChip } from '../../components/ui/StatusChip';
-import { formatLKR } from '../../lib/format';
+import { formatLKR, formatDate } from '../../lib/format';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { listBikes } from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
 import { bikeDisplayPrice } from '../../lib/display/bikeDisplay';
+import type { Bike } from '../../types/entities';
 
 function bikeRegistrationLabel(bike: Bike, notRegisteredLabel: string): string {
   const reg = bike.registrationNo?.trim();
@@ -17,7 +18,7 @@ function bikeRegistrationLabel(bike: Bike, notRegisteredLabel: string): string {
 }
 
 export function BikesList() {
-  const { t } = useT();
+  const { t, language } = useT();
   const navigate = useNavigate();
   const db = useDemoDb();
   const [view, setView] = useState<'table' | 'grid'>('table');
@@ -117,6 +118,12 @@ export function BikesList() {
                     {t('colPrice')}
                   </th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
+                    {t('colBuyDate')}
+                  </th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
+                    {t('colSellDate')}
+                  </th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-neutral-900">
                     {t('field.status')}
                   </th>
                 </tr>
@@ -148,6 +155,14 @@ export function BikesList() {
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-900 text-right tabular-nums font-medium">
                       {formatLKR(bikeDisplayPrice(bike))}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-700 tabular-nums">
+                      {formatDate(bike.purchaseDate, 'short', language)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500 tabular-nums">
+                      {bike.status === 'sold' && bike.soldDate
+                        ? formatDate(bike.soldDate, 'short', language)
+                        : '—'}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-neutral-500">
                       <StatusChip status={bike.status} />
                     </td>
@@ -156,7 +171,7 @@ export function BikesList() {
                 {filteredBikes.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={7}
                       className="py-10 text-center text-sm text-neutral-500"
                     >
                       {t('noBikesFound')}

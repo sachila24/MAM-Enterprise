@@ -4,6 +4,7 @@
  */
 
 import type { MamDemoDb } from './types';
+import { repairBikeInventoryStatuses } from './bikeInventory';
 import { buildSeedDatabase } from './seedDemoData';
 import { roundLKR } from '../finance/money';
 import {
@@ -11,8 +12,13 @@ import {
   normalizeBusinessSettings,
 } from './businessSettings';
 import { DEFAULT_APP_AUTH, isValidAppAuth, normalizeAppAuth } from './appAuth';
+import { getStorageAdapter } from '../../storage/storageAdapter';
 
 export const STORAGE_KEY = 'mam_demo_db_v1';
+
+function storage() {
+  return getStorageAdapter();
+}
 
 /** @deprecated Use subscribe() from this module; kept for compatibility. */
 export const DEMO_DB_EVENT = 'mam-demo-db-changed';
@@ -57,7 +63,7 @@ const SSR_SNAPSHOT: MamDemoDb = {
 
 function readRaw(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem(STORAGE_KEY) ?? '';
+  return storage().getItem(STORAGE_KEY) ?? '';
 }
 
 function isValidDb(value: unknown): value is MamDemoDb {
@@ -81,7 +87,7 @@ function seedAndPersist(): MamDemoDb {
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, cachedRaw);
+    storage().setItem(STORAGE_KEY, cachedRaw);
   }
   return db;
 }
@@ -96,7 +102,7 @@ function parseStoredDb(raw: string): MamDemoDb {
   } catch {
     console.warn('[mam demo] Corrupted localStorage — re-seeding demo data');
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
+      storage().removeItem(STORAGE_KEY);
     }
     return seedAndPersist();
   }
@@ -126,11 +132,12 @@ function normalizeDemoDocuments(db: MamDemoDb) {
   }
 }
 
-function normalizeDemoBikes(db: MamDemoDb) {
+function normalizeDemoBikes(db: MamDemoDb): boolean {
   for (const b of db.bikes) {
     if (typeof b.repair_cost !== 'number') b.repair_cost = 0;
     if (typeof b.other_cost !== 'number') b.other_cost = 0;
   }
+  return repairBikeInventoryStatuses(db);
 }
 
 function normalizeDemoLoans(db: MamDemoDb) {
@@ -166,11 +173,16 @@ export function getDbSnapshot(): MamDemoDb {
   normalizeDemoPayments(cachedDb);
   normalizeDemoGuarantees(cachedDb);
   normalizeDemoDocuments(cachedDb);
-  normalizeDemoBikes(cachedDb);
+  const bikesRepaired = normalizeDemoBikes(cachedDb);
   normalizeDemoLoans(cachedDb);
   normalizeBusinessSettings(cachedDb);
   normalizeAppAuth(cachedDb);
-  cachedRaw = raw;
+  if (bikesRepaired) {
+    cachedRaw = JSON.stringify(cachedDb);
+    storage().setItem(STORAGE_KEY, cachedRaw);
+  } else {
+    cachedRaw = raw;
+  }
   return cachedDb;
 }
 
@@ -205,7 +217,7 @@ export function saveDb(db: MamDemoDb): void {
   if (typeof window === 'undefined') return;
   cachedDb = db;
   cachedRaw = JSON.stringify(db);
-  localStorage.setItem(STORAGE_KEY, cachedRaw);
+  storage().setItem(STORAGE_KEY, cachedRaw);
   notifyListeners();
 }
 
@@ -381,7 +393,7 @@ export function seedDemoDb(): MamDemoDb {
 
 export function resetDemoDb(): MamDemoDb {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
+    storage().removeItem(STORAGE_KEY);
   }
   cachedRaw = '';
   cachedDb = null;
@@ -400,6 +412,3 @@ export function initLocalDemoDb(): MamDemoDb {
   return getDbSnapshot();
 }
 
-export function isDemoMode(): boolean {
-  return typeof window !== 'undefined' && !!localStorage.getItem(STORAGE_KEY);
-}

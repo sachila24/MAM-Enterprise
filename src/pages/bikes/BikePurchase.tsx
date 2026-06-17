@@ -11,8 +11,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   completeBikePurchase,
-  hasSoldBikeHistoryForRegistration,
-  isRegistrationUsedByActiveBike,
+  hasPriorRegistrationOrChassisUsage,
   listCustomers,
 } from '../../lib/local-db/repositories';
 import type { CompleteBikePurchaseInput } from '../../lib/local-db/repositories/bikesRepo';
@@ -27,7 +26,7 @@ import type { PaymentMethod } from '../../types/loan';
 import { useT } from '../../i18n/I18nProvider';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
 import { isValidSriLankanPhone } from '../../lib/validation/phone';
-import { getSystemToday } from '../../lib/time/systemTime';
+import { getSystemToday, normalizeDate } from '../../lib/time/systemTime';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIKE_YEAR_OPTIONS = Array.from({ length: 41 }, (_, i) => CURRENT_YEAR - i);
@@ -137,19 +136,23 @@ export function BikePurchase() {
     }
   }, [paymentMethod]);
 
-  const [showPreviouslySoldNotice, setShowPreviouslySoldNotice] = useState(false);
+  const [showReuseWarning, setShowReuseWarning] = useState(false);
 
   useEffect(() => {
     const registration = registrationNo.trim();
-    if (!registration) {
-      setShowPreviouslySoldNotice(false);
+    const chassis = chassisNo.trim();
+    if (!registration && !chassis) {
+      setShowReuseWarning(false);
       return;
     }
-    setShowPreviouslySoldNotice(
-      hasSoldBikeHistoryForRegistration(db, registration) &&
-        !isRegistrationUsedByActiveBike(db, registration)
+    setShowReuseWarning(
+      hasPriorRegistrationOrChassisUsage(
+        db,
+        registration,
+        chassis || undefined
+      )
     );
-  }, [db, registrationNo]);
+  }, [db, registrationNo, chassisNo]);
 
   const handleSelectCustomer = (customerId: string | null) => {
     setSelectedCustomerId(customerId);
@@ -330,7 +333,7 @@ export function BikePurchase() {
         documentCost,
         otherCost,
         sellingPrice,
-        purchaseDate,
+        purchaseDate: normalizeDate(purchaseDate),
         purchaseNotes: combinedNotes || undefined,
         paymentMethod,
         paymentReference: paymentReference.trim() || undefined,
@@ -480,9 +483,9 @@ export function BikePurchase() {
                   <h3 className="text-lg font-medium text-neutral-900">
                     {getDocumentLabel('bikeDetails', language)}
                   </h3>
-                  {showPreviouslySoldNotice && (
-                    <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 text-sm text-brand-900">
-                      {t('previouslySoldRegistrationNotice')}
+                  {showReuseWarning && (
+                    <div className="rounded-lg bg-warning-50 ring-1 ring-warning-200 p-4 text-sm text-warning-900">
+                      {t('bikeRegistrationOrChassisReuseWarning')}
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -605,7 +608,7 @@ export function BikePurchase() {
                         <DatePicker
                           label={`${t('purchaseDate')} *`}
                           value={purchaseDate}
-                          onChange={setPurchaseDate}
+                          onChange={(e) => setPurchaseDate(e.target.value)}
                         />
                       </div>
                       <div className="sm:col-span-2">

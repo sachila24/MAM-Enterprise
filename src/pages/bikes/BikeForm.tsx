@@ -5,7 +5,12 @@ import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { useToast } from '../../components/ui/Toast';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
-import { createBike, getBike, hasSoldBikeHistoryForRegistration, isRegistrationUsedByActiveBike, updateBike } from '../../lib/local-db/repositories';
+import {
+  createBike,
+  getBike,
+  hasPriorRegistrationOrChassisUsage,
+  updateBike,
+} from '../../lib/local-db/repositories';
 import { useT } from '../../i18n/I18nProvider';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -22,7 +27,7 @@ export function BikeForm() {
   const isSubmittingRef = useRef(false);
   const clientSubmitIdRef = useRef<string | null>(null);
   const [isSoldBike, setIsSoldBike] = useState(false);
-  const [showPreviouslySoldNotice, setShowPreviouslySoldNotice] = useState(false);
+  const [showReuseWarning, setShowReuseWarning] = useState(false);
   const [formData, setFormData] = useState({
     model: '',
     registrationNo: '',
@@ -62,20 +67,21 @@ export function BikeForm() {
   }, [id, isEdit, db]);
 
   useEffect(() => {
-    if (isEdit) {
-      setShowPreviouslySoldNotice(false);
-      return;
-    }
     const registration = formData.registrationNo.trim();
-    if (!registration) {
-      setShowPreviouslySoldNotice(false);
+    const chassis = formData.chassisNo.trim();
+    if (!registration && !chassis) {
+      setShowReuseWarning(false);
       return;
     }
-    setShowPreviouslySoldNotice(
-      hasSoldBikeHistoryForRegistration(db, registration) &&
-        !isRegistrationUsedByActiveBike(db, registration)
+    setShowReuseWarning(
+      hasPriorRegistrationOrChassisUsage(
+        db,
+        registration,
+        chassis || undefined,
+        isEdit ? id : undefined
+      )
     );
-  }, [db, formData.registrationNo, isEdit]);
+  }, [db, formData.registrationNo, formData.chassisNo, isEdit, id]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -185,9 +191,9 @@ export function BikeForm() {
             {t('bikeSaleFinancialsLocked')}
           </div>
         )}
-        {!isEdit && showPreviouslySoldNotice && (
-          <div className="rounded-lg bg-brand-50 ring-1 ring-brand-200 p-4 text-sm text-brand-900">
-            {t('previouslySoldRegistrationNotice')}
+        {showReuseWarning && (
+          <div className="rounded-lg bg-warning-50 ring-1 ring-warning-200 p-4 text-sm text-warning-900">
+            {t('bikeRegistrationOrChassisReuseWarning')}
           </div>
         )}
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 pt-8 first:pt-0">

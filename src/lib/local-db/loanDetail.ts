@@ -1,6 +1,6 @@
 import { summarizeInterestOnlyLoan } from '../finance/interestOnlyCycles';
 import { totalPendingInterest } from '../finance/interestOnly';
-import type { LoanDetailData } from '../../pages/loans/loanDetailPreviewData';
+import type { LoanDetailData } from '../../pages/loans/loanDetailTypes';
 import {
   mapBike,
   mapCustomer,

@@ -56,9 +56,9 @@ export function mapBike(b: DbBike): Bike {
     repairCost: b.repair_cost ?? 0,
     otherCost: b.other_cost ?? 0,
     status:
-      b.status === 'IN_STOCK'
+      b.status === 'IN_STOCK' || b.status === 'AVAILABLE'
         ? 'in_stock'
-        : b.status === 'SOLD'
+        : b.status === 'SOLD' || b.status === 'SETTLED'
           ? 'sold'
           : 'held',
     purchaseDate: b.purchase_date,

@@ -1,6 +1,8 @@
 import React from 'react';
+import logoSrc from '../../assets/mam-logo.svg';
 
-const LOGO_SRC = '/assets/mam-logo.svg';
+/** Vite-resolved URL — works in browser, Electron dev, and file:// packaged builds. */
+const LOGO_SRC = logoSrc;
 
 export interface MamLogoProps {
   /** Pixel width/height of the square logo area */
@@ -64,25 +66,11 @@ export function MamDocumentHeader({
 }
 
 export interface MamDocumentFooterProps {
-  /** When false, omits the vendor email line (B5 payment receipts). */
+  /** Reserved for future business footer lines. */
   showEmail?: boolean;
 }
 
-/** Unobtrusive vendor credit — below signatures on all printed MAM documents */
-export function MamDocumentFooter({ showEmail = true }: MamDocumentFooterProps) {
-  const parts = [
-    'System Developed & Maintained by Sachila Dissanayake',
-    '0764608628',
-  ];
-  if (showEmail) {
-    parts.push('sathmika7@gmail.com');
-  }
-
-  return (
-    <footer className="mam-bill-footer" aria-label="System vendor">
-      <p className="mam-bill-footer-line mam-bill-footer-compact">
-        {parts.join(' · ')}
-      </p>
-    </footer>
-  );
+/** Business documents — no developer/vendor credit on customer-facing prints. */
+export function MamDocumentFooter(_props: MamDocumentFooterProps = {}) {
+  return null;
 }

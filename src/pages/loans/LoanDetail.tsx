@@ -17,7 +17,10 @@ import {
   guaranteeDetailLines,
 } from '../../lib/guarantee/guaranteeFields';
 import type { LabelKey } from '../../lib/i18n/simpleLabels';
-import { canRequestEarlySettlement } from '../../lib/finance/earlySettlement';
+import {
+  canRequestEarlySettlement,
+  earliestEarlySettlementDate,
+} from '../../lib/finance/earlySettlement';
 import {
   getFixedLoanDisplayStatus,
   getFixedLoanArrearsSummary,
@@ -35,11 +38,7 @@ import { formatLKR, formatDate, formatEnum } from '../../lib/format';
 import { formatBikeSelectLabel } from '../../lib/display/bikeDisplay';
 import { useT } from '../../i18n/I18nProvider';
 import { getNextDueDateForFixedInstallments } from '../../lib/finance/loanNextDue';
-import {
-  resolveLoanDetailPreview,
-  LOAN_DETAIL_PREVIEW_LINKS,
-  type LoanDetailData,
-} from './loanDetailPreviewData';
+import type { LoanDetailData } from './loanDetailTypes';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import {
   getLoanDetailFromDb,
@@ -88,8 +87,7 @@ export function LoanDetail() {
     }
   }, [id, db, asOfToday]);
 
-  const detail =
-    (id ? getLoanDetailFromDb(id, db) : null) ?? resolveLoanDetailPreview(id);
+  const detail = id ? getLoanDetailFromDb(id, db) : null;
   const demoLinks = listLoanDetailLinks(db);
   const loanInvoiceDoc = id ? findLoanCreationDocument(db, id) : undefined;
 
@@ -99,30 +97,30 @@ export function LoanDetail() {
         <EmptyState
           icon={AlertCircleIcon}
           title={t('loanNotFound')}
-          description={t('chooseDemoLoanBelow')}
+          description={t('chooseLoanBelow')}
           action={
-            <ul className="mt-4 space-y-2 text-sm">
-              {demoLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              {LOAN_DETAIL_PREVIEW_LINKS.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={`/loans/${link.id}`}
-                    className="font-semibold text-brand-600 hover:text-brand-500"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            demoLinks.length > 0 ? (
+              <ul className="mt-4 space-y-2 text-sm">
+                {demoLinks.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      to={`/loans/${link.id}`}
+                      className="font-semibold text-brand-600 hover:text-brand-500"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Link
+                to="/loans"
+                className="inline-flex items-center gap-2 font-semibold text-brand-600 hover:text-brand-500"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                {t('backToLoans')}
+              </Link>
+            )
           }
         />
       </div>
@@ -231,7 +229,6 @@ function InterestOnlyLoanDetail({
               loanId={loan.id}
               navigate={navigate}
               showEarlySettlement={false}
-              monthsCompleted={detail.monthsCompleted}
               minimumMonths={loan.minimumMonthsBeforeSettlement}
               invoiceDocumentId={invoiceDocumentId}
             />
@@ -452,7 +449,12 @@ function FixedInstallmentLoanDetail({
   }, [loan.status, installments, asOfDate, tf]);
 
   const settlementEligible = canRequestEarlySettlement(
-    detail.monthsCompleted,
+    loan.startDate,
+    asOfDate,
+    loan.minimumMonthsBeforeSettlement
+  );
+  const earliestSettlementDate = earliestEarlySettlementDate(
+    loan.startDate,
     loan.minimumMonthsBeforeSettlement
   );
 
@@ -473,8 +475,8 @@ function FixedInstallmentLoanDetail({
               navigate={navigate}
               showEarlySettlement
               settlementEligible={settlementEligible}
-              monthsCompleted={detail.monthsCompleted}
               minimumMonths={loan.minimumMonthsBeforeSettlement}
+              earliestSettlementDate={earliestSettlementDate}
               invoiceDocumentId={invoiceDocumentId}
             />
           }
@@ -757,16 +759,16 @@ function LoanActionBar({
   navigate,
   showEarlySettlement,
   settlementEligible = false,
-  monthsCompleted,
   minimumMonths,
+  earliestSettlementDate,
   invoiceDocumentId,
 }: {
   loanId: string;
   navigate: ReturnType<typeof useNavigate>;
   showEarlySettlement: boolean;
   settlementEligible?: boolean;
-  monthsCompleted: number;
   minimumMonths: number;
+  earliestSettlementDate?: string;
   invoiceDocumentId?: string;
 }) {
   const { t, tf, language } = useT();
@@ -797,11 +799,12 @@ function LoanActionBar({
           </ActionButton>
         )}
       </div>
-      {showEarlySettlement && !settlementEligible && (
+      {showEarlySettlement && !settlementEligible && earliestSettlementDate && (
         <p className="text-xs text-neutral-500 max-w-xs sm:text-right">
-          {tf('earlySettlementMonthsRequired', { months: minimumMonths })}
-          {monthsCompleted > 0 &&
-            ` ${tf('earlySettlementMonthsProgress', { completed: monthsCompleted })}`}
+          {tf('earlySettlementAvailableFrom', {
+            months: minimumMonths,
+            date: formatDate(earliestSettlementDate, 'short', language),
+          })}
         </p>
       )}
     </div>

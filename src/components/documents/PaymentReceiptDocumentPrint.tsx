@@ -59,8 +59,6 @@ export function PaymentReceiptDocumentPrint({
 }: PaymentReceiptDocumentPrintProps) {
   const L = getDocumentLabels(language);
   const b = snapshot.appliedBreakdown;
-  const isInterestOnly =
-    snapshot.repaymentMethod === 'INTEREST_ONLY_REDUCING_PRINCIPAL';
   const customerName = snapshot.customer?.name ?? snapshot.customerName ?? '—';
   const customerNic = snapshot.customer?.nic ?? '—';
   const customerPhone = snapshot.customer?.phone ?? '—';
@@ -68,8 +66,10 @@ export function PaymentReceiptDocumentPrint({
   const paymentTimeSource = hasPaymentTimePart
     ? snapshot.paymentDate
     : createdAt;
-  const previousBalance = b.remainingBalance + b.totalApplied;
   const totalReceived = b.cashReceived;
+  const isBikeLoanReceipt = Boolean(
+    snapshot.bikeModel?.trim() && snapshot.bikeModel !== '—'
+  );
 
   return (
     <div
@@ -138,29 +138,11 @@ export function PaymentReceiptDocumentPrint({
               />
               <BillRow label={L.lateFee} value={formatLKR(b.lateFeePaid)} />
               <BillRow label={L.totalReceived} value={formatLKR(totalReceived)} />
-              {isInterestOnly && (
-                <BillRow
-                  label={L.previousBalance}
-                  value={formatLKR(previousBalance)}
-                />
-              )}
-              {isInterestOnly && (
-                <BillRow
-                  label={L.remainingBalance}
-                  value={formatLKR(b.remainingBalance)}
-                  tone="strong"
-                />
-              )}
               <BillRow
                 label={L.nextDueDate}
                 value={
                   snapshot.nextDueDate ? formatDate(snapshot.nextDueDate) : '—'
                 }
-                tone="due"
-              />
-              <BillRow
-                label={L.installmentNumber}
-                value={snapshot.installmentNumberLabel ?? '—'}
                 tone="due"
               />
             </div>
@@ -176,6 +158,7 @@ export function PaymentReceiptDocumentPrint({
           authorizedOfficer={L.authorizedOfficer}
           variant="two"
           showEmail={false}
+          showLegalNotice={isBikeLoanReceipt}
         />
       </div>
     </div>

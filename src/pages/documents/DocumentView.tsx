@@ -20,10 +20,11 @@ import { incrementDocumentPrintCount } from '../../lib/local-db/repositories/doc
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { useT } from '../../i18n/I18nProvider';
 import { getDocumentLabel } from '../../lib/i18n/documentLabels';
+import { printPage } from '../../lib/electron/printPage';
 
 function handlePrint(documentId: string) {
   incrementDocumentPrintCount(documentId);
-  window.print();
+  printPage();
 }
 
 export function DocumentView() {

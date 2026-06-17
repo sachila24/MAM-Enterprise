@@ -7,10 +7,12 @@ import { useToast } from '../../components/ui/Toast';
 import {
   calculateEarlySettlementQuote,
   canRequestEarlySettlement,
+  computeFixedInstallmentSettlementBalance,
+  earliestEarlySettlementDate,
 } from '../../lib/finance/earlySettlement';
 import { summarizeFixedInstallmentDue } from '../../lib/finance/paymentAllocation';
 import { resolveCurrentInstallmentNumber } from '../../lib/finance/fixedInstallmentStatus';
-import { formatLKR } from '../../lib/format';
+import { formatLKR, formatDate } from '../../lib/format';
 import { roundLKR } from '../../lib/finance/money';
 import { useDemoDb } from '../../lib/local-db/useDemoDb';
 import { getLoanDetailFromDb } from '../../lib/local-db/loanDetail';
@@ -29,9 +31,7 @@ export function EarlySettlement() {
   const systemToday = useSystemToday();
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [includeCurrentMonth, setIncludeCurrentMonth] = useState(true);
-  const [settlementDate, setSettlementDate] = useState(
-    getSystemToday()
-  );
+  const [settlementDate, setSettlementDate] = useState(getSystemToday());
 
   useEffect(() => {
     setSettlementDate(systemToday);
@@ -47,11 +47,21 @@ export function EarlySettlement() {
     if (!detail || !isFixedInstallmentLoan(detail.loan)) return null;
     const { loan, installments } = detail;
     const totalPayable = loan.totalPayable ?? loan.balanceAmount;
-    const paidRatio = totalPayable > 0 ? loan.paidAmount / totalPayable : 0;
-    const remainingPrincipal = roundLKR(loan.principalAmount * (1 - paidRatio));
-    const remainingInterest = roundLKR(
-      Math.max(0, loan.balanceAmount - remainingPrincipal)
+    const totalInterest =
+      loan.totalInterestAmount ??
+      roundLKR(Math.max(0, totalPayable - loan.principalAmount));
+
+    const settlementBalance = computeFixedInstallmentSettlementBalance(
+      loan.principalAmount,
+      totalInterest,
+      installments.map((i) => ({
+        principalComponent: i.principalComponent,
+        interestComponent: i.interestComponent,
+        installmentAmount: i.installmentAmount,
+        paidAmount: i.paidAmount,
+      }))
     );
+
     const instAlloc = installments.map((i) => ({
       id: i.id,
       installmentNumber: i.installmentNumber,
@@ -74,10 +84,13 @@ export function EarlySettlement() {
       lateFeeExemptByInstallmentId: detail.lateFeeExemptByInstallmentId,
     });
     return {
-      remainingPrincipal,
-      remainingInterest,
+      settlementBalance,
       currentMonthDue: dueSummary.currentMonthDue + dueSummary.totalLateFeesDue,
       monthlyInstallment: loan.installmentAmount ?? 0,
+      earliestDate: earliestEarlySettlementDate(
+        loan.startDate,
+        loan.minimumMonthsBeforeSettlement
+      ),
     };
   }, [detail, settlementDate]);
 
@@ -86,21 +99,22 @@ export function EarlySettlement() {
   const quote = useMemo(() => {
     if (!detail || !quoteInputs) return null;
     return calculateEarlySettlementQuote({
-      monthsCompleted: detail.monthsCompleted,
+      startDate: detail.loan.startDate,
+      asOfDate: settlementDate,
       minimumMonthsBeforeSettlement: detail.loan.minimumMonthsBeforeSettlement,
-      remainingPrincipal: quoteInputs.remainingPrincipal,
-      remainingInterest: quoteInputs.remainingInterest,
+      balance: quoteInputs.settlementBalance,
       discountPercentage,
       currentMonthDue: quoteInputs.currentMonthDue,
       includeCurrentMonthDue: includeCurrentMonth,
     });
-  }, [detail, quoteInputs, discountPercentage, includeCurrentMonth]);
+  }, [detail, quoteInputs, discountPercentage, includeCurrentMonth, settlementDate]);
 
   const eligible =
     detail &&
     isFixedInstallmentLoan(detail.loan) &&
     canRequestEarlySettlement(
-      detail.monthsCompleted,
+      detail.loan.startDate,
+      settlementDate,
       detail.loan.minimumMonthsBeforeSettlement
     );
 
@@ -136,7 +150,7 @@ export function EarlySettlement() {
     if (!eligible || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const { settlementCode } = confirmEarlySettlement(
+      const { settlementCode, paymentId } = confirmEarlySettlement(
         {
           loanId,
           settlementDate,
@@ -149,7 +163,15 @@ export function EarlySettlement() {
         formatMessage('earlySettlementRecorded', { code: settlementCode }, language),
         'success'
       );
-      navigate(`/loans/${loanId}`, { replace: true });
+      const receiptDoc = db.documents.find(
+        (d) =>
+          d.payment_id === paymentId && d.document_type === 'PAYMENT_RECEIPT'
+      );
+      if (receiptDoc) {
+        navigate(`/documents/${receiptDoc.id}?print=1`, { replace: true });
+      } else {
+        navigate(`/loans/${loanId}`, { replace: true });
+      }
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : t('couldNotConfirmSettlement'),
@@ -175,11 +197,11 @@ export function EarlySettlement() {
         subtitle={`${detail.customer.name} · ${detail.loan.loanCode}`}
       />
 
-      {!eligible && (
+      {!eligible && quoteInputs && (
         <p className="mb-4 rounded-lg bg-warning-50 border border-warning-200 px-4 py-3 text-sm text-warning-800">
           {tf('earlySettlementEligibleAfter', {
             months: detail.loan.minimumMonthsBeforeSettlement,
-            completed: detail.monthsCompleted,
+            date: formatDate(quoteInputs.earliestDate, 'short', language),
           })}
         </p>
       )}
@@ -189,10 +211,6 @@ export function EarlySettlement() {
           <QuoteRow label={t('loanCodeLabel')} value={detail.loan.loanCode} mono />
           <QuoteRow label={t('field.customer')} value={detail.customer.name} />
           <QuoteRow
-            label={t('financeAmount')}
-            value={formatLKR(detail.loan.principalAmount)}
-          />
-          <QuoteRow
             label={t('termMonths')}
             value={
               detail.loan.termMonths != null
@@ -201,26 +219,44 @@ export function EarlySettlement() {
             }
           />
           <QuoteRow
-            label={t('monthsCompleted')}
-            value={String(detail.monthsCompleted)}
-          />
-          <QuoteRow
             label={t('monthlyInstallment')}
             value={formatLKR(quoteInputs?.monthlyInstallment ?? 0)}
           />
-          {quoteInputs && (
-            <>
+        </dl>
+
+        {quote && (
+          <div className="border-t border-neutral-200 pt-6">
+            <h3 className="text-sm font-semibold text-neutral-900 mb-4">
+              {t('earlySettlementBreakdown')}
+            </h3>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <QuoteRow
+                label={t('kpiOriginalPrincipal')}
+                value={formatLKR(quote.originalPrincipal)}
+              />
+              <QuoteRow
+                label={t('totalInterest')}
+                value={formatLKR(quote.originalTotalInterest)}
+              />
+              <QuoteRow
+                label={t('paidPrincipal')}
+                value={formatLKR(quote.paidPrincipal)}
+              />
+              <QuoteRow
+                label={t('paidInterest')}
+                value={formatLKR(quote.paidInterest)}
+              />
               <QuoteRow
                 label={t('remainingPrincipal')}
-                value={formatLKR(quoteInputs.remainingPrincipal)}
+                value={formatLKR(quote.remainingPrincipal)}
               />
               <QuoteRow
                 label={t('remainingInterest')}
-                value={formatLKR(quoteInputs.remainingInterest)}
+                value={formatLKR(quote.remainingInterest)}
               />
-            </>
-          )}
-        </dl>
+            </dl>
+          </div>
+        )}
 
         <div className="border-t border-neutral-200 pt-6 space-y-4">
           <div>
@@ -258,9 +294,17 @@ export function EarlySettlement() {
         {quote && (
           <div className="rounded-lg bg-brand-50 ring-1 ring-brand-100 p-4 space-y-2 text-sm">
             <div className="flex justify-between">
+              <span className="text-brand-800">
+                {t('discountOnRemainingInterest')}
+              </span>
+              <span className="font-semibold tabular-nums">
+                {discountPercentage}%
+              </span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-brand-800">{t('interestDiscount')}</span>
               <span className="font-semibold tabular-nums">
-                {formatLKR(quote.discountAmount)}
+                {formatLKR(quote.interestDiscount)}
               </span>
             </div>
             {includeCurrentMonth && quote.currentMonthDue > 0 && (
