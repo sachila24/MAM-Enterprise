@@ -1,3 +1,4 @@
+import { getDb } from '../local-db/localDb';
 import type { MamDemoDb } from '../local-db/types';
 import type { EntityCounts, SyncResult } from './types';
 import { buildSourceCounts } from './migrateLocalStorageToSQLite';
@@ -34,12 +35,13 @@ function emptyCounts(): EntityCounts {
  * Preserves IDs, timestamps, and document references.
  * Never throws — callers should still treat localStorage as source of truth.
  */
-export async function syncLocalDbToSqlite(db: MamDemoDb): Promise<SyncResult> {
+export async function syncLocalDbToSqlite(db?: MamDemoDb): Promise<SyncResult> {
+  const source = db ?? getDb();
   if (!isSqliteAvailable()) {
     return {
       synced: false,
       reason: 'sqlite_not_available',
-      sourceCounts: buildSourceCounts(db),
+      sourceCounts: buildSourceCounts(source),
       sqliteCounts: emptyCounts(),
       mismatches: [],
       ok: false,
@@ -47,7 +49,7 @@ export async function syncLocalDbToSqlite(db: MamDemoDb): Promise<SyncResult> {
   }
 
   try {
-    const result = await runSqliteSync(JSON.stringify(db));
+    const result = await runSqliteSync(JSON.stringify(source));
     logSyncStatus(result);
     if (result.mismatches.length > 0) {
       console.warn(`${LOG_PREFIX} Count mismatches`, result.mismatches);
@@ -61,7 +63,7 @@ export async function syncLocalDbToSqlite(db: MamDemoDb): Promise<SyncResult> {
     return {
       synced: false,
       reason: 'sync_error',
-      sourceCounts: buildSourceCounts(db),
+      sourceCounts: buildSourceCounts(source),
       sqliteCounts: emptyCounts(),
       mismatches: [],
       ok: false,
@@ -70,17 +72,17 @@ export async function syncLocalDbToSqlite(db: MamDemoDb): Promise<SyncResult> {
 }
 
 let syncInFlight = false;
-let pendingDb: MamDemoDb | null = null;
+let syncPending = false;
 
 /**
  * Queue a background sync after saveDb(). Coalesces rapid saves — only the
- * latest snapshot is written. Failures are logged only; never blocks saves.
+ * latest state is written at execution time via getDb(). Failures are logged only.
  */
-export function scheduleSqliteSync(db: MamDemoDb): void {
+export function scheduleSqliteSync(_db?: MamDemoDb): void {
   if (!isSqliteAvailable()) {
     return;
   }
-  pendingDb = db;
+  syncPending = true;
   if (syncInFlight) {
     return;
   }
@@ -89,10 +91,9 @@ export function scheduleSqliteSync(db: MamDemoDb): void {
 
 async function runSyncQueue(): Promise<void> {
   syncInFlight = true;
-  while (pendingDb) {
-    const db = pendingDb;
-    pendingDb = null;
-    await syncLocalDbToSqlite(db);
+  while (syncPending) {
+    syncPending = false;
+    await syncLocalDbToSqlite();
   }
   syncInFlight = false;
 }

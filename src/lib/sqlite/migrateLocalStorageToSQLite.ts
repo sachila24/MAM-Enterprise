@@ -1,5 +1,5 @@
 import type { MamDemoDb } from '../local-db/types';
-import { STORAGE_KEY } from '../local-db/localDb';
+import { getDb, STORAGE_KEY } from '../local-db/localDb';
 import { localStorageAdapter } from '../../storage/localStorageAdapter';
 import type { EntityCounts, MigrationResult } from './types';
 import { isSqliteAvailable, runSqliteMigration } from './sqliteClient';
@@ -16,7 +16,7 @@ export function buildSourceCounts(db: MamDemoDb): EntityCounts {
   };
 }
 
-function readLocalStorageDbJson(): string | null {
+export function readLocalStorageDbJson(): string | null {
   const raw = localStorageAdapter.getItem(STORAGE_KEY);
   if (!raw?.trim()) {
     return null;
@@ -29,22 +29,13 @@ function readLocalStorageDbJson(): string | null {
  * Preserves IDs, timestamps, and document references.
  * Does not modify localStorage or switch the active backend.
  */
-export async function migrateLocalStorageToSQLite(
-  db?: MamDemoDb
-): Promise<MigrationResult> {
+export async function migrateLocalStorageToSQLite(): Promise<MigrationResult> {
   if (!isSqliteAvailable()) {
+    const db = getDb();
     return {
       migrated: false,
       reason: 'sqlite_not_available',
-      sourceCounts: db
-        ? buildSourceCounts(db)
-        : {
-            customers: 0,
-            bikes: 0,
-            loans: 0,
-            payments: 0,
-            documents: 0,
-          },
+      sourceCounts: buildSourceCounts(db),
       sqliteCounts: {
         customers: 0,
         bikes: 0,
@@ -55,7 +46,7 @@ export async function migrateLocalStorageToSQLite(
     };
   }
 
-  const dbJson = db ? JSON.stringify(db) : readLocalStorageDbJson();
+  const dbJson = readLocalStorageDbJson();
   if (!dbJson) {
     return {
       migrated: false,

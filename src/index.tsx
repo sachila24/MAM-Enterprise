@@ -13,7 +13,7 @@ const db = getDbSnapshot();
 syncAllInterestOnlyLoans(db);
 syncAllFixedInstallmentLateFees(db);
 
-void initSqliteInfrastructure(db);
+void initSqliteInfrastructure();
 
 const root = document.getElementById('root');
 if (root) {

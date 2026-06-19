@@ -1,31 +1,27 @@
-import type { MamDemoDb } from '../local-db/types';
+import { getDb } from '../local-db/localDb';
 import { migrateLocalStorageToSQLite } from './migrateLocalStorageToSQLite';
-import { syncLocalDbToSqlite } from './syncLocalDbToSqlite';
 import { verifyMigration } from './verifyMigration';
 import { verifySqliteHealth } from './verifySqliteHealth';
-import type { MigrationResult, SqliteHealthReport, SyncResult, VerificationReport } from './types';
+import type { MigrationResult, SqliteHealthReport, VerificationReport } from './types';
 import { initSqliteDatabase, isSqliteAvailable } from './sqliteClient';
 
 export interface SqliteBootstrapResult {
   initialized: boolean;
   migration: MigrationResult | null;
-  sync: SyncResult | null;
   verification: VerificationReport | null;
   health: SqliteHealthReport | null;
 }
 
 /**
- * Phase 1 startup: initialize SQLite, sync from localStorage, verify counts.
- * localStorage remains the active backend — repositories are unchanged.
+ * Phase 1 startup: initialize SQLite, run one-shot migration if needed, verify counts.
+ * Ongoing sync is handled by scheduleSqliteSync() after every saveDb().
+ * Always reads fresh localStorage / getDb() — never a frozen startup snapshot.
  */
-export async function initSqliteInfrastructure(
-  db: MamDemoDb
-): Promise<SqliteBootstrapResult> {
+export async function initSqliteInfrastructure(): Promise<SqliteBootstrapResult> {
   if (!isSqliteAvailable()) {
     return {
       initialized: false,
       migration: null,
-      sync: null,
       verification: null,
       health: null,
     };
@@ -33,9 +29,8 @@ export async function initSqliteInfrastructure(
 
   await initSqliteDatabase();
 
-  const migration = await migrateLocalStorageToSQLite(db);
-  const sync = await syncLocalDbToSqlite(db);
-  const verification = await verifyMigration(db);
+  const migration = await migrateLocalStorageToSQLite();
+  const verification = await verifyMigration(getDb());
   const health = await verifySqliteHealth();
 
   if (migration.migrated) {
@@ -51,7 +46,6 @@ export async function initSqliteInfrastructure(
   return {
     initialized: true,
     migration,
-    sync,
     verification,
     health,
   };
