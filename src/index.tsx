@@ -6,11 +6,14 @@ import { App } from './App';
 import { getDbSnapshot, initLocalDemoDb } from './lib/local-db/localDb';
 import { syncAllFixedInstallmentLateFees } from './lib/local-db/fixedInstallmentSync';
 import { syncAllInterestOnlyLoans } from './lib/local-db/interestOnlySync';
+import { initSqliteInfrastructure } from './lib/sqlite/initSqlite';
 
 initLocalDemoDb();
 const db = getDbSnapshot();
 syncAllInterestOnlyLoans(db);
 syncAllFixedInstallmentLateFees(db);
+
+void initSqliteInfrastructure(db);
 
 const root = document.getElementById('root');
 if (root) {

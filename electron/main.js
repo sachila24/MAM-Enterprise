@@ -7,6 +7,19 @@ import {
   readBackupFromDisk,
   saveBackupToDisk,
 } from './backupManager.js';
+import {
+  closeDatabase,
+  getDatabasePath,
+  getEntityCounts,
+  initializeDatabase,
+  kvGet,
+  kvRemove,
+  kvSet,
+  migrateLocalStorageToSQLite,
+  verifyMigration,
+  verifySqliteHealth,
+  syncLocalStorageToSQLite,
+} from './database/databaseManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -116,7 +129,81 @@ ipcMain.on('mam:backup:close-ready', () => {
   finishQuitAfterBackup();
 });
 
+// SQLite infrastructure (Phase 1 — sync IPC for future StorageAdapter swap)
+ipcMain.on('mam:db:kv:get', (event, key) => {
+  try {
+    event.returnValue = kvGet(key);
+  } catch (err) {
+    event.returnValue = null;
+    console.error('[SQLite] kv:get failed:', err);
+  }
+});
+
+ipcMain.on('mam:db:kv:set', (event, key, value) => {
+  try {
+    kvSet(key, value);
+    event.returnValue = true;
+  } catch (err) {
+    event.returnValue = false;
+    console.error('[SQLite] kv:set failed:', err);
+  }
+});
+
+ipcMain.on('mam:db:kv:remove', (event, key) => {
+  try {
+    kvRemove(key);
+    event.returnValue = true;
+  } catch (err) {
+    event.returnValue = false;
+    console.error('[SQLite] kv:remove failed:', err);
+  }
+});
+
+ipcMain.handle('mam:db:init', async () => {
+  const result = initializeDatabase();
+  return { ok: true, path: result.path, created: result.created };
+});
+
+ipcMain.handle('mam:db:migrate', async (_event, dbJson) => {
+  if (typeof dbJson !== 'string' || !dbJson.trim()) {
+    throw new Error('Migration payload is empty.');
+  }
+  return migrateLocalStorageToSQLite(dbJson);
+});
+
+ipcMain.handle('mam:db:verify', async (_event, sourceCounts) => {
+  if (!sourceCounts || typeof sourceCounts !== 'object') {
+    throw new Error('Verification requires source entity counts.');
+  }
+  return verifyMigration(sourceCounts);
+});
+
+ipcMain.handle('mam:db:sync', async (_event, dbJson) => {
+  if (typeof dbJson !== 'string' || !dbJson.trim()) {
+    throw new Error('Sync payload is empty.');
+  }
+  return syncLocalStorageToSQLite(dbJson);
+});
+
+ipcMain.handle('mam:db:health', async () => {
+  return verifySqliteHealth();
+});
+
+ipcMain.handle('mam:db:counts', async () => {
+  return {
+    counts: getEntityCounts(),
+    path: getDatabasePath(),
+  };
+});
+
 app.whenReady().then(() => {
+  try {
+    const dbInit = initializeDatabase();
+    console.log('[SQLite] Database ready:', dbInit.path);
+  } catch (err) {
+    console.error('[SQLite] Failed to initialize database:', err);
+  }
+
   createWindow();
 
   app.on('activate', () => {
@@ -139,4 +226,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  closeDatabase();
 });

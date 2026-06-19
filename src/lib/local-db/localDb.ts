@@ -13,6 +13,7 @@ import {
 } from './businessSettings';
 import { DEFAULT_APP_AUTH, isValidAppAuth, normalizeAppAuth } from './appAuth';
 import { getStorageAdapter } from '../../storage/storageAdapter';
+import { scheduleSqliteSync } from '../sqlite/syncLocalDbToSqlite';
 
 export const STORAGE_KEY = 'mam_demo_db_v1';
 
@@ -88,6 +89,7 @@ function seedAndPersist(): MamDemoDb {
   cachedRaw = JSON.stringify(db);
   if (typeof window !== 'undefined') {
     storage().setItem(STORAGE_KEY, cachedRaw);
+    scheduleSqliteSync(db);
   }
   return db;
 }
@@ -180,6 +182,7 @@ export function getDbSnapshot(): MamDemoDb {
   if (bikesRepaired) {
     cachedRaw = JSON.stringify(cachedDb);
     storage().setItem(STORAGE_KEY, cachedRaw);
+    scheduleSqliteSync(cachedDb);
   } else {
     cachedRaw = raw;
   }
@@ -219,6 +222,7 @@ export function saveDb(db: MamDemoDb): void {
   cachedRaw = JSON.stringify(db);
   storage().setItem(STORAGE_KEY, cachedRaw);
   notifyListeners();
+  scheduleSqliteSync(db);
 }
 
 /**

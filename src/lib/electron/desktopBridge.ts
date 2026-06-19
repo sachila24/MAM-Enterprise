@@ -1,4 +1,23 @@
 import type { DesktopBackupListEntry } from '../backup/types';
+import type {
+  EntityCounts,
+  MigrationResult,
+  SqliteHealthReport,
+  SyncResult,
+  VerificationReport,
+} from '../sqlite/types';
+
+export interface MamElectronDatabaseBridge {
+  init: () => Promise<{ ok: boolean; path?: string; created?: boolean }>;
+  migrate: (dbJson: string) => Promise<MigrationResult>;
+  sync: (dbJson: string) => Promise<SyncResult>;
+  verify: (sourceCounts: EntityCounts) => Promise<VerificationReport>;
+  health: () => Promise<SqliteHealthReport>;
+  counts: () => Promise<{ counts: EntityCounts; path: string }>;
+  kvGet: (key: string) => string | null;
+  kvSet: (key: string, value: string) => boolean;
+  kvRemove: (key: string) => boolean;
+}
 
 export interface MamElectronBackupBridge {
   save: (envelopeJson: string) => Promise<DesktopBackupListEntry>;
@@ -11,6 +30,7 @@ export interface MamElectronBridge {
   isDesktop: boolean;
   print: () => Promise<{ ok: boolean; reason?: string }>;
   backup?: MamElectronBackupBridge;
+  database?: MamElectronDatabaseBridge;
   onAppClosing?: (handler: () => void) => () => void;
   notifyCloseBackupDone?: () => void;
 }
