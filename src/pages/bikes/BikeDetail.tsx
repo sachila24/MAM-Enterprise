@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { BikeIcon, EditIcon } from 'lucide-react';
+import { ArrowLeftIcon, BikeIcon, EditIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { KpiCard } from '../../components/ui/KpiCard';
@@ -96,6 +96,16 @@ export function BikeDetail() {
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600 hover:text-neutral-900"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          {t('action.back')}
+        </button>
+      </div>
       <PageHeader
         title={bike.model}
         subtitle={

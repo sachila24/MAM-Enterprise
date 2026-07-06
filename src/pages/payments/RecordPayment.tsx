@@ -24,6 +24,21 @@ import { roundLKR } from '../../lib/finance/money';
 import { useT } from '../../i18n/I18nProvider';
 import { getSystemToday, useSystemToday } from '../../lib/time/systemTime';
 import { isDevEnvironment } from '../../lib/env/isDevEnvironment';
+import type { PaymentSuccessState } from './PaymentSuccess';
+import type { MamDemoDb } from '../../lib/local-db/types';
+
+type IoPaymentType = 'interest' | 'principal';
+
+function savedPaymentReceiptBreakdown(
+  db: MamDemoDb,
+  paymentId: string
+): PaymentSuccessState['receipt'] | undefined {
+  const row = db.receipts.find((r) => r.payment_id === paymentId);
+  const breakdown = row?.breakdown as
+    | { receipt?: PaymentSuccessState['receipt'] }
+    | undefined;
+  return breakdown?.receipt;
+}
 
 export function RecordPayment() {
   const { t } = useT();
@@ -54,9 +69,7 @@ export function RecordPayment() {
     initialLoanId
   );
   const [loanSearch, setLoanSearch] = useState('');
-  const [ioPaymentMode, setIoPaymentMode] = useState<'interest' | 'principal'>(
-    'interest'
-  );
+  const [ioPaymentType, setIoPaymentType] = useState<IoPaymentType>('interest');
 
   const [form, setForm] = useState<PaymentFormState>({
     amount: 0,
@@ -91,7 +104,82 @@ export function RecordPayment() {
     ? loans.find((l) => l.id === selectedLoanId)
     : null;
 
+  const showIoPaymentTypeChoice =
+    !!selectedLoan &&
+    isInterestOnlyLoan(selectedLoan) &&
+    selectedLoan.currentPrincipalBalance > 0 &&
+    selectedLoan.status !== 'COMPLETED';
+
+  const isIoPrincipalPayment =
+    showIoPaymentTypeChoice && ioPaymentType === 'principal';
+
   const computation = usePaymentComputation(selectedLoan, previewBundle, form);
+
+  const ioInterestRemaining = useMemo(() => {
+    if (!selectedLoan || !isInterestOnlyLoan(selectedLoan)) return 0;
+    return (
+      computation.interestOnlySummary?.pendingInterest ??
+      computation.interestOnlySummary?.totalInterestDue ??
+      0
+    );
+  }, [selectedLoan, computation.interestOnlySummary]);
+
+  const confirmationBalances = useMemo(() => {
+    if (!selectedLoan || !isInterestOnlyLoan(selectedLoan)) return null;
+
+    const principalBefore = selectedLoan.currentPrincipalBalance;
+    const paymentAmount = roundLKR(form.amount);
+
+    if (isIoPrincipalPayment) {
+      const principalAfter = roundLKR(principalBefore - paymentAmount);
+      return {
+        principalBefore,
+        principalAfter,
+        interestRemaining: ioInterestRemaining,
+        totalRemaining: roundLKR(principalAfter + ioInterestRemaining),
+        paymentAmount,
+      };
+    }
+
+    const receipt = computation.receipt;
+    if (receipt && 'remainingPrincipal' in receipt) {
+      const principalAfter = receipt.remainingPrincipal;
+      const interestRemaining =
+        computation.allocation?.summary.pendingInterestRemaining ??
+        ioInterestRemaining;
+      return {
+        principalBefore,
+        principalAfter,
+        interestRemaining,
+        totalRemaining: roundLKR(principalAfter + interestRemaining),
+        paymentAmount,
+      };
+    }
+
+    return {
+      principalBefore,
+      principalAfter: principalBefore,
+      interestRemaining: ioInterestRemaining,
+      totalRemaining: roundLKR(principalBefore + ioInterestRemaining),
+      paymentAmount,
+    };
+  }, [
+    selectedLoan,
+    isIoPrincipalPayment,
+    form.amount,
+    ioInterestRemaining,
+    computation.receipt,
+    computation.allocation,
+  ]);
+
+  useEffect(() => {
+    setIoPaymentType('interest');
+    setForm((prev) => ({ ...prev, amount: 0, discountAmount: 0 }));
+  }, [selectedLoanId]);
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, amount: 0, discountAmount: 0 }));
+  }, [ioPaymentType]);
 
   useEffect(() => {
     if (initialLoanId && loans.length > 0) {
@@ -118,12 +206,11 @@ export function RecordPayment() {
       case 1:
         return !!selectedLoanId;
       case 2:
-        if (
-          selectedLoan &&
-          isInterestOnlyLoan(selectedLoan) &&
-          ioPaymentMode === 'principal'
-        ) {
-          return false;
+        if (isIoPrincipalPayment && selectedLoan) {
+          return (
+            form.amount > 0 &&
+            form.amount <= selectedLoan.currentPrincipalBalance
+          );
         }
         return form.amount > 0 || (form.discountAmount ?? 0) > 0;
       default:
@@ -153,10 +240,12 @@ export function RecordPayment() {
     if (
       isSubmittingRef.current ||
       !selectedLoan ||
-      !selectedCustomer ||
-      !computation.allocation ||
-      !computation.receipt
+      !selectedCustomer
     ) {
+      return;
+    }
+
+    if (!isIoPrincipalPayment && (!computation.allocation || !computation.receipt)) {
       return;
     }
 
@@ -168,21 +257,54 @@ export function RecordPayment() {
     setIsSubmitting(true);
     toastShownRef.current = false;
 
-    const successState = {
-      loanCode: selectedLoan.loanCode,
-      loanId: selectedLoan.id,
-      customerCode: selectedCustomer.customerCode,
-      customerName: selectedCustomer.name,
-      amount: form.amount,
-      discountAmount: form.discountAmount ?? 0,
-      paymentMethod: form.paymentMethod,
-      paymentDate: form.paymentDate,
-      repaymentMethod: selectedLoan.repaymentMethod,
-      receipt: computation.receipt,
-      supabasePending: false,
-    };
-
     try {
+      if (isIoPrincipalPayment) {
+        const result = recordInterestOnlyPrincipalSettlement(
+          {
+            loanId: selectedLoan.id,
+            customerId: selectedCustomer.id,
+            principalAmount: form.amount,
+            paymentDate: form.paymentDate,
+            paymentMethod: form.paymentMethod,
+            clientSubmitId: clientSubmitIdRef.current,
+          },
+          db
+        );
+        navigate('/payments/success', {
+          replace: true,
+          state: {
+            loanCode: selectedLoan.loanCode,
+            loanId: selectedLoan.id,
+            customerCode: selectedCustomer.customerCode,
+            customerName: selectedCustomer.name,
+            amount: form.amount,
+            paymentMethod: form.paymentMethod,
+            paymentDate: form.paymentDate,
+            repaymentMethod: selectedLoan.repaymentMethod,
+            receipt: savedPaymentReceiptBreakdown(db, result.payment.id),
+            receiptNumber: result.receiptNumber,
+            paymentId: result.payment.id,
+            supabasePending: false,
+          },
+        });
+        showToast(t('paymentRecorded'), 'success');
+        return;
+      }
+
+      const successState = {
+        loanCode: selectedLoan.loanCode,
+        loanId: selectedLoan.id,
+        customerCode: selectedCustomer.customerCode,
+        customerName: selectedCustomer.name,
+        amount: form.amount,
+        discountAmount: form.discountAmount ?? 0,
+        paymentMethod: form.paymentMethod,
+        paymentDate: form.paymentDate,
+        repaymentMethod: selectedLoan.repaymentMethod,
+        receipt: computation.receipt,
+        supabasePending: false,
+      };
+
       const result = recordPayment(
         {
           loanId: selectedLoan.id,
@@ -333,152 +455,88 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('enterPayment')}
               </h3>
-              {isInterestOnlyLoan(selectedLoan) &&
-                selectedLoan.currentPrincipalBalance > 0 &&
-                selectedLoan.status !== 'COMPLETED' && (
-                  <div className="flex gap-2 p-1 rounded-lg bg-neutral-100">
-                    <button
-                      type="button"
-                      onClick={() => setIoPaymentMode('interest')}
-                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
-                        ioPaymentMode === 'interest'
-                          ? 'bg-white text-neutral-900 shadow-sm'
-                          : 'text-neutral-600'
-                      }`}
-                    >
-                      {t('allocInterest')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIoPaymentMode('principal')}
-                      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
-                        ioPaymentMode === 'principal'
-                          ? 'bg-white text-neutral-900 shadow-sm'
-                          : 'text-neutral-600'
-                      }`}
-                    >
-                      {t('principalSettlement')}
-                    </button>
+              {showIoPaymentTypeChoice && (
+                <fieldset className="space-y-3">
+                  <legend className="text-sm font-medium text-neutral-900">
+                    {t('paymentType')}
+                  </legend>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 rounded-lg border border-neutral-200 px-4 py-3 cursor-pointer hover:bg-neutral-50 has-[:checked]:border-brand-300 has-[:checked]:bg-brand-50">
+                      <input
+                        type="radio"
+                        name="ioPaymentType"
+                        value="interest"
+                        checked={ioPaymentType === 'interest'}
+                        onChange={() => setIoPaymentType('interest')}
+                        className="h-4 w-4 border-neutral-300 text-brand-600 focus:ring-brand-600"
+                      />
+                      <span className="text-sm font-medium text-neutral-900">
+                        {t('interestPayment')}
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-lg border border-neutral-200 px-4 py-3 cursor-pointer hover:bg-neutral-50 has-[:checked]:border-brand-300 has-[:checked]:bg-brand-50">
+                      <input
+                        type="radio"
+                        name="ioPaymentType"
+                        value="principal"
+                        checked={ioPaymentType === 'principal'}
+                        onChange={() => setIoPaymentType('principal')}
+                        className="h-4 w-4 border-neutral-300 text-brand-600 focus:ring-brand-600"
+                      />
+                      <span className="text-sm font-medium text-neutral-900">
+                        {t('principalPayment')}
+                      </span>
+                    </label>
                   </div>
-                )}
-              {isInterestOnlyLoan(selectedLoan) &&
-              ioPaymentMode === 'principal' ? (
-                <div className="space-y-4 pt-2">
-                  <p className="text-sm text-neutral-600">
-                    {t('ledgerAllocPrincipalPayment')}:{' '}
-                    <span className="font-semibold tabular-nums">
+                </fieldset>
+              )}
+              {isIoPrincipalPayment ? (
+                <div className="space-y-5">
+                  <div className="rounded-lg bg-neutral-50 px-4 py-3 ring-1 ring-neutral-200">
+                    <p className="text-sm text-neutral-500">{t('remainingPrincipal')}</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-neutral-900">
                       {formatLKR(selectedLoan.currentPrincipalBalance)}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        if (!selectedCustomer || isSubmittingRef.current) return;
-                        isSubmittingRef.current = true;
-                        setIsSubmitting(true);
-                        try {
-                          const half = roundLKR(
-                            selectedLoan.currentPrincipalBalance / 2
-                          );
-                          const result = recordInterestOnlyPrincipalSettlement(
-                            {
-                              loanId: selectedLoan.id,
-                              customerId: selectedCustomer.id,
-                              kind: 'HALF',
-                              paymentDate: form.paymentDate,
-                              clientSubmitId: crypto.randomUUID(),
-                            },
-                            db
-                          );
-                          navigate('/payments/success', {
-                            replace: true,
-                            state: {
-                              loanCode: selectedLoan.loanCode,
-                              loanId: selectedLoan.id,
-                              customerName: selectedCustomer.name,
-                              amount: half,
-                              paymentMethod: 'CASH',
-                              paymentDate: form.paymentDate,
-                              repaymentMethod: selectedLoan.repaymentMethod,
-                              receipt: result.allocation,
-                              receiptNumber: result.receiptNumber,
-                              supabasePending: false,
-                            },
-                          });
-                        } catch (err) {
-                          showToast(
-                            err instanceof Error
-                              ? err.message
-                              : t('paymentSaveFailed'),
-                            'error'
-                          );
-                          isSubmittingRef.current = false;
-                          setIsSubmitting(false);
-                        }
-                      }}
-                      className="rounded-md bg-white px-4 py-2.5 text-sm font-semibold ring-1 ring-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
-                    >
-                      {t('halfSettlement')}
-                      <span className="block text-xs font-normal text-neutral-500 tabular-nums">
-                        {formatLKR(
-                          roundLKR(selectedLoan.currentPrincipalBalance / 2)
-                        )}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        if (!selectedCustomer || isSubmittingRef.current) return;
-                        isSubmittingRef.current = true;
-                        setIsSubmitting(true);
-                        try {
-                          const result = recordInterestOnlyPrincipalSettlement(
-                            {
-                              loanId: selectedLoan.id,
-                              customerId: selectedCustomer.id,
-                              kind: 'FULL',
-                              paymentDate: form.paymentDate,
-                              clientSubmitId: crypto.randomUUID(),
-                            },
-                            db
-                          );
-                          navigate('/payments/success', {
-                            replace: true,
-                            state: {
-                              loanCode: selectedLoan.loanCode,
-                              loanId: selectedLoan.id,
-                              customerName: selectedCustomer.name,
-                              amount: selectedLoan.currentPrincipalBalance,
-                              paymentMethod: 'CASH',
-                              paymentDate: form.paymentDate,
-                              repaymentMethod: selectedLoan.repaymentMethod,
-                              receipt: result.allocation,
-                              receiptNumber: result.receiptNumber,
-                              supabasePending: false,
-                            },
-                          });
-                        } catch (err) {
-                          showToast(
-                            err instanceof Error
-                              ? err.message
-                              : t('paymentSaveFailed'),
-                            'error'
-                          );
-                          isSubmittingRef.current = false;
-                          setIsSubmitting(false);
-                        }
-                      }}
-                      className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
-                    >
-                      {t('fullSettlement')}
-                      <span className="block text-xs font-normal text-brand-100 tabular-nums">
-                        {formatLKR(selectedLoan.currentPrincipalBalance)}
-                      </span>
-                    </button>
+                    </p>
                   </div>
+                  <CurrencyInput
+                    label={t('principalPaymentAmount')}
+                    value={form.amount}
+                    onChange={(amount) => setForm((f) => ({ ...f, amount }))}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <QuickAmount
+                      label={t('halfRemaining')}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          amount: roundLKR(
+                            selectedLoan.currentPrincipalBalance / 2
+                          ),
+                        }))
+                      }
+                    />
+                    <QuickAmount
+                      label={t('fullRemaining')}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          amount: selectedLoan.currentPrincipalBalance,
+                        }))
+                      }
+                    />
+                  </div>
+                  {form.amount > 0 && confirmationBalances && (
+                    <PrincipalPaymentPreview balances={confirmationBalances} />
+                  )}
+                  <PaymentMethodFields form={form} setForm={setForm} t={t} />
+                  <DatePicker
+                    label={`${t('paymentDate')} *`}
+                    value={form.paymentDate}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, paymentDate: e.target.value }))
+                    }
+                  />
+                  <NotesField form={form} setForm={setForm} t={t} />
                 </div>
               ) : (
                 <>
@@ -662,14 +720,16 @@ export function RecordPayment() {
               <h3 className="text-lg font-semibold text-neutral-900">
                 {t('confirmPayment')}
               </h3>
-              <p className="text-xs text-neutral-600 rounded-md bg-neutral-50 border border-neutral-200 px-3 py-2">
-                {form.paymentMethod === 'CASH'
-                  ? `${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
-                  : `${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
-                {(form.discountAmount ?? 0) > 0 &&
-                  ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
-                .
-              </p>
+              {!isIoPrincipalPayment && (
+                <p className="text-xs text-neutral-600 rounded-md bg-neutral-50 border border-neutral-200 px-3 py-2">
+                  {form.paymentMethod === 'CASH'
+                    ? `${formatLKR(form.amount)} ${t('cashReceived').toLowerCase()}`
+                    : `${formatEnum(form.paymentMethod).toLowerCase()} ${formatLKR(form.amount)}`}
+                  {(form.discountAmount ?? 0) > 0 &&
+                    ` · ${t('discountWaiver')} ${formatLKR(form.discountAmount ?? 0)}`}
+                  .
+                </p>
+              )}
               <dl className="divide-y divide-neutral-100 text-sm">
                 <Row label={t('field.customer')} value={selectedCustomer?.name ?? '—'} />
                 <Row label={t('field.loan')} value={selectedLoan.loanCode} />
@@ -678,30 +738,71 @@ export function RecordPayment() {
                   value={formatLoanTypeLabel(selectedLoan)}
                   muted
                 />
-                {computation.amountDue > 0 && (
+                {showIoPaymentTypeChoice && (
                   <Row
-                    label={
-                      isFixedInstallmentLoan(selectedLoan)
-                        ? t('installmentDue')
-                        : t('amountDue')
+                    label={t('paymentType')}
+                    value={
+                      isIoPrincipalPayment
+                        ? t('principalPayment')
+                        : t('interestPayment')
                     }
+                  />
+                )}
+                <Row
+                  label={t('paymentAmountLabel')}
+                  value={formatLKR(form.amount)}
+                  bold
+                />
+                {confirmationBalances && (
+                  <>
+                    <Row
+                      label={t('principalBeforePayment')}
+                      value={formatLKR(confirmationBalances.principalBefore)}
+                    />
+                    <Row
+                      label={t('principalAfterPayment')}
+                      value={formatLKR(confirmationBalances.principalAfter)}
+                    />
+                    <Row
+                      label={t('interestRemaining')}
+                      value={formatLKR(confirmationBalances.interestRemaining)}
+                    />
+                    <Row
+                      label={t('totalRemainingBalance')}
+                      value={formatLKR(confirmationBalances.totalRemaining)}
+                      bold
+                    />
+                  </>
+                )}
+                {!isIoPrincipalPayment && isFixedInstallmentLoan(selectedLoan) &&
+                  computation.amountDue > 0 && (
+                  <Row
+                    label={t('installmentDue')}
                     value={formatLKR(computation.amountDue)}
                   />
                 )}
-                {(form.discountAmount ?? 0) > 0 && (
+                {!isIoPrincipalPayment && isInterestOnlyLoan(selectedLoan) &&
+                  computation.amountDue > 0 && (
+                  <Row
+                    label={t('amountDue')}
+                    value={formatLKR(computation.amountDue)}
+                  />
+                )}
+                {!isIoPrincipalPayment && (form.discountAmount ?? 0) > 0 && (
                   <Row
                     label={t('discountWaiver')}
                     value={formatLKR(form.discountAmount ?? 0)}
                   />
                 )}
-                {computation.amountDue > 0 && (form.discountAmount ?? 0) > 0 && (
-                  <Row
-                    label={t('netPayable')}
-                    value={formatLKR(computation.netPayable)}
-                  />
-                )}
-                <Row label={t('customerPays')} value={formatLKR(form.amount)} bold />
-                {isFixedInstallmentLoan(selectedLoan) &&
+                {!isIoPrincipalPayment &&
+                  computation.amountDue > 0 &&
+                  (form.discountAmount ?? 0) > 0 && (
+                    <Row
+                      label={t('netPayable')}
+                      value={formatLKR(computation.netPayable)}
+                    />
+                  )}
+                {!isIoPrincipalPayment && isFixedInstallmentLoan(selectedLoan) &&
                   computation.amountDue > 0 &&
                   computation.settlementTotal > 0 && (
                     <InstallmentCoverageRow
@@ -712,7 +813,7 @@ export function RecordPayment() {
                 <Row label={t('field.method')} value={formatEnum(form.paymentMethod)} />
                 <Row label={t('field.date')} value={formatDate(form.paymentDate)} />
               </dl>
-              {computation.receipt && (
+              {!isIoPrincipalPayment && computation.receipt && (
                 <ReceiptPreview
                   loan={selectedLoan}
                   receipt={computation.receipt}
@@ -742,6 +843,157 @@ export function RecordPayment() {
           />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function PrincipalPaymentPreview({
+  balances,
+}: {
+  balances: {
+    principalBefore: number;
+    principalAfter: number;
+    interestRemaining: number;
+    totalRemaining: number;
+    paymentAmount: number;
+  };
+}) {
+  const { t } = useT();
+  return (
+    <div className="rounded-lg bg-neutral-50 ring-1 ring-neutral-200 p-4 text-sm space-y-2.5">
+      <PreviewLine
+        label={t('principalBeforePayment')}
+        value={formatLKR(balances.principalBefore)}
+      />
+      <PreviewLine
+        label={t('paymentToday')}
+        value={formatLKR(balances.paymentAmount)}
+      />
+      <PreviewLine
+        label={t('principalAfterPayment')}
+        value={formatLKR(balances.principalAfter)}
+      />
+      <PreviewLine
+        label={t('interestRemaining')}
+        value={formatLKR(balances.interestRemaining)}
+      />
+      <PreviewLine
+        label={t('totalRemainingBalance')}
+        value={formatLKR(balances.totalRemaining)}
+        highlight
+      />
+    </div>
+  );
+}
+
+function PreviewLine({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-baseline gap-4">
+      <span className="text-neutral-600 text-left shrink-0">{label}</span>
+      <span
+        className={`tabular-nums text-right shrink-0 ml-auto [font-variant-numeric:tabular-nums] ${
+          highlight ? 'font-semibold text-neutral-900' : 'font-medium text-neutral-800'
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PaymentMethodFields({
+  form,
+  setForm,
+  t,
+}: {
+  form: PaymentFormState;
+  setForm: React.Dispatch<React.SetStateAction<PaymentFormState>>;
+  t: (key: import('../../lib/i18n/simpleLabels').LabelKey) => string;
+}) {
+  return (
+    <>
+      <div>
+        <label className="block text-sm font-medium text-neutral-900 mb-1">
+          {t('paymentMethod')} *
+        </label>
+        <select
+          value={form.paymentMethod}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              paymentMethod: e.target.value as PaymentMethod,
+            }))
+          }
+          className="block w-full rounded-md border-0 py-2 pl-3 ring-1 ring-inset ring-neutral-300 sm:text-sm bg-white"
+        >
+          <option value="CASH">{t('statusCash')}</option>
+          <option value="CHEQUE">{t('statusCheque')}</option>
+          <option value="BANK_TRANSFER">{t('statusBankTransfer')}</option>
+          <option value="OTHER">{t('statusOther')}</option>
+        </select>
+      </div>
+      {form.paymentMethod === 'CHEQUE' && (
+        <div>
+          <label className="block text-sm font-medium text-neutral-900 mb-1">
+            {t('chequeNumber')} *
+          </label>
+          <input
+            type="text"
+            value={form.chequeNumber}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, chequeNumber: e.target.value }))
+            }
+            className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+          />
+        </div>
+      )}
+      {form.paymentMethod === 'BANK_TRANSFER' && (
+        <div>
+          <label className="block text-sm font-medium text-neutral-900 mb-1">
+            {t('bankReference')} *
+          </label>
+          <input
+            type="text"
+            value={form.bankReference}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, bankReference: e.target.value }))
+            }
+            className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function NotesField({
+  form,
+  setForm,
+  t,
+}: {
+  form: PaymentFormState;
+  setForm: React.Dispatch<React.SetStateAction<PaymentFormState>>;
+  t: (key: import('../../lib/i18n/simpleLabels').LabelKey) => string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-neutral-900 mb-1">
+        {t('field.notes')}
+      </label>
+      <textarea
+        value={form.notes}
+        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+        rows={2}
+        className="block w-full rounded-md border-0 py-2 px-3 ring-1 ring-inset ring-neutral-300 sm:text-sm"
+      />
     </div>
   );
 }

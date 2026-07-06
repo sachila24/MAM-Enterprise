@@ -524,7 +524,10 @@ export type InterestOnlyPrincipalSettlementKind = 'HALF' | 'FULL';
 export interface RecordInterestOnlyPrincipalSettlementInput {
   loanId: string;
   customerId: string;
-  kind: InterestOnlyPrincipalSettlementKind;
+  /** Half or full of current principal — ignored when principalAmount is set. */
+  kind?: InterestOnlyPrincipalSettlementKind;
+  /** Explicit principal reduction (LKR). Takes precedence over kind. */
+  principalAmount?: number;
   paymentDate: string;
   paymentMethod?: PaymentMethod;
   clientSubmitId?: string;
@@ -575,8 +578,14 @@ export function recordInterestOnlyPrincipalSettlement(
     persistInterestOnlyCycles(db, input.loanId, input.paymentDate);
 
     const balanceBefore = loan.current_principal_balance;
-    const cashAmount = principalSettlementAmount(balanceBefore, input.kind);
+    const cashAmount =
+      input.principalAmount != null
+        ? roundLKR(Math.min(roundLKR(input.principalAmount), balanceBefore))
+        : principalSettlementAmount(balanceBefore, input.kind!);
     if (cashAmount <= 0) {
+      throw new Error(uiError('enterPaymentAmount'));
+    }
+    if (input.principalAmount == null && input.kind == null) {
       throw new Error(uiError('enterPaymentAmount'));
     }
 
@@ -623,7 +632,12 @@ export function recordInterestOnlyPrincipalSettlement(
       payment_date: input.paymentDate,
       receipt_number: receiptNumber,
       client_submit_id: input.clientSubmitId,
-      notes: ioSettlementNote(input.kind),
+      notes:
+        input.principalAmount != null
+          ? input.kind
+            ? ioSettlementNote(input.kind)
+            : 'IO_PRINCIPAL_PAYMENT'
+          : ioSettlementNote(input.kind!),
       status: 'CONFIRMED' as const,
       installment_paid: 0,
       late_fee_paid: 0,
@@ -674,7 +688,7 @@ export function recordInterestOnlyPrincipalSettlement(
       entity_type: 'payment',
       entity_id: paymentId,
       summary: buildAuditSummary('ioPrincipalSettlementAuditSummary', {
-        kind: input.kind,
+        kind: input.kind ?? 'PARTIAL',
         loanCode: loan.loan_code,
       }),
       created_at: ts,
