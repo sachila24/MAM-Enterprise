@@ -5,6 +5,9 @@ import type {
   SqliteHealthReport,
   SyncResult,
   VerificationReport,
+  FullCollectionCounts,
+  FullVerificationReport,
+  DatabaseFileStats,
 } from '../sqlite/types';
 
 export interface MamElectronDatabaseBridge {
@@ -12,7 +15,9 @@ export interface MamElectronDatabaseBridge {
   migrate: (dbJson: string) => Promise<MigrationResult>;
   sync: (dbJson: string) => Promise<SyncResult>;
   verify: (sourceCounts: EntityCounts) => Promise<VerificationReport>;
+  fullVerify: (sourceCounts: FullCollectionCounts) => Promise<FullVerificationReport>;
   health: () => Promise<SqliteHealthReport>;
+  fileStats: () => Promise<DatabaseFileStats>;
   counts: () => Promise<{ counts: EntityCounts; path: string }>;
   kvGet: (key: string) => string | null;
   kvSet: (key: string, value: string) => boolean;

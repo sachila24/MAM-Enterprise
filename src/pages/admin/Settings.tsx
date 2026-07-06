@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronRightIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useT } from '../../i18n/I18nProvider';
 import { useToast } from '../../components/ui/Toast';
@@ -80,7 +82,22 @@ export function Settings() {
       <PageHeader
         title={t('nav.settings')}
         subtitle={t('settingsSubtitle')} />
-      
+
+      <div className="mb-8">
+        <Link
+          to="/settings/database-health"
+          className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-4 shadow-sm hover:bg-neutral-50 transition-colors">
+          <div>
+            <p className="text-sm font-semibold text-neutral-900">
+              {t('dbHealthSettingsLink')}
+            </p>
+            <p className="mt-1 text-sm text-neutral-500">
+              {t('dbHealthSettingsHint')}
+            </p>
+          </div>
+          <ChevronRightIcon className="h-5 w-5 text-neutral-400" />
+        </Link>
+      </div>
 
       <div className="space-y-10 divide-y divide-neutral-200">
         {/* Identity */}

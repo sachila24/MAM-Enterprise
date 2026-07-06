@@ -1,4 +1,4 @@
-/** SQLite Phase 1 — types shared between migration and verification. */
+/** SQLite Phase 1 — types shared between migration, verification, and health UI. */
 
 export interface EntityCounts {
   profiles?: number;
@@ -8,6 +8,36 @@ export interface EntityCounts {
   payments: number;
   documents: number;
   audit_logs?: number;
+}
+
+export interface FullCollectionCounts {
+  profiles: number;
+  customers: number;
+  bikes: number;
+  loans: number;
+  loan_installments: number;
+  loan_interest_cycles: number;
+  loan_payments: number;
+  payment_allocations: number;
+  documents: number;
+  receipts: number;
+  early_settlements: number;
+  guarantees: number;
+  audit_logs: number;
+  cash_transactions: number;
+  expenses: number;
+  business_settings: number;
+  app_auth: number;
+  counters: number;
+}
+
+export type DatabaseHealthStatus = 'healthy' | 'warning' | 'error';
+
+export interface CollectionVerificationRow {
+  collection: keyof FullCollectionCounts;
+  local: number;
+  sqlite: number;
+  match: boolean;
 }
 
 export interface MigrationMismatch {
@@ -49,6 +79,26 @@ export interface SqliteHealthReport {
   databasePath?: string;
 }
 
+export interface DatabaseFileStats {
+  path: string;
+  sizeBytes: number;
+  sizeMb: number;
+  exists: boolean;
+  error?: string;
+}
+
+export interface FullVerificationReport {
+  ok: boolean;
+  rows: CollectionVerificationRow[];
+  sourceCounts: FullCollectionCounts;
+  sqliteCounts: FullCollectionCounts;
+  mismatches: MigrationMismatch[];
+  databasePath?: string;
+  migrationCompleted: boolean;
+  migrationCompletedAt?: string | null;
+  lastSyncAt?: string | null;
+}
+
 export interface VerificationReport {
   ok: boolean;
   sourceCounts: EntityCounts;
@@ -58,4 +108,12 @@ export interface VerificationReport {
   migrationCompleted: boolean;
   migrationCompletedAt?: string | null;
   lastSyncAt?: string | null;
+}
+
+export interface DatabaseHealthSnapshot {
+  status: DatabaseHealthStatus;
+  desktopAvailable: boolean;
+  health: SqliteHealthReport | null;
+  verification: FullVerificationReport | null;
+  fileStats: DatabaseFileStats | null;
 }

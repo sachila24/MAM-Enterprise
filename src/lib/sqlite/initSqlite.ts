@@ -1,14 +1,14 @@
 import { getDb } from '../local-db/localDb';
 import { migrateLocalStorageToSQLite } from './migrateLocalStorageToSQLite';
-import { verifyMigration } from './verifyMigration';
+import { runFullVerification } from './verifyFullMigration';
 import { verifySqliteHealth } from './verifySqliteHealth';
-import type { MigrationResult, SqliteHealthReport, VerificationReport } from './types';
+import type { MigrationResult, SqliteHealthReport, FullVerificationReport } from './types';
 import { initSqliteDatabase, isSqliteAvailable } from './sqliteClient';
 
 export interface SqliteBootstrapResult {
   initialized: boolean;
   migration: MigrationResult | null;
-  verification: VerificationReport | null;
+  verification: FullVerificationReport | null;
   health: SqliteHealthReport | null;
 }
 
@@ -30,7 +30,7 @@ export async function initSqliteInfrastructure(): Promise<SqliteBootstrapResult>
   await initSqliteDatabase();
 
   const migration = await migrateLocalStorageToSQLite();
-  const verification = await verifyMigration(getDb());
+  const verification = await runFullVerification(getDb());
   const health = await verifySqliteHealth();
 
   if (migration.migrated) {
@@ -56,13 +56,27 @@ export {
   buildSourceCounts,
 } from './migrateLocalStorageToSQLite';
 export { syncLocalDbToSqlite, scheduleSqliteSync } from './syncLocalDbToSqlite';
+export { runFullVerification } from './verifyFullMigration';
+export { buildFullSourceCounts } from './buildFullCounts';
+export {
+  loadDatabaseHealthSnapshot,
+  verifyDatabaseNow,
+  refreshDatabaseHealth,
+  getHealthStatusLabelKey,
+} from './databaseHealth';
 export { verifyMigration } from './verifyMigration';
 export { verifySqliteHealth } from './verifySqliteHealth';
 export type {
   EntityCounts,
+  FullCollectionCounts,
+  CollectionVerificationRow,
+  FullVerificationReport,
+  DatabaseHealthSnapshot,
+  DatabaseHealthStatus,
   MigrationResult,
   MigrationMismatch,
   VerificationReport,
   SyncResult,
   SqliteHealthReport,
+  DatabaseFileStats,
 } from './types';

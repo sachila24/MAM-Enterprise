@@ -4,6 +4,9 @@ import type {
   SqliteHealthReport,
   SyncResult,
   VerificationReport,
+  FullCollectionCounts,
+  FullVerificationReport,
+  DatabaseFileStats,
 } from './types';
 
 function getDatabaseBridge() {
@@ -59,6 +62,24 @@ export async function runSqliteHealthCheck(): Promise<SqliteHealthReport> {
     };
   }
   return bridge.health();
+}
+
+export async function runFullSqliteVerification(
+  sourceCounts: FullCollectionCounts
+): Promise<FullVerificationReport> {
+  const bridge = getDatabaseBridge();
+  if (!bridge?.fullVerify) {
+    throw new Error('Full verification is only available in the Electron desktop app.');
+  }
+  return bridge.fullVerify(sourceCounts);
+}
+
+export async function runDatabaseFileStats(): Promise<DatabaseFileStats | null> {
+  const bridge = getDatabaseBridge();
+  if (!bridge?.fileStats) {
+    return null;
+  }
+  return bridge.fileStats();
 }
 
 export async function runSqliteVerification(

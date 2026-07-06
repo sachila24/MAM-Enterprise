@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('mamElectron', {
     sync: (dbJson) => ipcRenderer.invoke('mam:db:sync', dbJson),
     verify: (sourceCounts) => ipcRenderer.invoke('mam:db:verify', sourceCounts),
     health: () => ipcRenderer.invoke('mam:db:health'),
+    fullVerify: (sourceCounts) =>
+      ipcRenderer.invoke('mam:db:fullVerify', sourceCounts),
+    fileStats: () => ipcRenderer.invoke('mam:db:fileStats'),
     counts: () => ipcRenderer.invoke('mam:db:counts'),
     kvGet: (key) => ipcRenderer.sendSync('mam:db:kv:get', key),
     kvSet: (key, value) => ipcRenderer.sendSync('mam:db:kv:set', key, value),

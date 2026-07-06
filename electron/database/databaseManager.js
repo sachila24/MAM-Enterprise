@@ -118,6 +118,162 @@ export function getEntityCounts() {
   };
 }
 
+function countCollectionItems(collectionName) {
+  const database = assertDb();
+  const row = database
+    .prepare('SELECT data_json FROM db_collections WHERE collection_name = ?')
+    .get(collectionName);
+  if (!row?.data_json) {
+    return 0;
+  }
+  try {
+    const parsed = JSON.parse(row.data_json);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function countSettingExists(key) {
+  const database = assertDb();
+  const row = database
+    .prepare('SELECT data_json FROM settings WHERE key = ?')
+    .get(key);
+  return row?.data_json ? 1 : 0;
+}
+
+function countCounterKeys() {
+  const database = assertDb();
+  const row = database
+    .prepare(`SELECT data_json FROM settings WHERE key = 'counters'`)
+    .get();
+  if (!row?.data_json) {
+    return 0;
+  }
+  try {
+    const parsed = JSON.parse(row.data_json);
+    if (typeof parsed !== 'object' || parsed === null) {
+      return 0;
+    }
+    return Object.keys(parsed).length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Full mirror counts for all MamDemoDb collections. */
+export function getFullSqliteCounts() {
+  return {
+    profiles: countTable('profiles'),
+    customers: countTable('customers'),
+    bikes: countTable('bikes'),
+    loans: countTable('loans'),
+    loan_installments: countCollectionItems('loan_installments'),
+    loan_interest_cycles: countCollectionItems('loan_interest_cycles'),
+    loan_payments: countTable('payments'),
+    payment_allocations: countCollectionItems('payment_allocations'),
+    documents: countTable('documents'),
+    receipts: countCollectionItems('receipts'),
+    early_settlements: countCollectionItems('early_settlements'),
+    guarantees: countCollectionItems('guarantees'),
+    audit_logs: countTable('audit_logs'),
+    cash_transactions: countCollectionItems('cash_transactions'),
+    expenses: countCollectionItems('expenses'),
+    business_settings: countSettingExists('business_settings'),
+    app_auth: countSettingExists('app_auth'),
+    counters: countCounterKeys(),
+  };
+}
+
+const FULL_COLLECTION_KEYS = [
+  'profiles',
+  'customers',
+  'bikes',
+  'loans',
+  'loan_installments',
+  'loan_interest_cycles',
+  'loan_payments',
+  'payment_allocations',
+  'documents',
+  'receipts',
+  'early_settlements',
+  'guarantees',
+  'audit_logs',
+  'cash_transactions',
+  'expenses',
+  'business_settings',
+  'app_auth',
+  'counters',
+];
+
+function compareFullCounts(sourceCounts, sqliteCounts) {
+  const rows = [];
+  const mismatches = [];
+  for (const key of FULL_COLLECTION_KEYS) {
+    const local = sourceCounts[key] ?? 0;
+    const sqlite = sqliteCounts[key] ?? 0;
+    const match = local === sqlite;
+    rows.push({ collection: key, local, sqlite, match });
+    if (!match) {
+      mismatches.push({
+        entity: key,
+        source: local,
+        sqlite,
+        delta: sqlite - local,
+      });
+    }
+  }
+  return { rows, mismatches };
+}
+
+export function getDatabaseFileStats() {
+  const dbPath = getDatabasePath();
+  try {
+    if (!fs.existsSync(dbPath)) {
+      return {
+        path: dbPath,
+        sizeBytes: 0,
+        sizeMb: 0,
+        exists: false,
+      };
+    }
+    const stat = fs.statSync(dbPath);
+    const sizeBytes = stat.size;
+    return {
+      path: dbPath,
+      sizeBytes,
+      sizeMb: Math.round((sizeBytes / (1024 * 1024)) * 100) / 100,
+      exists: true,
+    };
+  } catch (err) {
+    return {
+      path: dbPath,
+      sizeBytes: 0,
+      sizeMb: 0,
+      exists: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/** Compare all MamDemoDb collection counts between source and SQLite. */
+export function verifyFullMigration(sourceCounts) {
+  const sqliteCounts = getFullSqliteCounts();
+  const { rows, mismatches } = compareFullCounts(sourceCounts, sqliteCounts);
+
+  return {
+    ok: mismatches.length === 0,
+    rows,
+    sourceCounts,
+    sqliteCounts,
+    mismatches,
+    databasePath: getDatabasePath(),
+    migrationCompleted: getMeta('migration_completed') === 'true',
+    migrationCompletedAt: getMeta('migration_completed_at'),
+    lastSyncAt: getMeta('last_sync_at'),
+  };
+}
+
 function isValidMamDb(value) {
   return (
     typeof value === 'object' &&

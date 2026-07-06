@@ -29,6 +29,7 @@ import { AddExpense } from './pages/expenses/AddExpense';
 import { Reports } from './pages/reports/Reports';
 import { Backup } from './pages/admin/Backup';
 import { Settings } from './pages/admin/Settings';
+import { DatabaseHealth } from './pages/admin/DatabaseHealth';
 import { ActivityLog } from './pages/admin/ActivityLog';
 import { DevTimePanel } from './components/dev/DevTimePanel';
 import { AutoBackupBootstrap } from './components/backup/AutoBackupBootstrap';
@@ -110,6 +111,7 @@ export function App() {
 
               <Route path="activity" element={<ActivityLog />} />
               <Route path="backup" element={<Backup />} />
+              <Route path="settings/database-health" element={<DatabaseHealth />} />
               <Route path="settings" element={<Settings />} />
 
               <Route path="*" element={<Navigate to="/" replace />} />

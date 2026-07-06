@@ -1,4 +1,5 @@
 import { getDb, restoreDemoDbFromBackup } from '../local-db/localDb';
+import { scheduleSqliteSync } from '../sqlite/syncLocalDbToSqlite';
 import {
   buildBackupEnvelope,
   serializeBackupEnvelope,
@@ -80,6 +81,7 @@ export async function safeRestoreFromBackup(raw: string): Promise<void> {
 
   try {
     restoreDemoDbFromBackup(validated.databaseJson);
+    scheduleSqliteSync(getDb());
   } catch (error) {
     let rolledBack = await rollbackDesktopRestorePoint();
     if (!rolledBack) {

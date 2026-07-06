@@ -580,9 +580,7 @@ export function CreateLoan() {
                     ))}
                   </select>
                 </div>
-                <p className="text-xs text-neutral-500">
-                  {tf('defaultLateFeeHint', { rate: DEFAULT_LATE_FEE_RATE_PERCENT })}
-                </p>
+                <p className="text-xs text-neutral-500"></p>
               </div>
             )}
 

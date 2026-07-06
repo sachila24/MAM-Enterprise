@@ -19,6 +19,9 @@ import {
   verifyMigration,
   verifySqliteHealth,
   syncLocalStorageToSQLite,
+  getFullSqliteCounts,
+  verifyFullMigration,
+  getDatabaseFileStats,
 } from './database/databaseManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -183,6 +186,17 @@ ipcMain.handle('mam:db:sync', async (_event, dbJson) => {
     throw new Error('Sync payload is empty.');
   }
   return syncLocalStorageToSQLite(dbJson);
+});
+
+ipcMain.handle('mam:db:fullVerify', async (_event, sourceCounts) => {
+  if (!sourceCounts || typeof sourceCounts !== 'object') {
+    throw new Error('Full verification requires source collection counts.');
+  }
+  return verifyFullMigration(sourceCounts);
+});
+
+ipcMain.handle('mam:db:fileStats', async () => {
+  return getDatabaseFileStats();
 });
 
 ipcMain.handle('mam:db:health', async () => {
