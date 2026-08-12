@@ -25,7 +25,7 @@ import {
   buildInterestOnlyReceipt,
 } from '../../finance/receipt';
 import { syncFixedInstallmentLateFees } from '../fixedInstallmentSync';
-import { persistInterestOnlyCycles } from '../interestOnlySync';
+import { persistInterestOnlyCycles, applyPrincipalReductionToCycle, reconcilePendingFutureInterestCycles } from '../interestOnlySync';
 import { buildPaymentBundle, resolveCurrentInstallmentNumber } from '../paymentBundle';
 import { generateCode, generateId, getDb, saveDb } from '../localDb';
 import { mapLegacyPayment, mapLoanPayment } from '../mappers';
@@ -408,8 +408,16 @@ function applyInterestOnlyAllocation(
       loan.current_principal_balance = roundLKR(
         loan.current_principal_balance - line.amount
       );
+      applyPrincipalReductionToCycle(
+        cycles,
+        line.amount,
+        paymentDate,
+        ts
+      );
     }
   }
+
+  reconcilePendingFutureInterestCycles(cycles, ts);
 
   const paidTowardLoan = roundLKR(
     allocation.totalAllocated - (allocation.summary.advanceAmount ?? 0)

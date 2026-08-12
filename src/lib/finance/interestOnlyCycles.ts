@@ -8,6 +8,7 @@ import {
   totalPendingInterest,
   type InterestCycleForAllocation,
 } from './interestOnly';
+import { roundLKR } from './money';
 import { getSystemToday } from '../time/systemTime';
 
 export interface InterestOnlyLoanSummary {
@@ -54,7 +55,9 @@ export function buildDueInterestCyclesForAllocation(
         ...found,
         isCurrentCycle: n === dueCount,
       });
-      runningOpening = found.openingPrincipal - (found.principalPaid ?? 0);
+      runningOpening = roundLKR(
+        found.openingPrincipal - (found.principalPaid ?? 0)
+      );
       continue;
     }
 

@@ -9,6 +9,7 @@ import {
   totalPendingInterest,
   type InterestCycleForAllocation,
 } from '../finance/interestOnly';
+import { roundLKR } from '../finance/money';
 import { generateId, saveDb } from './localDb';
 import { getSystemToday, getSystemTimestamp } from '../time/systemTime';
 import type { DbLoan, DbLoanInterestCycle, MamDemoDb } from './types';
@@ -34,7 +35,113 @@ function openingPrincipalForCycle(
     return loan.original_principal_amount;
   }
   const prev = cycles.find((c) => c.cycle_number === cycleNumber - 1);
-  return prev?.closing_principal ?? loan.original_principal_amount;
+  if (prev) {
+    return roundLKR(prev.closing_principal);
+  }
+  return roundLKR(loan.current_principal_balance);
+}
+
+/** Cycle whose period contains the payment date, else the latest cycle. */
+export function resolveCycleForPrincipalPayment(
+  cycles: DbLoanInterestCycle[],
+  paymentDate: string
+): DbLoanInterestCycle | undefined {
+  if (cycles.length === 0) return undefined;
+  const sorted = [...cycles].sort((a, b) => a.cycle_number - b.cycle_number);
+  let target = sorted[0];
+  for (const cycle of sorted) {
+    if (paymentDate >= cycle.period_start) {
+      target = cycle;
+    }
+  }
+  return target;
+}
+
+/** Record principal reduction on the active cycle (does not change interest_due). */
+export function applyPrincipalReductionToCycle(
+  cycles: DbLoanInterestCycle[],
+  principalAmount: number,
+  paymentDate: string,
+  ts: string
+): boolean {
+  if (principalAmount <= 0) return false;
+  const target = resolveCycleForPrincipalPayment(cycles, paymentDate);
+  if (!target) return false;
+
+  target.principal_paid = roundLKR(target.principal_paid + principalAmount);
+  target.closing_principal = roundLKR(
+    target.opening_principal - target.principal_paid
+  );
+  target.updated_at = ts;
+  return true;
+}
+
+/**
+ * Future cycles with no interest paid yet: align opening + interest_due with
+ * prior cycle closing. Leaves paid/partial interest cycles unchanged.
+ */
+export function reconcilePendingFutureInterestCycles(
+  cycles: DbLoanInterestCycle[],
+  ts: string
+): boolean {
+  if (cycles.length < 2) return false;
+  const sorted = [...cycles].sort((a, b) => a.cycle_number - b.cycle_number);
+  let changed = false;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]!;
+    const cycle = sorted[i]!;
+    if (cycle.interest_paid > 0) continue;
+
+    const expectedOpening = roundLKR(prev.closing_principal);
+    const expectedInterest = calculateMonthlyInterestDue(
+      expectedOpening,
+      cycle.interest_rate
+    );
+    const expectedClosing = roundLKR(
+      expectedOpening - cycle.principal_paid
+    );
+
+    if (
+      cycle.opening_principal !== expectedOpening ||
+      cycle.interest_due !== expectedInterest ||
+      cycle.closing_principal !== expectedClosing
+    ) {
+      cycle.opening_principal = expectedOpening;
+      cycle.interest_due = expectedInterest;
+      cycle.closing_principal = expectedClosing;
+      cycle.updated_at = ts;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+/** Backfill cycle principal_paid when loan balance was reduced outside cycle rows. */
+function reconcileCyclePrincipalFromLoanBalance(
+  loan: DbLoan,
+  cycles: DbLoanInterestCycle[],
+  ts: string
+): boolean {
+  if (cycles.length === 0) return false;
+  const sorted = [...cycles].sort((a, b) => a.cycle_number - b.cycle_number);
+  const expectedTotalPrincipalPaid = roundLKR(
+    loan.original_principal_amount - loan.current_principal_balance
+  );
+  const recordedOnCycles = roundLKR(
+    sorted.reduce((sum, c) => sum + c.principal_paid, 0)
+  );
+  if (expectedTotalPrincipalPaid <= recordedOnCycles) return false;
+
+  const diff = roundLKR(expectedTotalPrincipalPaid - recordedOnCycles);
+  const target = sorted[0]!;
+  target.principal_paid = roundLKR(target.principal_paid + diff);
+  target.closing_principal = roundLKR(
+    target.opening_principal - target.principal_paid
+  );
+  target.updated_at = ts;
+  return true;
 }
 
 function refreshLoanInterestSummary(
@@ -120,14 +227,21 @@ function mutateInterestOnlyCycles(
       cycle.updated_at = ts;
       changed = true;
     }
-    const expectedClosing = Math.round(
-      (cycle.opening_principal - cycle.principal_paid) * 100
-    ) / 100;
+    const expectedClosing = roundLKR(
+      cycle.opening_principal - cycle.principal_paid
+    );
     if (cycle.closing_principal !== expectedClosing) {
       cycle.closing_principal = expectedClosing;
       cycle.updated_at = ts;
       changed = true;
     }
+  }
+
+  if (reconcileCyclePrincipalFromLoanBalance(loan, allCycles, ts)) {
+    changed = true;
+  }
+  if (reconcilePendingFutureInterestCycles(allCycles, ts)) {
+    changed = true;
   }
 
   const prevPending = loan.pending_interest_amount;
